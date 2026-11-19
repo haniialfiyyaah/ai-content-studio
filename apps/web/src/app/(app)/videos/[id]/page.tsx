@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { Button } from "@/components/ui/button";
@@ -18,7 +18,9 @@ export default async function VideoReviewPage({
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) notFound();
+  if (!user) {
+    redirect(`/login?next=${encodeURIComponent(`/videos/${id}`)}`);
+  }
 
   const { data: attempt } = await supabase
     .from("video_attempts")
@@ -36,20 +38,46 @@ export default async function VideoReviewPage({
       .eq("id", id)
       .maybeSingle();
 
-    if (!job) notFound();
+    if (job) {
+      const { data: latest } = await supabase
+        .from("video_attempts")
+        .select(
+          "id, status, provider, model_id, output_asset_id, approved_at, approval_revoked_at, error_code, video_job_id, created_at",
+        )
+        .eq("video_job_id", job.id)
+        .order("attempt_number", { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
-    const { data: latest } = await supabase
-      .from("video_attempts")
-      .select(
-        "id, status, provider, model_id, output_asset_id, approved_at, approval_revoked_at, error_code, video_job_id, created_at",
-      )
-      .eq("video_job_id", job.id)
-      .order("attempt_number", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+      if (latest) {
+        return <ReviewBody attempt={latest} />;
+      }
+    }
 
-    if (!latest) notFound();
-    return <ReviewBody attempt={latest} />;
+    // RLS hides other owners' attempts as "missing" — avoid a blank 404.
+    return (
+      <div className="app-page">
+        <section className="studio-panel" style={{ padding: "1.75rem 2rem" }}>
+          <p className="auth-brand">Video review</p>
+          <h1 className="app-hero-title" style={{ fontSize: "1.75rem" }}>
+            Video not available
+          </h1>
+          <p className="app-hero-copy">
+            This attempt is missing, still rendering, or belongs to another
+            account. Open your library or produce a new render from an approved
+            concept.
+          </p>
+          <div style={{ display: "flex", gap: "0.75rem", marginTop: "1.25rem" }}>
+            <Link href="/videos" className="studio-button">
+              Videos library
+            </Link>
+            <Link href="/" className="studio-button" style={{ opacity: 0.85 }}>
+              Overview
+            </Link>
+          </div>
+        </section>
+      </div>
+    );
   }
 
   return <ReviewBody attempt={attempt} />;

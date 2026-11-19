@@ -16,7 +16,10 @@
       "name": "06-01 Poll notification work",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
-      "position": [0, 0]
+      "position": [
+        0,
+        0
+      ]
     },
     {
       "parameters": {
@@ -46,7 +49,10 @@
       "name": "06-02 Claim notifications",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [260, 0]
+      "position": [
+        260,
+        0
+      ]
     },
     {
       "parameters": {
@@ -75,7 +81,10 @@
       "name": "06-03 Has notifications?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [520, 0]
+      "position": [
+        520,
+        0
+      ]
     },
     {
       "parameters": {
@@ -139,7 +148,10 @@
       "name": "06-04 Template message",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [780, 0]
+      "position": [
+        780,
+        0
+      ]
     },
     {
       "parameters": {
@@ -169,7 +181,10 @@
       "name": "06-05 Delivery allowed?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [1040, 0]
+      "position": [
+        1040,
+        0
+      ]
     },
     {
       "parameters": {
@@ -229,7 +244,10 @@
       "name": "06-06 Channel switch",
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.2,
-      "position": [1300, -40]
+      "position": [
+        1300,
+        -40
+      ]
     },
     {
       "parameters": {
@@ -259,7 +277,10 @@
       "name": "06-07 Deliver telegram",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1560, -200]
+      "position": [
+        1560,
+        -200
+      ]
     },
     {
       "parameters": {
@@ -289,7 +310,10 @@
       "name": "06-08 Deliver email",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1560, -40]
+      "position": [
+        1560,
+        -40
+      ]
     },
     {
       "parameters": {
@@ -319,7 +343,10 @@
       "name": "06-09 Deliver in-app",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1560, 120]
+      "position": [
+        1560,
+        120
+      ]
     },
     {
       "parameters": {
@@ -349,7 +376,10 @@
       "name": "06-10 Mark result",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1820, -40]
+      "position": [
+        1820,
+        -40
+      ]
     },
     {
       "parameters": {
@@ -379,7 +409,10 @@
       "name": "06-11 Mark suppressed",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1300, 200]
+      "position": [
+        1300,
+        200
+      ]
     },
     {
       "parameters": {
@@ -407,7 +440,10 @@
       "name": "06-12 Idle finish",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [780, 200]
+      "position": [
+        780,
+        200
+      ]
     }
   ],
   "connections": {
@@ -545,5 +581,6 @@
   "meta": {
     "templateCredsSetupCompleted": false
   },
-  "tags": []
+  "tags": [],
+  "active": false
 }

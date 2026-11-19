@@ -9,7 +9,10 @@
       "name": "SDT-01 Start",
       "type": "n8n-nodes-base.executeWorkflowTrigger",
       "typeVersion": 1.1,
-      "position": [0, 0]
+      "position": [
+        0,
+        0
+      ]
     },
     {
       "parameters": {
@@ -61,7 +64,10 @@
       "name": "SDT-02 Normalize tool request",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [260, 0]
+      "position": [
+        260,
+        0
+      ]
     },
     {
       "parameters": {
@@ -90,7 +96,10 @@
       "name": "SDT-03 Tool named?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [520, 0]
+      "position": [
+        520,
+        0
+      ]
     },
     {
       "parameters": {
@@ -120,7 +129,10 @@
       "name": "SDT-04 Check tool policy",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [780, -80]
+      "position": [
+        780,
+        -80
+      ]
     },
     {
       "parameters": {
@@ -150,7 +162,10 @@
       "name": "SDT-05 Execute scoped tool",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1040, -80]
+      "position": [
+        1040,
+        -80
+      ]
     },
     {
       "parameters": {
@@ -196,7 +211,10 @@
       "name": "SDT-06 Sanitize tool result",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [1300, -80]
+      "position": [
+        1300,
+        -80
+      ]
     },
     {
       "parameters": {
@@ -226,7 +244,10 @@
       "name": "SDT-07 Record invalid tool",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [780, 120]
+      "position": [
+        780,
+        120
+      ]
     }
   ],
   "connections": {
@@ -299,5 +320,6 @@
   "meta": {
     "templateCredsSetupCompleted": false
   },
-  "tags": []
+  "tags": [],
+  "active": false
 }

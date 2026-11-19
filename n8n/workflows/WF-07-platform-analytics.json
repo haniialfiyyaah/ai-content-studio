@@ -16,7 +16,10 @@
       "name": "07-01 Analytics scheduler",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
-      "position": [0, 0]
+      "position": [
+        0,
+        0
+      ]
     },
     {
       "parameters": {
@@ -46,7 +49,10 @@
       "name": "07-02 Claim refresh",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [260, 0]
+      "position": [
+        260,
+        0
+      ]
     },
     {
       "parameters": {
@@ -75,7 +81,10 @@
       "name": "07-03 Has analytics jobs?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [520, 0]
+      "position": [
+        520,
+        0
+      ]
     },
     {
       "parameters": {
@@ -127,7 +136,10 @@
       "name": "07-04 Pick analytics job",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [780, 0]
+      "position": [
+        780,
+        0
+      ]
     },
     {
       "parameters": {
@@ -157,7 +169,10 @@
       "name": "07-05 Check OAuth and scopes",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1040, 0]
+      "position": [
+        1040,
+        0
+      ]
     },
     {
       "parameters": {
@@ -187,7 +202,10 @@
       "name": "07-06 Analytics allowed?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [1300, 0]
+      "position": [
+        1300,
+        0
+      ]
     },
     {
       "parameters": {
@@ -217,7 +235,10 @@
       "name": "07-07 Fetch platform metrics",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1560, -80]
+      "position": [
+        1560,
+        -80
+      ]
     },
     {
       "parameters": {
@@ -275,7 +296,10 @@
       "name": "07-08 Normalize metrics",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [1820, -80]
+      "position": [
+        1820,
+        -80
+      ]
     },
     {
       "parameters": {
@@ -305,7 +329,10 @@
       "name": "07-09 Store snapshot and complete",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [2080, -80]
+      "position": [
+        2080,
+        -80
+      ]
     },
     {
       "parameters": {
@@ -335,7 +362,10 @@
       "name": "07-10 Record held",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1560, 160]
+      "position": [
+        1560,
+        160
+      ]
     },
     {
       "parameters": {
@@ -363,7 +393,10 @@
       "name": "07-11 Idle finish",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [780, 200]
+      "position": [
+        780,
+        200
+      ]
     }
   ],
   "connections": {
@@ -476,5 +509,6 @@
   "meta": {
     "templateCredsSetupCompleted": false
   },
-  "tags": []
+  "tags": [],
+  "active": false
 }

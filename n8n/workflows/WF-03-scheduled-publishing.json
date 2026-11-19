@@ -16,7 +16,10 @@
       "name": "03-01 Tick dispatch",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
-      "position": [0, 0]
+      "position": [
+        0,
+        0
+      ]
     },
     {
       "parameters": {
@@ -46,7 +49,10 @@
       "name": "03-02 Claim due publish",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [260, 0]
+      "position": [
+        260,
+        0
+      ]
     },
     {
       "parameters": {
@@ -75,7 +81,10 @@
       "name": "03-03 Has due jobs?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [520, 0]
+      "position": [
+        520,
+        0
+      ]
     },
     {
       "parameters": {
@@ -121,7 +130,10 @@
       "name": "03-04 Pick publish job",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [780, 0]
+      "position": [
+        780,
+        0
+      ]
     },
     {
       "parameters": {
@@ -151,7 +163,10 @@
       "name": "03-05 Final authorization",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1040, 0]
+      "position": [
+        1040,
+        0
+      ]
     },
     {
       "parameters": {
@@ -181,7 +196,10 @@
       "name": "03-06 Allowed?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [1300, 0]
+      "position": [
+        1300,
+        0
+      ]
     },
     {
       "parameters": {
@@ -233,7 +251,10 @@
       "name": "03-07 Prepare platform payload",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [1560, -80]
+      "position": [
+        1560,
+        -80
+      ]
     },
     {
       "parameters": {
@@ -271,7 +292,10 @@
       "name": "03-08 Platform switch",
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.2,
-      "position": [1820, -80]
+      "position": [
+        1820,
+        -80
+      ]
     },
     {
       "parameters": {
@@ -301,7 +325,10 @@
       "name": "03-09 Upload publish",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [2080, -160]
+      "position": [
+        2080,
+        -160
+      ]
     },
     {
       "parameters": {
@@ -361,7 +388,10 @@
       "name": "03-10 Provider outcome",
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.2,
-      "position": [2340, -160]
+      "position": [
+        2340,
+        -160
+      ]
     },
     {
       "parameters": {
@@ -391,7 +421,10 @@
       "name": "03-11 Record confirmed publication",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [2600, -280]
+      "position": [
+        2600,
+        -280
+      ]
     },
     {
       "parameters": {
@@ -421,7 +454,10 @@
       "name": "03-12 Record rejected publication",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [2600, -160]
+      "position": [
+        2600,
+        -160
+      ]
     },
     {
       "parameters": {
@@ -451,7 +487,10 @@
       "name": "03-13 Record reconciling",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [2600, -40]
+      "position": [
+        2600,
+        -40
+      ]
     },
     {
       "parameters": {
@@ -481,7 +520,10 @@
       "name": "03-14 Record held",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1560, 160]
+      "position": [
+        1560,
+        160
+      ]
     },
     {
       "parameters": {
@@ -511,7 +553,10 @@
       "name": "03-15 Unsupported platform",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [2080, 40]
+      "position": [
+        2080,
+        40
+      ]
     },
     {
       "parameters": {
@@ -539,7 +584,10 @@
       "name": "03-16 Idle finish",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [780, 200]
+      "position": [
+        780,
+        200
+      ]
     }
   ],
   "connections": {
@@ -695,5 +743,6 @@
   "meta": {
     "templateCredsSetupCompleted": false
   },
-  "tags": []
+  "tags": [],
+  "active": false
 }

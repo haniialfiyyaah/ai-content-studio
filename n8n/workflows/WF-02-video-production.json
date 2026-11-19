@@ -12,7 +12,10 @@
       "name": "02-01 Receive production intent",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
-      "position": [0, 0],
+      "position": [
+        0,
+        0
+      ],
       "webhookId": "acs-video-production"
     },
     {
@@ -71,7 +74,10 @@
       "name": "02-02 Normalize intent",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [260, 0]
+      "position": [
+        260,
+        0
+      ]
     },
     {
       "parameters": {
@@ -101,7 +107,10 @@
       "name": "02-03 Claim job",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [520, 0]
+      "position": [
+        520,
+        0
+      ]
     },
     {
       "parameters": {
@@ -130,7 +139,10 @@
       "name": "02-04 Claim acquired?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [780, 0]
+      "position": [
+        780,
+        0
+      ]
     },
     {
       "parameters": {
@@ -160,7 +172,10 @@
       "name": "02-05 Narration required?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [1040, -40]
+      "position": [
+        1040,
+        -40
+      ]
     },
     {
       "parameters": {
@@ -190,7 +205,10 @@
       "name": "02-06 Generate voice",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1300, -180]
+      "position": [
+        1300,
+        -180
+      ]
     },
     {
       "parameters": {
@@ -250,7 +268,10 @@
       "name": "02-07 Mode switch",
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.2,
-      "position": [1560, -40]
+      "position": [
+        1560,
+        -40
+      ]
     },
     {
       "parameters": {
@@ -280,7 +301,10 @@
       "name": "02-08 Remotion adapter",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1820, 80]
+      "position": [
+        1820,
+        80
+      ]
     },
     {
       "parameters": {
@@ -310,7 +334,10 @@
       "name": "02-09 fal.ai adapter",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1820, -180]
+      "position": [
+        1820,
+        -180
+      ]
     },
     {
       "parameters": {
@@ -340,7 +367,10 @@
       "name": "02-10 Hybrid adapter",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1820, -40]
+      "position": [
+        1820,
+        -40
+      ]
     },
     {
       "parameters": {
@@ -370,7 +400,10 @@
       "name": "02-11 Complete output",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [2080, -40]
+      "position": [
+        2080,
+        -40
+      ]
     },
     {
       "parameters": {
@@ -384,7 +417,10 @@
       "name": "02-12 Ack accepted",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
-      "position": [2340, -40]
+      "position": [
+        2340,
+        -40
+      ]
     },
     {
       "parameters": {
@@ -414,7 +450,10 @@
       "name": "02-13 Block or fail",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1040, 180]
+      "position": [
+        1040,
+        180
+      ]
     },
     {
       "parameters": {
@@ -428,7 +467,10 @@
       "name": "02-14 Ack blocked",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
-      "position": [1300, 180]
+      "position": [
+        1300,
+        180
+      ]
     }
   ],
   "connections": {
@@ -599,5 +641,6 @@
   "meta": {
     "templateCredsSetupCompleted": false
   },
-  "tags": []
+  "tags": [],
+  "active": false
 }

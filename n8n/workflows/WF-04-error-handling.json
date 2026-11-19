@@ -7,7 +7,10 @@
       "name": "04-01 Automatic failure",
       "type": "n8n-nodes-base.errorTrigger",
       "typeVersion": 1,
-      "position": [0, 0]
+      "position": [
+        0,
+        0
+      ]
     },
     {
       "parameters": {
@@ -59,7 +62,10 @@
       "name": "04-02 Sanitize error",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [260, 0]
+      "position": [
+        260,
+        0
+      ]
     },
     {
       "parameters": {
@@ -89,7 +95,10 @@
       "name": "04-03 Record incident",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [520, 0]
+      "position": [
+        520,
+        0
+      ]
     }
   ],
   "connections": {
@@ -122,5 +131,6 @@
   "meta": {
     "templateCredsSetupCompleted": false
   },
-  "tags": []
+  "tags": [],
+  "active": false
 }

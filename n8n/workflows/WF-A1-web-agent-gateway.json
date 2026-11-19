@@ -12,7 +12,10 @@
       "name": "A1-01 Receive dispatch",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
-      "position": [0, 0],
+      "position": [
+        0,
+        0
+      ],
       "webhookId": "acs-agent-web"
     },
     {
@@ -65,7 +68,10 @@
       "name": "A1-02 Normalize envelope",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [260, 0]
+      "position": [
+        260,
+        0
+      ]
     },
     {
       "parameters": {
@@ -95,7 +101,10 @@
       "name": "A1-03 Resolve signed context",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [520, 0]
+      "position": [
+        520,
+        0
+      ]
     },
     {
       "parameters": {
@@ -147,7 +156,10 @@
       "name": "A1-04 Merge owner context",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [780, 0]
+      "position": [
+        780,
+        0
+      ]
     },
     {
       "parameters": {
@@ -165,7 +177,10 @@
       "name": "A1-05 Launch shared creative agent",
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.2,
-      "position": [1040, 0]
+      "position": [
+        1040,
+        0
+      ]
     },
     {
       "parameters": {
@@ -179,24 +194,67 @@
       "name": "A1-06 Ack accepted",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
-      "position": [1300, 0]
+      "position": [
+        1300,
+        0
+      ]
     }
   ],
   "connections": {
     "A1-01 Receive dispatch": {
-      "main": [[{ "node": "A1-02 Normalize envelope", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "A1-02 Normalize envelope",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "A1-02 Normalize envelope": {
-      "main": [[{ "node": "A1-03 Resolve signed context", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "A1-03 Resolve signed context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "A1-03 Resolve signed context": {
-      "main": [[{ "node": "A1-04 Merge owner context", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "A1-04 Merge owner context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "A1-04 Merge owner context": {
-      "main": [[{ "node": "A1-05 Launch shared creative agent", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "A1-05 Launch shared creative agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "A1-05 Launch shared creative agent": {
-      "main": [[{ "node": "A1-06 Ack accepted", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "A1-06 Ack accepted",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "settings": {
@@ -205,5 +263,6 @@
   "meta": {
     "templateCredsSetupCompleted": false
   },
-  "tags": []
+  "tags": [],
+  "active": false
 }

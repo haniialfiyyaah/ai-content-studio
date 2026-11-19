@@ -16,7 +16,10 @@
       "name": "08-01 Reconciliation scheduler",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
-      "position": [0, 0]
+      "position": [
+        0,
+        0
+      ]
     },
     {
       "parameters": {
@@ -46,7 +49,10 @@
       "name": "08-02 Claim uncertain jobs",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [260, 0]
+      "position": [
+        260,
+        0
+      ]
     },
     {
       "parameters": {
@@ -75,7 +81,10 @@
       "name": "08-03 Has reconciling jobs?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [520, 0]
+      "position": [
+        520,
+        0
+      ]
     },
     {
       "parameters": {
@@ -127,7 +136,10 @@
       "name": "08-04 Load remote identifiers",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [780, 0]
+      "position": [
+        780,
+        0
+      ]
     },
     {
       "parameters": {
@@ -209,7 +221,10 @@
       "name": "08-05 Type switch",
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.2,
-      "position": [1040, 0]
+      "position": [
+        1040,
+        0
+      ]
     },
     {
       "parameters": {
@@ -239,7 +254,10 @@
       "name": "08-06 Poll fal status",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1300, -200]
+      "position": [
+        1300,
+        -200
+      ]
     },
     {
       "parameters": {
@@ -269,7 +287,10 @@
       "name": "08-07 Poll Remotion status",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1300, -40]
+      "position": [
+        1300,
+        -40
+      ]
     },
     {
       "parameters": {
@@ -299,7 +320,10 @@
       "name": "08-08 Poll social upload status",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1300, 120]
+      "position": [
+        1300,
+        120
+      ]
     },
     {
       "parameters": {
@@ -329,7 +353,10 @@
       "name": "08-09 Poll generic status",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1300, 280]
+      "position": [
+        1300,
+        280
+      ]
     },
     {
       "parameters": {
@@ -411,7 +438,10 @@
       "name": "08-10 Outcome switch",
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.2,
-      "position": [1560, 0]
+      "position": [
+        1560,
+        0
+      ]
     },
     {
       "parameters": {
@@ -441,7 +471,10 @@
       "name": "08-11 Confirm success",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1820, -200]
+      "position": [
+        1820,
+        -200
+      ]
     },
     {
       "parameters": {
@@ -471,7 +504,10 @@
       "name": "08-12 Confirm failure",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1820, -40]
+      "position": [
+        1820,
+        -40
+      ]
     },
     {
       "parameters": {
@@ -501,7 +537,10 @@
       "name": "08-13 Schedule next check",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1820, 120]
+      "position": [
+        1820,
+        120
+      ]
     },
     {
       "parameters": {
@@ -531,7 +570,10 @@
       "name": "08-14 Persist unknown",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1820, 280]
+      "position": [
+        1820,
+        280
+      ]
     },
     {
       "parameters": {
@@ -559,7 +601,10 @@
       "name": "08-15 Idle finish",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [780, 240]
+      "position": [
+        780,
+        240
+      ]
     }
   ],
   "connections": {
@@ -729,5 +774,6 @@
   "meta": {
     "templateCredsSetupCompleted": false
   },
-  "tags": []
+  "tags": [],
+  "active": false
 }

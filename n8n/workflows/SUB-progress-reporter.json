@@ -9,7 +9,10 @@
       "name": "PR-01 Start",
       "type": "n8n-nodes-base.executeWorkflowTrigger",
       "typeVersion": 1.1,
-      "position": [0, 0]
+      "position": [
+        0,
+        0
+      ]
     },
     {
       "parameters": {
@@ -61,7 +64,10 @@
       "name": "PR-02 Validate stage payload",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [260, 0]
+      "position": [
+        260,
+        0
+      ]
     },
     {
       "parameters": {
@@ -90,7 +96,10 @@
       "name": "PR-03 Has runId?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [520, 0]
+      "position": [
+        520,
+        0
+      ]
     },
     {
       "parameters": {
@@ -120,7 +129,10 @@
       "name": "PR-04 Record progress",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [780, -80]
+      "position": [
+        780,
+        -80
+      ]
     },
     {
       "parameters": {
@@ -150,7 +162,10 @@
       "name": "PR-05 Record missing runId",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [780, 120]
+      "position": [
+        780,
+        120
+      ]
     }
   ],
   "connections": {
@@ -201,5 +216,6 @@
   "meta": {
     "templateCredsSetupCompleted": false
   },
-  "tags": []
+  "tags": [],
+  "active": false
 }

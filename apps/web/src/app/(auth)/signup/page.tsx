@@ -1,13 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { createClient } from "@/lib/supabase/client";
 
 export default function SignupPage() {
-  const router = useRouter();
   const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -22,25 +21,30 @@ export default function SignupPage() {
     setInfo(null);
 
     try {
-      const res = await fetch("/api/auth/signup", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password, displayName }),
+      const supabase = createClient();
+      const { data, error: signUpError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: { display_name: displayName || undefined },
+        },
       });
-      const json = await res.json();
-      if (!res.ok || json.status === "error") {
-        setError(json.error?.message ?? "Unable to create account");
+
+      if (signUpError) {
+        setError(signUpError.message || "Unable to create account");
+        setLoading(false);
         return;
       }
-      if (json.data?.needsEmailConfirmation) {
-        setInfo("Check your email to confirm your account, then sign in.");
+
+      if (!data.session) {
+        setInfo("Check your email (Mailtrap) to confirm, then sign in.");
+        setLoading(false);
         return;
       }
-      router.replace("/");
-      router.refresh();
+
+      window.location.assign("/");
     } catch {
       setError("Network error. Try again.");
-    } finally {
       setLoading(false);
     }
   }

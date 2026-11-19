@@ -47,3 +47,4 @@ n8n/credentials.local.md
 .vercel/
 tmp/
 temp/
+.tmp/

@@ -45,5 +45,5 @@
 ## ADR-008: Supabase Cloud fallback when local disk is exhausted
 
 - **Date:** 2026-11-19
-- **Decision:** Prefer local Supabase CLI. If Docker/disk blocks local Postgres, create a cloud project via Supabase MCP (`create_project` on org **Code by Hani**), copy URL + anon + service_role into `apps/web/.env.local`, and apply migrations with the CLI against the linked project. No paid upgrades without explicit authorization.
+- **Decision:** Prefer local Supabase CLI. If Docker/disk blocks local Postgres, create a cloud project via Supabase MCP or Dashboard, copy URL + anon + service_role into `apps/web/.env.local`, and apply migrations with the CLI against the linked project. No paid upgrades without explicit authorization. Do not commit project refs or secrets.
 - **Why:** Unblocks auth/API verification without buying infra; keeps credentials out of git.

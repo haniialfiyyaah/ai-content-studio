@@ -3,14 +3,20 @@
   "nodes": [
     {
       "parameters": {
-        "updates": ["message", "callback_query"],
+        "updates": [
+          "message",
+          "callback_query"
+        ],
         "additionalFields": {}
       },
       "id": "a2-01-telegram-trigger",
       "name": "A2-01 Telegram updates",
       "type": "n8n-nodes-base.telegramTrigger",
       "typeVersion": 1.1,
-      "position": [0, 0],
+      "position": [
+        0,
+        0
+      ],
       "webhookId": "acs-agent-telegram"
     },
     {
@@ -69,7 +75,10 @@
       "name": "A2-02 Normalize update",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [260, 0]
+      "position": [
+        260,
+        0
+      ]
     },
     {
       "parameters": {
@@ -98,7 +107,10 @@
       "name": "A2-03 Supported private update?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [520, 0]
+      "position": [
+        520,
+        0
+      ]
     },
     {
       "parameters": {
@@ -128,7 +140,10 @@
       "name": "A2-04 Resolve Studio actor",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [780, 0]
+      "position": [
+        780,
+        0
+      ]
     },
     {
       "parameters": {
@@ -158,7 +173,10 @@
       "name": "A2-05 Actor linked?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [1040, 0]
+      "position": [
+        1040,
+        0
+      ]
     },
     {
       "parameters": {
@@ -188,7 +206,10 @@
       "name": "A2-06 Record link required",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1300, 200]
+      "position": [
+        1300,
+        200
+      ]
     },
     {
       "parameters": {
@@ -218,7 +239,10 @@
       "name": "A2-07 Claim and route",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1300, -120]
+      "position": [
+        1300,
+        -120
+      ]
     },
     {
       "parameters": {
@@ -247,7 +271,10 @@
       "name": "A2-08 Claim acquired?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [1560, -120]
+      "position": [
+        1560,
+        -120
+      ]
     },
     {
       "parameters": {
@@ -265,7 +292,10 @@
       "name": "A2-09 Invoke shared agent",
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.2,
-      "position": [1820, -220]
+      "position": [
+        1820,
+        -220
+      ]
     },
     {
       "parameters": {
@@ -295,7 +325,10 @@
       "name": "A2-10 Record delivery state",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [2080, -220]
+      "position": [
+        2080,
+        -220
+      ]
     },
     {
       "parameters": {
@@ -323,7 +356,10 @@
       "name": "A2-11 Skip duplicate or unsupported",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [1820, 40]
+      "position": [
+        1820,
+        40
+      ]
     }
   ],
   "connections": {
@@ -443,5 +479,6 @@
   "meta": {
     "templateCredsSetupCompleted": false
   },
-  "tags": []
+  "tags": [],
+  "active": false
 }

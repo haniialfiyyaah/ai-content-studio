@@ -2,13 +2,16 @@
 
 Never commit real secrets. Use `apps/web/.env.local` (gitignored). Template: [`.env.example`](../.env.example).
 
-## Required for local auth/data
+## Required for auth/data (Supabase)
+
+Local: `supabase status`. Cloud: Dashboard → Project Settings → API (URL, anon, service_role). Do not commit project refs or secrets.
 
 | Variable | Source |
 |---|---|
-| `NEXT_PUBLIC_SUPABASE_URL` | `supabase status` |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | `supabase status` |
-| `SUPABASE_SERVICE_ROLE_KEY` | `supabase status` (server only) |
+| `NEXT_PUBLIC_SUPABASE_URL` | `supabase status` or Cloud Project URL |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | `supabase status` or Cloud anon `eyJ…` key |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Optional Cloud `sb_publishable_…` |
+| `SUPABASE_SERVICE_ROLE_KEY` | `supabase status` or Cloud service_role (server only, never `NEXT_PUBLIC_`) |
 | `ACS_INTERNAL_SERVICE_TOKEN` | Shared with n8n; random string |
 | `ACS_CREDENTIAL_ENCRYPTION_KEY` | 32-byte key material for BYOK encryption |
 | `ACS_EXECUTION_CONTEXT_SECRET` | Signed execution context |

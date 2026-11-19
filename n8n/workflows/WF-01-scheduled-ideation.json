@@ -16,7 +16,10 @@
       "name": "01-01 Poll scheduler",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
-      "position": [0, 0]
+      "position": [
+        0,
+        0
+      ]
     },
     {
       "parameters": {
@@ -46,7 +49,10 @@
       "name": "01-02 Claim due work",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [260, 0]
+      "position": [
+        260,
+        0
+      ]
     },
     {
       "parameters": {
@@ -75,7 +81,10 @@
       "name": "01-03 Has due occurrences?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [520, 0]
+      "position": [
+        520,
+        0
+      ]
     },
     {
       "parameters": {
@@ -127,7 +136,10 @@
       "name": "01-04 Pick occurrence",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [780, 0]
+      "position": [
+        780,
+        0
+      ]
     },
     {
       "parameters": {
@@ -157,7 +169,10 @@
       "name": "01-05 Check AI policy",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1040, 0]
+      "position": [
+        1040,
+        0
+      ]
     },
     {
       "parameters": {
@@ -217,7 +232,10 @@
       "name": "01-06 Strategy branch",
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.2,
-      "position": [1300, 0]
+      "position": [
+        1300,
+        0
+      ]
     },
     {
       "parameters": {
@@ -235,7 +253,10 @@
       "name": "01-07 Optional trend research",
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.2,
-      "position": [1560, -160]
+      "position": [
+        1560,
+        -160
+      ]
     },
     {
       "parameters": {
@@ -265,7 +286,10 @@
       "name": "01-08 Generate concepts",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1820, 0]
+      "position": [
+        1820,
+        0
+      ]
     },
     {
       "parameters": {
@@ -295,7 +319,10 @@
       "name": "01-09 Complete occurrence",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [2080, 0]
+      "position": [
+        2080,
+        0
+      ]
     },
     {
       "parameters": {
@@ -323,7 +350,10 @@
       "name": "01-10 Idle finish",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [780, 200]
+      "position": [
+        780,
+        200
+      ]
     }
   ],
   "connections": {
@@ -443,5 +473,6 @@
   "meta": {
     "templateCredsSetupCompleted": false
   },
-  "tags": []
+  "tags": [],
+  "active": false
 }

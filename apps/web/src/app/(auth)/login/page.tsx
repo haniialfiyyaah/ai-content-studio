@@ -1,13 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { FormEvent, Suspense, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { createClient } from "@/lib/supabase/client";
 
 function LoginForm() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const next = searchParams.get("next") || "/";
   const [email, setEmail] = useState("");
@@ -21,21 +21,25 @@ function LoginForm() {
     setError(null);
 
     try {
-      const res = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
+      // Browser client sets auth cookies in this document (capstone-style).
+      // Soft router.replace raced middleware and left the button "stuck" idle on /login.
+      const supabase = createClient();
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
       });
-      const json = await res.json();
-      if (!res.ok || json.status === "error") {
-        setError(json.error?.message ?? "Unable to sign in");
+
+      if (signInError) {
+        setError(signInError.message || "Unable to sign in");
+        setLoading(false);
         return;
       }
-      router.replace(next);
-      router.refresh();
+
+      const destination =
+        next.startsWith("/") && !next.startsWith("//") ? next : "/";
+      window.location.assign(destination);
     } catch {
       setError("Network error. Try again.");
-    } finally {
       setLoading(false);
     }
   }
