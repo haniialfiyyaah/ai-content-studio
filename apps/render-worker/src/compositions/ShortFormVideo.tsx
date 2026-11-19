@@ -141,8 +141,8 @@ function SceneCard({
         border: "1px solid rgba(244, 239, 230, 0.16)",
         borderRadius: 24,
         padding: "28px 32px",
-        background: "rgba(255, 252, 247, 0.06)",
-        backdropFilter: "blur(8px)",
+        // Solid translucent fill — backdropFilter unsupported in web-renderer.
+        background: "rgba(255, 252, 247, 0.1)",
       }}
     >
       <p

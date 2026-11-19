@@ -158,7 +158,7 @@ async function ReviewBody({
           <p className="app-hero-copy" style={{ marginTop: "1.5rem" }}>
             {attempt.output_asset_id
               ? "Output asset exists but a signed URL could not be created."
-              : "No rendered output yet. Authorize a Remotion job with ACS_REMOTION_LIVE=true for a real MP4."}
+              : "No rendered output yet. Open Content → Production and export an MP4 in the browser (or complete a cloud render when available)."}
           </p>
         )}
 

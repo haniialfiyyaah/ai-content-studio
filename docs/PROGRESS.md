@@ -1,6 +1,6 @@
 # Implementation Progress
 
-Last updated: 2026-11-19
+Last updated: 2026-11-20
 
 ## Milestone status
 
@@ -9,7 +9,7 @@ Last updated: 2026-11-19
 | M1 Foundation | **done** | Monorepo, schema+RLS, auth, studio shell, Overview |
 | M2 Shared Agent | **partial** | Sync gateway **Verified**; Agent→n8n WF-A1/A3→gateway→draft **Verified** (fixture AI); live OpenAI still needs keys |
 | M3 Projects / Content / Activation | **done** | Lifecycle, Creative Kit, Content Detail, launch gates |
-| M4 Video production | **partial** | Job pipeline **Verified**; Remotion live encode **Verified**; Cloud job→storage→review **Verified** (Agent fixture → approve → grant → live Remotion → `outputAssetId`); compose quality still open |
+| M4 Video production | **partial** | Browser `@remotion/web-renderer` path **Implemented** (Remotion 4.0.544, Content → Production export, prepare/complete/interrupt APIs, storage persist, WF-02-compatible await-browser). Unattended Vercel Sandbox **Not started**. `apps/render-worker` optional only. |
 | M5 Automation / Publishing / Telegram | **partial** | UI + APIs + n8n JSON; live OAuth/Telegram blocked |
 | M6 Docs / hardening | **partial** | Specs + architecture + traceability landed; Playwright scaffold present (`ACS_E2E=1`) |
 
@@ -34,11 +34,21 @@ Unit tests: 19 passed (`@acs/domain` 15 + `@acs/integrations` 4).
 
 ## Next implementation priorities
 
-1. Remotion composition quality (PRD motion/layouts) + open review page visually
-2. Playwright: `pnpm exec playwright install chromium` then `ACS_E2E=1 pnpm test:e2e`
-3. n8n up + import workflows when re-testing Agent→n8n path
-4. Live OpenAI when you authorize keys (`ACS_AI_FIXTURE_MODE=false`) — no paid calls yet
+1. Browser-render E2E smoke on a real approved concept (Chrome WebCodecs) + visual review
+2. Vercel Sandbox remotion adapter when authorized (unattended / n8n-only production)
+3. Playwright: `pnpm exec playwright install chromium` then `ACS_E2E=1 pnpm test:e2e`
+4. Live OpenAI / fal / ElevenLabs when authorized — no paid calls yet
 5. Telegram / YouTube OAuth
+6. n8n Cloud / broader deploy only when separately authorized
+
+## Unattended video production (still incomplete)
+
+| Gap | Notes |
+|---|---|
+| Vercel Sandbox | Stub only (`renderRemotionInVercelSandbox`); not provisioned; no paid runs |
+| Browser-closed jobs | Interrupt API marks failed — no auto-resume without a user tab |
+| fal + ElevenLabs in composition | Adapters exist; not mixed into ShortFormVideo timeline yet |
+| Headless n8n-only MP4 | Requires Sandbox (or legacy worker); browser backend returns `awaitingBrowser` |
 
 ## Blockers
 
@@ -48,6 +58,7 @@ Unit tests: 19 passed (`@acs/domain` 15 + `@acs/integrations` 4).
 | Playwright Chromium | Install aborted — re-run `pnpm exec playwright install chromium` |
 | Supabase Cloud | Auth + M4 job→storage **Verified**; Mailtrap SMTP optional for signup emails |
 | n8n | Force-recreate after token changes; import workflows from `n8n/workflows/` (recreate alone does not import); production rejects aliases |
+| Browser WebCodecs | Chrome 94+ / Firefox 130+ / Safari 26+ required for in-browser MP4 |
 
 ## Decisions
 

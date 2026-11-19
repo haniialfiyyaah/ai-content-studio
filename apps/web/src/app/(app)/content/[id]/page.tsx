@@ -12,6 +12,7 @@ import {
 import { createClient } from "@/lib/supabase/server";
 import { StatusPill } from "@/components/projects/status-pill";
 import { ContentActions } from "@/components/content/content-actions";
+import { BrowserRemotionExport } from "@/components/content/browser-remotion-export";
 import {
   ContentTabs,
   resolveContentTab,
@@ -121,6 +122,39 @@ export default async function ContentDetailPage({
       !workingVersion.approval_revoked_at,
   );
 
+  const approvedForProduce =
+    Boolean(approvedVersion) &&
+    approvedVersion!.review_status === "approved" &&
+    !approvedVersion!.approval_revoked_at;
+
+  const { data: grantRow } = await supabase
+    .from("authorization_grants")
+    .select("id, scope, revoked_at, valid_until")
+    .eq("owner_id", user!.id)
+    .eq("project_id", concept.project_id)
+    .eq("scope", "produce_paid_media")
+    .is("revoked_at", null)
+    .limit(1)
+    .maybeSingle();
+
+  const grantActive =
+    Boolean(grantRow) &&
+    (grantRow!.valid_until == null ||
+      new Date(grantRow!.valid_until).getTime() > Date.now());
+
+  const { data: latestJob } = await supabase
+    .from("video_jobs")
+    .select("id, status, production_mode")
+    .eq("concept_id", id)
+    .eq("owner_id", user!.id)
+    .eq("production_mode", "remotion")
+    .in("status", ["queued", "preparing", "generating", "rendering"])
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  const canProduce = approvedForProduce && grantActive;
+
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
       <div>
@@ -203,6 +237,9 @@ export default async function ContentDetailPage({
             visualPlan,
             publishingPack,
             assets,
+            canProduce,
+            hasGrant: grantActive,
+            latestRemotionJobId: latestJob?.id ?? null,
           })}
         </div>
       </section>
@@ -221,6 +258,9 @@ function renderTabPanel(
     visualPlan: VisualPlan | null;
     publishingPack: PublishingPack | null;
     assets: MediaAssetRow[];
+    canProduce: boolean;
+    hasGrant: boolean;
+    latestRemotionJobId: string | null;
   },
 ): ReactNode {
   switch (tab) {
@@ -332,6 +372,54 @@ function renderTabPanel(
           )}
         </div>
       );
+    case "production": {
+      const versionId =
+        ctx.approvedVersion?.id ?? ctx.workingVersion?.id ?? null;
+      const exportScenes = ctx.content.scenes.slice(0, 3).map((scene) => ({
+        caption: scene.title || scene.narration || undefined,
+        narration: scene.narration || undefined,
+      }));
+      const exportTitle =
+        ctx.content.hook?.trim() ||
+        ctx.concept.title?.trim() ||
+        "Content Studio render";
+
+      return (
+        <div className="space-y-4">
+          <InfoCard title="Production gates">
+            <ul className="space-y-1 text-sm text-muted">
+              <li>
+                Concept approval ·{" "}
+                {ctx.approvedVersion ? "approved version present" : "required"}
+              </li>
+              <li>
+                produce_paid_media grant ·{" "}
+                {ctx.hasGrant ? "active" : "required"}
+              </li>
+              <li>
+                Render path · browser @remotion/web-renderer (MVP). Vercel
+                Sandbox unattended path is not provisioned yet.
+              </li>
+            </ul>
+          </InfoCard>
+          {versionId ? (
+            <BrowserRemotionExport
+              conceptId={ctx.concept.id}
+              conceptVersionId={versionId}
+              canProduce={ctx.canProduce}
+              title={exportTitle}
+              scenes={exportScenes}
+              existingJobId={ctx.latestRemotionJobId}
+            />
+          ) : (
+            <PlaceholderPanel
+              title="Production"
+              body="Create and approve a concept version before exporting video."
+            />
+          )}
+        </div>
+      );
+    }
     case "assets":
       return ctx.assets.length === 0 ? (
         <PlaceholderPanel

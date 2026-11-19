@@ -4,10 +4,13 @@ import { basename } from "node:path";
 import {
   AppError,
   ErrorCodes,
+  AWAITING_BROWSER_RENDER,
   completeVideoJob,
   failVideoJob,
   persistRenderVideoAsset,
   progressVideoJob,
+  remotionWorkerRequirement,
+  resolveRemotionRenderBackend,
 } from "@acs/domain";
 import { z } from "zod";
 import { jsonError, jsonOk } from "@/lib/api/response";
@@ -45,8 +48,13 @@ interface WorkerRenderResult {
 
 /**
  * POST /api/internal/render/remotion
- * Claims orchestration calls this after job claim. Invokes the Remotion worker,
- * persists MP4 to `renders` storage (live) or records fixture acceptance.
+ *
+ * Default backend `browser`: marks the job awaiting client-side
+ * @remotion/web-renderer export. Does not complete the job — success only
+ * after MP4 upload via the browser-complete session API.
+ *
+ * Optional `legacy_worker`: previous apps/render-worker HTTP path.
+ * `vercel_sandbox`: not provisioned — fails honestly.
  */
 export async function POST(request: Request) {
   const correlationId = crypto.randomUUID();
@@ -55,10 +63,12 @@ export async function POST(request: Request) {
     assertInternalServiceAuth(request);
     const body = RemotionRenderSchema.parse(await request.json());
     const supabase = createAdminClient();
+    const backend = resolveRemotionRenderBackend();
+    const workerNotice = remotionWorkerRequirement(backend);
 
     const { data: job, error: jobError } = await supabase
       .from("video_jobs")
-      .select("id, owner_id, project_id, concept_id, status")
+      .select("id, owner_id, project_id, concept_id, status, production_mode")
       .eq("id", body.jobId)
       .maybeSingle();
 
@@ -66,11 +76,73 @@ export async function POST(request: Request) {
       throw new AppError(ErrorCodes.NOT_FOUND, "Video job not found", 404);
     }
 
+    if (backend === "vercel_sandbox") {
+      await failVideoJob(supabase, {
+        jobId: job.id,
+        category: "VERCEL_SANDBOX_NOT_PROVISIONED",
+        message:
+          "Vercel Sandbox rendering is not provisioned. Use browser export or authorize Sandbox setup.",
+        correlationId: body.correlationId ?? correlationId,
+      });
+
+      throw new AppError(
+        ErrorCodes.PROVIDER_UNAVAILABLE,
+        "Vercel Sandbox render backend is not available yet",
+        501,
+        { backend },
+      );
+    }
+
+    if (backend === "browser") {
+      const progressed = await progressVideoJob(supabase, {
+        jobId: job.id,
+        stage: "render_remotion",
+        state: "running",
+        message: AWAITING_BROWSER_RENDER,
+        correlationId: body.correlationId ?? correlationId,
+      });
+
+      // Persist explicit awaiting flag for Content Detail / UI polling.
+      await supabase
+        .from("video_attempts")
+        .update({
+          error_details: {
+            message: AWAITING_BROWSER_RENDER,
+            stage: "render_remotion",
+            backend: "browser",
+            awaitingBrowser: true,
+            title: body.title ?? null,
+            scenes: body.scenes ?? null,
+          },
+          provider_request_id: `browser:pending:${job.id}`,
+        })
+        .eq("id", progressed.attempt.id);
+
+      return jsonOk(
+        {
+          jobId: job.id,
+          attemptId: progressed.attempt.id,
+          fixture: false,
+          remotion: true,
+          backend: "browser" as const,
+          awaitingBrowser: true,
+          status: "awaiting_browser",
+          outputAssetId: null,
+          workerRequired: false,
+          message:
+            "Awaiting user-initiated browser MP4 export. Job is not ready_for_review until upload completes.",
+          note: workerNotice.note,
+        },
+        body.correlationId ?? correlationId,
+      );
+    }
+
+    // legacy_worker path (optional; not required for MVP)
     await progressVideoJob(supabase, {
       jobId: job.id,
       stage: "render_remotion",
       state: "running",
-      message: "Remotion encode started",
+      message: "Remotion encode started (legacy worker)",
       correlationId: body.correlationId ?? correlationId,
     });
 
@@ -96,7 +168,6 @@ export async function POST(request: Request) {
 
     const workerJson = (await workerRes.json()) as WorkerRenderResult;
 
-    // Fixture path — never pretend a real MP4 was produced.
     if (workerJson.fixture || workerJson.status === "accepted") {
       await progressVideoJob(supabase, {
         jobId: job.id,
@@ -111,6 +182,8 @@ export async function POST(request: Request) {
           jobId: job.id,
           fixture: true,
           remotion: false,
+          backend: "legacy_worker" as const,
+          awaitingBrowser: false,
           status: "accepted",
           outputAssetId: null,
           message: workerJson.message,
@@ -119,7 +192,11 @@ export async function POST(request: Request) {
       );
     }
 
-    if (!workerRes.ok || workerJson.status !== "completed" || !workerJson.outputPath) {
+    if (
+      !workerRes.ok ||
+      workerJson.status !== "completed" ||
+      !workerJson.outputPath
+    ) {
       await failVideoJob(supabase, {
         jobId: job.id,
         category: workerJson.error ?? "REMOTION_RENDER_FAILED",
@@ -150,13 +227,15 @@ export async function POST(request: Request) {
       bytes: mp4Bytes,
       fileName,
       durationMs: workerJson.durationMs,
+      width: 1280,
+      height: 720,
       provider: "remotion",
       checksum,
     });
 
     const completed = await completeVideoJob(supabase, {
       jobId: job.id,
-      providerRequestId: `remotion:${fileName}`,
+      providerRequestId: `remotion-worker:${fileName}`,
       outputAssetId: asset.id,
       actualCost: 0,
       correlationId: body.correlationId ?? correlationId,
@@ -168,11 +247,13 @@ export async function POST(request: Request) {
         attemptId: completed.attempt.id,
         fixture: false,
         remotion: true,
+        backend: "legacy_worker" as const,
+        awaitingBrowser: false,
         status: "completed",
         outputAssetId: asset.id,
         storagePath: asset.storagePath,
         bytes: asset.sizeBytes,
-        message: "Remotion live encode persisted",
+        message: "Remotion live encode persisted via legacy worker",
       },
       body.correlationId ?? correlationId,
     );

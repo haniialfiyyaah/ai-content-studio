@@ -50,7 +50,7 @@ Import workflows from `n8n/workflows/` (see `n8n/workflows/README.md`).
 | `N8N_WEBHOOK_BASE_URL` empty | Sync gateway planning inside Next.js (**verified**, fixture when no live key) |
 | `N8N_WEBHOOK_BASE_URL` set | Dispatch to n8n WF-A1 webhook (import + activate WF-A1/A3 first) |
 | BYOK | Settings → store key → Test → switch mode → gateway decrypts in-process (**verified** fixture) |
-| Remotion | Default: fixture. Live: `ACS_REMOTION_LIVE=true` + `pnpm --filter render-worker start` + `pnpm --filter render-worker render:verify` |
+| Remotion | Default: browser export (`ACS_REMOTION_RENDER_BACKEND=browser`). Content → Production → Export MP4. Worker not required. Optional legacy: `legacy_worker` + `ACS_REMOTION_LIVE=true` + render-worker. Do not set `vercel_sandbox` until authorized. |
 | Playwright | `pnpm exec playwright install chromium` then `ACS_E2E=1 pnpm test:e2e` |
 | n8n token drift | Token must match `ACS_INTERNAL_SERVICE_TOKEN` exactly. After `.env` changes: `docker-compose up -d --force-recreate n8n`. Optional aliases via `ACS_INTERNAL_SERVICE_TOKEN_ALIASES` only (no hardcoded legacy tokens). Production rejects aliases. |
 | Local Supabase disk full | Prefer Supabase Cloud via MCP (`create_project` → copy URL/anon/service_role into `apps/web/.env.local` → `supabase db push` / link). See ADR-008. |

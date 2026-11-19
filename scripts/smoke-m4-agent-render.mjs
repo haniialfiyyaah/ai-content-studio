@@ -1,8 +1,11 @@
 #!/usr/bin/env node
 /**
- * Cloud-backed M4 smoke: auth → Agent (fixture) → approve → grant →
- * claim → Remotion live → report attempt URL.
- * Does not print secrets. Requires Next :3000 + render-worker :3100.
+ * Cloud-backed M4 smoke (legacy worker path): auth → Agent (fixture) →
+ * approve → grant → claim → Remotion worker → report attempt URL.
+ * Does not print secrets. Requires Next :3000.
+ * For MVP browser export, use Content → Production in the UI instead
+ * (ACS_REMOTION_RENDER_BACKEND=browser; render-worker not required).
+ * Legacy: set ACS_REMOTION_RENDER_BACKEND=legacy_worker + worker :3100.
  *
  * Prefer ACS_SMOKE_EMAIL / ACS_SMOKE_PASSWORD (existing account).
  * Otherwise creates a confirmed user via Auth Admin (avoids signup rate limits).

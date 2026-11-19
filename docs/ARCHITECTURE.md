@@ -42,7 +42,8 @@ flowchart LR
 | **`packages/schemas`** | Zod contracts / error codes | Persistence |
 | **`packages/integrations`** | OpenAI/fal/ElevenLabs adapters + fixtures, secret encrypt/decrypt | Authorization decisions |
 | **`packages/agent-contracts`** | Allowlisted tool names/schemas | Execution |
-| **`apps/render-worker`** | Remotion job HTTP surface | **Verified:** currently fixture stub (`POST /render` → accepted) |
+| **`apps/web` Remotion** | Player preview + `@remotion/web-renderer` browser MP4 export (MVP default) | Unattended / headless encode |
+| **`apps/render-worker`** | Optional legacy Remotion HTTP worker (`ACS_REMOTION_RENDER_BACKEND=legacy_worker`) | **Not required** for browser MVP; code preserved |
 | **`n8n/workflows`** | Importable orchestration graphs | Provider secrets, business SoT |
 | **`supabase/`** | Schema, RLS, storage policies | Application logic |
 
@@ -94,6 +95,35 @@ n8n workflows (**WF-A3**, **WF-01**, **WF-05**) call the gateway via `httpReques
 2. First activation requires nonempty `selected_for_initial_launch` with approved, non-revoked working versions.
 3. Video render requires `produce_paid_media` grant or returns `BUDGET_AUTHORIZATION_REQUIRED`.
 
+## Remotion rendering (M4)
+
+```mermaid
+sequenceDiagram
+  participant UI as Browser_UI
+  participant API as Next_APIs
+  participant Dom as domain
+  participant Stor as Supabase_renders
+  participant N8n as n8n_WF02
+
+  Note over UI,N8n: Browser path (MVP default)
+  UI->>API: queue remotion job (grant + approved concept)
+  N8n->>API: POST /api/internal/render/remotion
+  API->>Dom: progress awaiting_browser_render
+  API-->>N8n: awaitingBrowser true (no ready_for_review)
+  UI->>UI: renderMediaOnWeb MP4
+  UI->>API: multipart complete + upload
+  API->>Stor: verify object
+  API->>Dom: completeVideoJob with outputAssetId
+
+  Note over N8n: Vercel Sandbox path not provisioned yet
+```
+
+| Backend (`ACS_REMOTION_RENDER_BACKEND`) | Status |
+|---|---|
+| `browser` (default) | **Implemented** — user-initiated WebCodecs MP4 |
+| `vercel_sandbox` | **Not started** — fails honestly; no paid provision |
+| `legacy_worker` | **Optional** — preserved `apps/render-worker` |
+
 ## Data model (abbreviated)
 
 Account → Projects → Concepts → Concept Versions → Video Jobs/Attempts → Publishing Jobs  
@@ -104,8 +134,8 @@ Full schema: [`supabase/migrations/`](../supabase/migrations/).
 ## Repository layout
 
 ```text
-apps/web                 Next.js UI + APIs
-apps/render-worker       Remotion worker (stub today)
+apps/web                 Next.js UI + APIs + browser Remotion export
+apps/render-worker       Optional legacy Remotion worker (not required)
 packages/{domain,schemas,integrations,agent-contracts}
 n8n/workflows            Importable workflow JSON
 supabase/                Migrations + local config

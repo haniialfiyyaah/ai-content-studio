@@ -787,6 +787,27 @@ export async function completeVideoJob(
 ): Promise<{ job: VideoJob; attempt: VideoAttempt }> {
   const job = await reloadJob(supabase, params.jobId);
   const attempt = await loadLatestAttempt(supabase, job.id);
+
+  // Remotion jobs must not be marked ready without a verified output asset.
+  // WF-02 may still call complete after the remotion adapter; browser path
+  // returns early so orchestration does not fake success.
+  if (
+    job.production_mode === "remotion" &&
+    !params.outputAssetId &&
+    !attempt.output_asset_id
+  ) {
+    throw new AppError(
+      ErrorCodes.VALIDATION_ERROR,
+      "Remotion job cannot complete without a verified outputAssetId (browser or cloud render must upload MP4 first)",
+      409,
+      {
+        jobId: job.id,
+        productionMode: job.production_mode,
+        awaitingBrowser: true,
+      },
+    );
+  }
+
   const now = new Date().toISOString();
 
   const { data: updatedJob, error: jobError } = await supabase

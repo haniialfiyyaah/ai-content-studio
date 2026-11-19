@@ -8,6 +8,7 @@ export const CONTENT_TABS = [
   { id: "overview", label: "Overview" },
   { id: "script", label: "Script" },
   { id: "storyboard", label: "Storyboard" },
+  { id: "production", label: "Production" },
   { id: "assets", label: "Assets" },
   { id: "publishing", label: "Publishing" },
   { id: "history", label: "History" },

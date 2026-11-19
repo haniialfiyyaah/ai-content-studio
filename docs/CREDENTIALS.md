@@ -34,7 +34,8 @@ Set `ACS_AI_FIXTURE_MODE=false` for live managed calls.
 | `ELEVENLABS_API_KEY` | ElevenLabs |
 | `TELEGRAM_BOT_TOKEN` | Telegram |
 | YouTube OAuth pair | Publishing |
-| `RENDER_WORKER_URL` / `RENDER_WORKER_TOKEN` | Remotion worker |
+| `ACS_REMOTION_RENDER_BACKEND` | `browser` (default) / `legacy_worker` / `vercel_sandbox` |
+| `RENDER_WORKER_URL` / `RENDER_WORKER_TOKEN` | Optional legacy Remotion worker only |
 
 ## n8n
 

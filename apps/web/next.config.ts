@@ -6,6 +6,10 @@ const nextConfig: NextConfig = {
     "@acs/domain",
     "@acs/agent-contracts",
     "@acs/integrations",
+    "remotion",
+    "@remotion/player",
+    "@remotion/web-renderer",
+    "mediabunny",
   ],
   turbopack: {
     rules: {

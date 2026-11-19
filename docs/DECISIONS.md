@@ -47,3 +47,10 @@
 - **Date:** 2026-11-19
 - **Decision:** Prefer local Supabase CLI. If Docker/disk blocks local Postgres, create a cloud project via Supabase MCP or Dashboard, copy URL + anon + service_role into `apps/web/.env.local`, and apply migrations with the CLI against the linked project. No paid upgrades without explicit authorization. Do not commit project refs or secrets.
 - **Why:** Unblocks auth/API verification without buying infra; keeps credentials out of git.
+
+## ADR-009: Browser Remotion export for MVP; Sandbox later for unattended
+
+- **Date:** 2026-11-20
+- **Decision:** For user-initiated MVP video export, use Remotion Player + `@remotion/web-renderer` inside Next.js (aligned Remotion 4.0.544). Default `ACS_REMOTION_RENDER_BACKEND=browser`. Do **not** require `apps/render-worker`, Chromium, or FFmpeg locally. n8n WF-02 remains the orchestration contract; `/api/internal/render/remotion` marks `awaiting_browser_render` and must not complete without a verified MP4 upload. Intended future unattended path is **Vercel Sandbox** (adapter stub only — not provisioned, no billable runs without approval). Optional `legacy_worker` backend preserves the existing worker code.
+- **Why:** Unblocks real MP4 export without a second deployable render service; keeps fal.ai / ElevenLabs / n8n roles intact; avoids claiming unattended automation is done with browser-only rendering.
+- **Limitations:** Requires a compatible browser (WebCodecs); tab close interrupts the job; not suitable for headless/n8n-only production until Sandbox (or equivalent) is authorized and implemented.
