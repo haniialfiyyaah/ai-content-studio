@@ -1,5 +1,8 @@
 import { z } from "zod";
-import { executeElevenLabsTts } from "@acs/integrations";
+import {
+  ACS_ELEVENLABS_DEMO_MODEL,
+  executeElevenLabsTts,
+} from "@acs/integrations";
 import { jsonError, jsonOk } from "@/lib/api/response";
 import { assertInternalServiceAuth } from "@/lib/internal-auth";
 
@@ -27,8 +30,8 @@ export async function POST(request: Request) {
     const result = await executeElevenLabsTts(
       {
         text: body.text,
-        voiceId: body.voiceId,
-        modelId: body.modelId,
+        voiceId: body.voiceId ?? process.env.ELEVENLABS_VOICE_ID ?? undefined,
+        modelId: body.modelId ?? ACS_ELEVENLABS_DEMO_MODEL,
       },
       { fixtureMode, apiKey },
     );

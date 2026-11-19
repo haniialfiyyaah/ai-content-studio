@@ -16,3 +16,4 @@ export * from "./services/ai-execution";
 export * from "./services/media-assets";
 export * from "./services/render-backend";
 export * from "./services/vercel-sandbox-render";
+export * from "./services/production-media";

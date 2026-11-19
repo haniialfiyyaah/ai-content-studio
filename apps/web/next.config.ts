@@ -9,6 +9,7 @@ const nextConfig: NextConfig = {
     "remotion",
     "@remotion/player",
     "@remotion/web-renderer",
+    "@remotion/media",
     "mediabunny",
   ],
   turbopack: {

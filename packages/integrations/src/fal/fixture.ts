@@ -1,3 +1,9 @@
+import {
+  ACS_FAL_DEMO_MODEL,
+  ACS_FIXTURE_FOOTAGE_URL,
+  estimateFalDemoCost,
+} from "../media-defaults";
+
 /**
  * Deterministic fal.ai fixture used when ACS_FAL_FIXTURE_MODE=true
  * or when no fal credentials are configured.
@@ -22,7 +28,7 @@ export interface FalRenderFixtureResult {
 export function fixtureFalRender(
   request: FalRenderRequest,
 ): FalRenderFixtureResult {
-  const model = request.model ?? "fixture-fal-video";
+  const model = request.model ?? ACS_FAL_DEMO_MODEL;
   const seed = request.seed ?? hashSeed(request.prompt);
   const providerRequestId = `fal-fixture-${seed.toString(16)}`;
 
@@ -31,9 +37,10 @@ export function fixtureFalRender(
     fixture: true,
     providerRequestId,
     status: "completed",
-    outputUrl: `https://fixtures.acs.local/fal/${providerRequestId}.mp4`,
+    // CORS-friendly sample so browser Remotion can still compose footage.
+    outputUrl: ACS_FIXTURE_FOOTAGE_URL,
     model,
-    estimatedCost: 0,
+    estimatedCost: estimateFalDemoCost({ model }).estimateUsd,
   };
 }
 

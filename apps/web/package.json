@@ -14,6 +14,7 @@
     "@acs/domain": "workspace:*",
     "@acs/integrations": "workspace:*",
     "@acs/schemas": "workspace:*",
+    "@remotion/media": "4.0.544",
     "@remotion/player": "4.0.544",
     "@remotion/web-renderer": "4.0.544",
     "@supabase/ssr": "^0.12.7",

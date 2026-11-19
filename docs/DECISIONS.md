@@ -54,3 +54,9 @@
 - **Decision:** For user-initiated MVP video export, use Remotion Player + `@remotion/web-renderer` inside Next.js (aligned Remotion 4.0.544). Default `ACS_REMOTION_RENDER_BACKEND=browser`. Do **not** require `apps/render-worker`, Chromium, or FFmpeg locally. n8n WF-02 remains the orchestration contract; `/api/internal/render/remotion` marks `awaiting_browser_render` and must not complete without a verified MP4 upload. Intended future unattended path is **Vercel Sandbox** (adapter stub only — not provisioned, no billable runs without approval). Optional `legacy_worker` backend preserves the existing worker code.
 - **Why:** Unblocks real MP4 export without a second deployable render service; keeps fal.ai / ElevenLabs / n8n roles intact; avoids claiming unattended automation is done with browser-only rendering.
 - **Limitations:** Requires a compatible browser (WebCodecs); tab close interrupts the job; not suitable for headless/n8n-only production until Sandbox (or equivalent) is authorized and implemented.
+
+## ADR-010: Demo media providers (fal LTX + ElevenLabs Flash)
+
+- **Date:** 2026-11-20
+- **Decision:** Default fal model `fal-ai/ltx-video` (~$0.02/video advisory) for cost-sensitive demos; quality alt `minimax/h3-max-turbo/text-to-video` (~$0.094/5s). Default ElevenLabs model `eleven_flash_v2_5`. Fixture mode uses Remotion CORS sample media so browser composition works without paid calls. Live spend requires explicit fixture flags off + keys + user authorization.
+- **Why:** Capstone demo needs real composition wiring without forcing paid generation during development.

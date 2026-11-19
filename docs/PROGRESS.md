@@ -9,7 +9,7 @@ Last updated: 2026-11-20
 | M1 Foundation | **done** | Monorepo, schema+RLS, auth, studio shell, Overview |
 | M2 Shared Agent | **partial** | Sync gateway **Verified**; Agent→n8n WF-A1/A3→gateway→draft **Verified** (fixture AI); live OpenAI still needs keys |
 | M3 Projects / Content / Activation | **done** | Lifecycle, Creative Kit, Content Detail, launch gates |
-| M4 Video production | **partial** | Browser `@remotion/web-renderer` path **Implemented** (Remotion 4.0.544, Content → Production export, prepare/complete/interrupt APIs, storage persist, WF-02-compatible await-browser). Unattended Vercel Sandbox **Not started**. `apps/render-worker` optional only. |
+| M4 Video production | **partial** | Browser Remotion export **Implemented**; fal (`fal-ai/ltx-video`) + ElevenLabs (`eleven_flash_v2_5`) wired into media prepare + composition (fixture sample media by default). Storage upload smoke **Verified**. Full Chrome WebCodecs encode = manual. Unattended Sandbox **Not started**. |
 | M5 Automation / Publishing / Telegram | **partial** | UI + APIs + n8n JSON; live OAuth/Telegram blocked |
 | M6 Docs / hardening | **partial** | Specs + architecture + traceability landed; Playwright scaffold present (`ACS_E2E=1`) |
 

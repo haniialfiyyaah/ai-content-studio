@@ -67,6 +67,9 @@ importers:
       '@acs/schemas':
         specifier: workspace:*
         version: link:../../packages/schemas
+      '@remotion/media':
+        specifier: 4.0.544
+        version: 4.0.544(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
       '@remotion/player':
         specifier: 4.0.544
         version: 4.0.544(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
@@ -1000,6 +1003,12 @@ packages:
 
   '@remotion/media-utils@4.0.321':
     resolution: {integrity: sha512-/EFomGlPOECoNG/b4T/N9ikZjrWFn7TRnCdvDpVWsP50YvNkHPmkSHKbdZmjX6NOVh54wFrRRA6S1GujHHnJew==}
+    peerDependencies:
+      react: '>=16.8.0'
+      react-dom: '>=16.8.0'
+
+  '@remotion/media@4.0.544':
+    resolution: {integrity: sha512-f9T6nm13yXfsDnMtNs8WtTPmAzTz2uKtaDppzBu5JxBqcMuNNX8XnXRjpof87aGfhcPLM1GZ9TL9SzEAZ0IaXw==}
     peerDependencies:
       react: '>=16.8.0'
       react-dom: '>=16.8.0'
@@ -3524,6 +3533,9 @@ packages:
   zod@3.25.76:
     resolution: {integrity: sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ==}
 
+  zod@4.6.7:
+    resolution: {integrity: sha512-g8W2D2kU6a8untc053fX1uVBKzM7yqAxW/3zwk83+6RyF2+SKOuV+c0wBDhUwzV1PaGapmZH+rmcUzPf+3CGwg==}
+
 snapshots:
 
   '@alloc/quick-lru@5.3.0': {}
@@ -4148,6 +4160,14 @@ snapshots:
       react: 19.3.0
       react-dom: 19.3.0(react@19.3.0)
       remotion: 4.0.321(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+
+  '@remotion/media@4.0.544(react-dom@19.3.0(react@19.3.0))(react@19.3.0)':
+    dependencies:
+      mediabunny: 1.66.0
+      react: 19.3.0
+      react-dom: 19.3.0(react@19.3.0)
+      remotion: 4.0.544(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+      zod: 4.6.7
 
   '@remotion/player@4.0.321(react-dom@19.3.0(react@19.3.0))(react@19.3.0)':
     dependencies:
@@ -6973,3 +6993,5 @@ snapshots:
   zod@3.22.3: {}
 
   zod@3.25.76: {}
+
+  zod@4.6.7: {}

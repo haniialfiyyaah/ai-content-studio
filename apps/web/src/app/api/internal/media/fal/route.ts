@@ -1,5 +1,9 @@
 import { z } from "zod";
-import { executeFalRender, pollFalRender } from "@acs/integrations";
+import {
+  ACS_FAL_DEMO_MODEL,
+  executeFalRender,
+  pollFalRender,
+} from "@acs/integrations";
 import { jsonError, jsonOk } from "@/lib/api/response";
 import { assertInternalServiceAuth } from "@/lib/internal-auth";
 
@@ -51,8 +55,8 @@ export async function POST(request: Request) {
     const result = await executeFalRender(
       {
         prompt: body.prompt,
-        model: body.model,
-        aspectRatio: body.aspectRatio,
+        model: body.model ?? ACS_FAL_DEMO_MODEL,
+        aspectRatio: body.aspectRatio ?? "16:9",
         seed: body.seed,
       },
       { fixtureMode, apiKey },

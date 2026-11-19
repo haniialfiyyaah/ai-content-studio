@@ -1,4 +1,5 @@
 import { AppError, ErrorCodes } from "@acs/schemas";
+import { ACS_FAL_DEMO_MODEL, estimateFalDemoCost } from "../media-defaults";
 import { fixtureFalRender, type FalRenderRequest, type FalRenderFixtureResult } from "./fixture";
 
 export interface FalExecuteOptions {
@@ -40,7 +41,7 @@ export async function executeFalRender(
     return fixtureFalRender(request);
   }
 
-  const model = request.model ?? "fal-ai/minimax/video-01";
+  const model = request.model ?? ACS_FAL_DEMO_MODEL;
   const response = await fetch(`https://queue.fal.run/${model}`, {
     method: "POST",
     headers: {
@@ -49,7 +50,8 @@ export async function executeFalRender(
     },
     body: JSON.stringify({
       prompt: request.prompt,
-      aspect_ratio: request.aspectRatio ?? "9:16",
+      // ltx-video ignores aspect_ratio; other models may use it.
+      aspect_ratio: request.aspectRatio ?? "16:9",
       ...(request.seed !== undefined ? { seed: request.seed } : {}),
     }),
   });
@@ -82,7 +84,7 @@ export async function executeFalRender(
     status,
     outputUrl,
     model,
-    estimatedCost: 0,
+    estimatedCost: estimateFalDemoCost({ model }).estimateUsd,
   };
 }
 
@@ -104,7 +106,7 @@ export async function pollFalRender(
     });
   }
 
-  const model = options.model ?? "fal-ai/minimax/video-01";
+  const model = options.model ?? ACS_FAL_DEMO_MODEL;
   const response = await fetch(
     `https://queue.fal.run/${model}/requests/${encodeURIComponent(providerRequestId)}/status`,
     {
@@ -149,7 +151,7 @@ export async function pollFalRender(
     status,
     outputUrl,
     model,
-    estimatedCost: 0,
+    estimatedCost: estimateFalDemoCost({ model }).estimateUsd,
   };
 }
 

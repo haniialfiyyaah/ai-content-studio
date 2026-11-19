@@ -24,7 +24,7 @@ Status vocabulary:
 | Concept Approve / Edit (immutable versions) | **Verified** | Approve API + revision create |
 | Initial launch ≠ approval; activation gate | **Verified** | `INITIAL_LAUNCH_NOT_READY` then activate OK |
 | Activate ≠ paid render ≠ publish | **Verified** | Activate succeeded without auto-render; render needs grant |
-| Video Remotion / fal / Hybrid | **Partial** | Browser `@remotion/web-renderer` MP4 path **Implemented** (Content → Production; prepare/complete/interrupt; await-browser on WF-02 remotion step). Legacy worker optional. Vercel Sandbox unattended **Not started**. fal/ElevenLabs gateways **Implemented** (fixture); Hybrid E2E open |
+| Video Remotion / fal / Hybrid | **Partial** | Browser Remotion + media prepare **Implemented** (fal LTX + ElevenLabs Flash into composition; fixture CORS samples). Storage upload smoke **Verified**. Chrome encode manual. WF-02 voice→`/api/internal/media/elevenlabs`, fal→`fal-ai/ltx-video`. Sandbox unattended **Not started** |
 | Video Approve / Regenerate | **Verified** (approve); regenerate **Implemented** | Smoke approved attempt |
 | Publishing calendar + schedule form | **Implemented** | UI + `publishing_jobs` API; live OAuth **Blocked** |
 | BYOK no silent managed fallback | **Verified** | Unit policy + fixture BYOK execute decrypt; invalid/missing key → `BYOK_KEY_INVALID` |

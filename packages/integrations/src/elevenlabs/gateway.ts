@@ -1,5 +1,10 @@
 import { AppError, ErrorCodes } from "@acs/schemas";
 import {
+  ACS_ELEVENLABS_DEMO_MODEL,
+  ACS_ELEVENLABS_DEMO_VOICE_ID,
+  estimateElevenLabsDemoCost,
+} from "../media-defaults";
+import {
   fixtureElevenLabsTts,
   type ElevenLabsTtsFixtureResult,
   type ElevenLabsTtsRequest,
@@ -23,6 +28,7 @@ export type ElevenLabsTtsResult =
       modelId: string;
       characters: number;
       estimatedCost: number;
+      estimatedDurationMs: number;
     };
 
 /**
@@ -43,8 +49,8 @@ export async function executeElevenLabsTts(
     return fixtureElevenLabsTts(request);
   }
 
-  const voiceId = request.voiceId ?? "21m00Tcm4TlvDq8ikWAM";
-  const modelId = request.modelId ?? "eleven_multilingual_v2";
+  const voiceId = request.voiceId ?? ACS_ELEVENLABS_DEMO_VOICE_ID;
+  const modelId = request.modelId ?? ACS_ELEVENLABS_DEMO_MODEL;
 
   const response = await fetch(
     `https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(voiceId)}`,
@@ -78,6 +84,12 @@ export async function executeElevenLabsTts(
   const providerRequestId =
     response.headers.get("request-id") ??
     `eleven-live-${Date.now().toString(16)}`;
+  const characters = request.text.length;
+  const cost = estimateElevenLabsDemoCost({ characters, model: modelId });
+  const estimatedDurationMs = Math.max(
+    1500,
+    Math.round((characters / 14) * 1000),
+  );
 
   return {
     provider: "elevenlabs",
@@ -88,7 +100,8 @@ export async function executeElevenLabsTts(
     audioBase64,
     voiceId,
     modelId,
-    characters: request.text.length,
-    estimatedCost: 0,
+    characters,
+    estimatedCost: cost.estimateUsd,
+    estimatedDurationMs,
   };
 }

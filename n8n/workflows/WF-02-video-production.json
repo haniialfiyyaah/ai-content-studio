@@ -180,7 +180,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{$env.ACS_API_BASE_URL}}/api/internal/jobs/progress",
+        "url": "={{$env.ACS_API_BASE_URL}}/api/internal/media/elevenlabs",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -196,7 +196,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"jobId\": \"{{ $('02-02 Normalize intent').item.json.jobId }}\",\n  \"stage\": \"voice\",\n  \"state\": \"running\",\n  \"message\": \"Generating narration via provider adapter\",\n  \"correlationId\": \"{{ $('02-02 Normalize intent').item.json.correlationId }}\"\n}",
+        "jsonBody": "={\n  \"text\": \"{{ $('02-02 Normalize intent').item.json.narrationText || $('02-02 Normalize intent').item.json.prompt || 'Welcome to AI Content Studio.' }}\",\n  \"modelId\": \"eleven_flash_v2_5\",\n  \"correlationId\": \"{{ $('02-02 Normalize intent').item.json.correlationId }}\"\n}",
         "options": {
           "timeout": 120000
         }
@@ -325,7 +325,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"action\": \"submit\",\n  \"prompt\": \"{{ $('02-02 Normalize intent').item.json.prompt || 'Authorized fal render' }}\",\n  \"correlationId\": \"{{ $('02-02 Normalize intent').item.json.correlationId }}\"\n}",
+        "jsonBody": "={\n  \"action\": \"submit\",\n  \"prompt\": \"{{ $('02-02 Normalize intent').item.json.prompt || 'Authorized fal render' }}\",\n  \"model\": \"fal-ai/ltx-video\",\n  \"aspectRatio\": \"16:9\",\n  \"correlationId\": \"{{ $('02-02 Normalize intent').item.json.correlationId }}\"\n}",
         "options": {
           "timeout": 120000
         }

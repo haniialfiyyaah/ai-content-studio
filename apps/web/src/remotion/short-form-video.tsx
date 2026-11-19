@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { Audio, Video } from "@remotion/media";
 import {
   AbsoluteFill,
   Sequence,
@@ -17,6 +18,11 @@ export interface ShortFormScene {
 export interface ShortFormVideoProps {
   title: string;
   scenes: ShortFormScene[];
+  /** Optional fal (or fixture) footage layered under captions. */
+  footageUrl?: string | null;
+  /** Optional ElevenLabs (or fixture) narration track. */
+  narrationUrl?: string | null;
+  narrationVolume?: number;
 }
 
 /** Frames per scene at 30fps → ~3s; 3 scenes ≈ 9s MVP clip. */
@@ -33,11 +39,15 @@ export const BROWSER_COMPOSITION = {
 
 /**
  * Short-form composition for Remotion Player + @remotion/web-renderer.
+ * Uses @remotion/media Video/Audio (required for browser rendering).
  * Avoids unsupported browser CSS (no backdropFilter).
  */
 export const ShortFormVideo: React.FC<ShortFormVideoProps> = ({
   title,
   scenes,
+  footageUrl = null,
+  narrationUrl = null,
+  narrationVolume = 1,
 }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
@@ -62,6 +72,27 @@ export const ShortFormVideo: React.FC<ShortFormVideoProps> = ({
         fontFamily: "Georgia, 'Times New Roman', serif",
       }}
     >
+      {footageUrl ? (
+        <AbsoluteFill>
+          <Video
+            src={footageUrl}
+            style={{ width: "100%", height: "100%", objectFit: "cover" }}
+            muted
+            volume={0}
+          />
+          <AbsoluteFill
+            style={{
+              background:
+                "linear-gradient(180deg, rgba(15,13,10,0.55) 0%, rgba(15,13,10,0.25) 40%, rgba(15,13,10,0.72) 100%)",
+            }}
+          />
+        </AbsoluteFill>
+      ) : null}
+
+      {narrationUrl ? (
+        <Audio src={narrationUrl} volume={narrationVolume} />
+      ) : null}
+
       <AbsoluteFill
         style={{
           padding: 48,
@@ -160,7 +191,6 @@ function SceneCard({
         border: "1px solid rgba(244, 239, 230, 0.16)",
         borderRadius: 20,
         padding: "24px 28px",
-        // Solid translucent fill — backdropFilter is unsupported in web-renderer.
         background: "rgba(255, 252, 247, 0.1)",
       }}
     >
@@ -197,4 +227,25 @@ export function durationInFramesForScenes(sceneCount: number): number {
     Math.min(sceneCount, BROWSER_COMPOSITION.maxScenes),
   );
   return count * SHORT_FORM_SCENE_FRAMES;
+}
+
+/**
+ * Extends composition length so narration/footage are not truncated.
+ * Falls back to scene-based duration when media durations are unknown.
+ */
+export function durationInFramesForComposition(params: {
+  sceneCount: number;
+  narrationDurationMs?: number | null;
+  footageDurationMs?: number | null;
+  fps?: number;
+}): number {
+  const fps = params.fps ?? BROWSER_COMPOSITION.fps;
+  const sceneFrames = durationInFramesForScenes(params.sceneCount);
+  const narrationFrames = params.narrationDurationMs
+    ? Math.ceil((params.narrationDurationMs / 1000) * fps)
+    : 0;
+  const footageFrames = params.footageDurationMs
+    ? Math.ceil((params.footageDurationMs / 1000) * fps)
+    : 0;
+  return Math.max(sceneFrames, narrationFrames, footageFrames);
 }

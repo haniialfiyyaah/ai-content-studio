@@ -4,4 +4,5 @@ export * from "./fal/fixture";
 export * from "./fal/gateway";
 export * from "./elevenlabs/fixture";
 export * from "./elevenlabs/gateway";
+export * from "./media-defaults";
 export * from "./secrets";

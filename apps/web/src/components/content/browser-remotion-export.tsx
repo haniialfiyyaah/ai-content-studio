@@ -60,6 +60,9 @@ export function BrowserRemotionExport({
   const [compatNote, setCompatNote] = useState<string | null>(null);
   const [reviewPath, setReviewPath] = useState<string | null>(null);
   const [jobId, setJobId] = useState<string | null>(existingJobId);
+  const [footageUrl, setFootageUrl] = useState<string | null>(null);
+  const [narrationUrl, setNarrationUrl] = useState<string | null>(null);
+  const [mediaNote, setMediaNote] = useState<string | null>(null);
 
   const previewScenes =
     scenes.length > 0
@@ -126,7 +129,62 @@ export function BrowserRemotionExport({
     browserRenderBusy = true;
 
     try {
-      const compat = await checkBrowserRenderCompat();
+      setPhase("preparing");
+      const queuedJobId = await queueJobIfNeeded();
+
+      const mediaRes = await fetch(
+        `/api/video-jobs/${queuedJobId}/media/prepare`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title,
+            includeFootage: true,
+            includeNarration: true,
+          }),
+        },
+      );
+      const mediaJson = (await mediaRes.json()) as {
+        status: string;
+        data?: {
+          footageUrl?: string | null;
+          narrationUrl?: string | null;
+          narrationDurationMs?: number | null;
+          costEstimateUsd?: number;
+          failures?: string[];
+          fixtureMode?: { fal: boolean; elevenLabs: boolean };
+          message?: string;
+        };
+        error?: { message?: string };
+      };
+      if (!mediaRes.ok || mediaJson.status === "error") {
+        throw new Error(
+          mediaJson.error?.message ?? "Failed to prepare fal/ElevenLabs media",
+        );
+      }
+
+      const resolvedFootage = mediaJson.data?.footageUrl ?? null;
+      const resolvedNarration = mediaJson.data?.narrationUrl ?? null;
+      const narrationDurationMs = mediaJson.data?.narrationDurationMs ?? null;
+      setFootageUrl(resolvedFootage);
+      setNarrationUrl(resolvedNarration);
+      setMediaNote(
+        [
+          mediaJson.data?.message,
+          mediaJson.data?.costEstimateUsd != null
+            ? `Advisory cost if live: ~$${mediaJson.data.costEstimateUsd.toFixed(3)}`
+            : null,
+          mediaJson.data?.failures?.length
+            ? `Media warnings: ${mediaJson.data.failures.join("; ")}`
+            : null,
+        ]
+          .filter(Boolean)
+          .join(" · ") || null,
+      );
+
+      const compat = await checkBrowserRenderCompat({
+        withAudio: Boolean(resolvedNarration),
+      });
       if (!compat.canRender) {
         const msg =
           compat.issues.map((i) => i.message).join("; ") ||
@@ -142,9 +200,6 @@ export function BrowserRemotionExport({
           ? `Codec ready: ${compat.resolvedVideoCodec}`
           : "Browser codec check passed",
       );
-
-      setPhase("preparing");
-      const queuedJobId = await queueJobIfNeeded();
 
       const prepareRes = await fetch(
         `/api/video-jobs/${queuedJobId}/browser-render/prepare`,
@@ -180,6 +235,9 @@ export function BrowserRemotionExport({
       const { blob, durationMs } = await exportShortFormMp4({
         title: compositionTitle,
         scenes: compositionScenes,
+        footageUrl: resolvedFootage,
+        narrationUrl: resolvedNarration,
+        narrationDurationMs,
         signal: controller.signal,
         onProgress: (p) => setProgress(p),
       });
@@ -279,7 +337,12 @@ export function BrowserRemotionExport({
       <div className="overflow-hidden rounded-lg border border-border bg-black">
         <Player
           component={ShortFormVideo}
-          inputProps={{ title, scenes: previewScenes }}
+          inputProps={{
+            title,
+            scenes: previewScenes,
+            footageUrl,
+            narrationUrl,
+          }}
           durationInFrames={durationInFrames}
           fps={BROWSER_COMPOSITION.fps}
           compositionWidth={BROWSER_COMPOSITION.width}
@@ -337,6 +400,9 @@ export function BrowserRemotionExport({
 
       {compatNote ? (
         <p className="text-xs text-muted">{compatNote}</p>
+      ) : null}
+      {mediaNote ? (
+        <p className="text-xs text-muted">{mediaNote}</p>
       ) : null}
       {jobId ? (
         <p className="text-xs text-muted">Job · {jobId}</p>
