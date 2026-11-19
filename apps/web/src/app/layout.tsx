@@ -1,14 +1,8 @@
 import type { Metadata } from "next";
-import { Fraunces, Outfit } from "next/font/google";
+import { Inter } from "next/font/google";
 import "./globals.css";
 
-const display = Fraunces({
-  variable: "--font-display",
-  subsets: ["latin"],
-  display: "swap",
-});
-
-const body = Outfit({
+const body = Inter({
   variable: "--font-body",
   subsets: ["latin"],
   display: "swap",
@@ -26,7 +20,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${display.variable} ${body.variable} h-full`}>
+    <html lang="en" className={`${body.variable} h-full`}>
       <body className="relative min-h-full antialiased">{children}</body>
     </html>
   );

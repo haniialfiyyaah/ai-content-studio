@@ -27,15 +27,19 @@ export function OverviewPrompt() {
       });
       const json = (await res.json()) as {
         status: string;
-        data?: { projectId?: string | null };
+        data?: { projectId?: string | null; runId?: string | null };
         error?: { message?: string };
       };
       if (!res.ok || json.status === "error") {
         setError(json.error?.message ?? "Planning failed");
         return;
       }
-      if (json.data?.projectId) {
-        router.push(`/projects/${json.data.projectId}?tab=content`);
+      let projectId = json.data?.projectId ?? null;
+      if (!projectId && json.data?.runId) {
+        projectId = await waitForProject(json.data.runId);
+      }
+      if (projectId) {
+        router.push(`/projects/${projectId}?tab=content`);
         router.refresh();
         return;
       }
@@ -80,9 +84,23 @@ export function OverviewPrompt() {
       </Button>
       {error ? <p className="text-sm text-red-600">{error}</p> : null}
       <p className="text-xs text-muted">
-        With n8n unset, planning runs in Next.js. Fixture mode labels the draft
-        script as fixture-generated.
+        Planning uses n8n when its webhook is configured. Otherwise this app
+        plans locally and labels fixture drafts.
       </p>
     </form>
   );
+}
+
+async function waitForProject(runId: string): Promise<string | null> {
+  for (let attempt = 0; attempt < 12; attempt += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+    const res = await fetch(`/api/agent/runs/${runId}`);
+    if (!res.ok) return null;
+    const json = (await res.json()) as {
+      data?: { projectId?: string | null; status?: string };
+    };
+    if (json.data?.projectId) return json.data.projectId;
+    if (json.data?.status === "failed") return null;
+  }
+  return null;
 }

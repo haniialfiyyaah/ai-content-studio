@@ -4,17 +4,58 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
+  Bolt,
+  Calendar,
+  Clapperboard,
+  FileText,
+  Folder,
+  Images,
+  LayoutGrid,
   Menu,
   PanelLeftClose,
   PanelLeftOpen,
+  Settings,
   Sparkles,
   X,
+  type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { MANAGE_NAV, WORKSPACE_NAV } from "./nav-config";
 
+const NAV_ICONS: Record<string, LucideIcon> = {
+  "/": LayoutGrid,
+  "/projects": Folder,
+  "/content": FileText,
+  "/videos": Clapperboard,
+  "/publishing": Calendar,
+  "/automation": Bolt,
+  "/library": Images,
+  "/settings": Settings,
+};
+
+const CRUMBS: Record<string, string> = {
+  "/": "Overview",
+  "/projects": "Projects",
+  "/content": "Content",
+  "/videos": "Videos",
+  "/publishing": "Publishing",
+  "/automation": "Automation",
+  "/library": "Library",
+  "/settings": "Settings",
+  "/agent": "Agent",
+  "/production": "Production",
+};
+
 const SIDEBAR_KEY = "acs.sidebar.collapsed";
+
+function crumbFor(pathname: string): string {
+  const match = Object.keys(CRUMBS)
+    .filter((href) => href !== "/")
+    .sort((a, b) => b.length - a.length)
+    .find((href) => pathname === href || pathname.startsWith(`${href}/`));
+  return match ? CRUMBS[match] : "Overview";
+}
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -54,7 +95,12 @@ export function AppShell({ children, userEmail, displayName }: AppShellProps) {
             <span className="app-brand-mark">
               <Sparkles className="size-4" />
             </span>
-            {!collapsed && <span className="app-brand-name">Content Studio</span>}
+            {!collapsed && (
+              <span className="app-brand-copy">
+                <span className="app-brand-name">AI Content Studio</span>
+                <span className="app-brand-kicker">YOUR CREATIVE WORKSPACE</span>
+              </span>
+            )}
           </Link>
           <button
             type="button"
@@ -152,7 +198,7 @@ export function AppShell({ children, userEmail, displayName }: AppShellProps) {
             >
               <Menu className="size-5" />
             </Button>
-            <p className="app-topbar-label">AI Content Studio</p>
+            <p className="app-topbar-label">Studio / {crumbFor(pathname)}</p>
           </div>
           <Button
             type="button"
@@ -193,6 +239,7 @@ function NavGroup({
             item.href === "/"
               ? pathname === "/"
               : pathname === item.href || pathname.startsWith(`${item.href}/`);
+          const Icon = NAV_ICONS[item.href];
           return (
             <li key={item.href}>
               <Link
@@ -204,7 +251,8 @@ function NavGroup({
                   collapsed && "is-collapsed",
                 )}
               >
-                {collapsed ? item.label.slice(0, 1) : item.label}
+                {Icon ? <Icon className="size-4 shrink-0" aria-hidden /> : null}
+                {collapsed ? <span className="sr-only">{item.label}</span> : item.label}
               </Link>
             </li>
           );

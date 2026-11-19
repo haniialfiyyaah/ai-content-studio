@@ -12,7 +12,9 @@ import {
 import { createClient } from "@/lib/supabase/server";
 import { StatusPill } from "@/components/projects/status-pill";
 import { ContentActions } from "@/components/content/content-actions";
+import { ScriptEditor } from "@/components/content/script-editor";
 import { BrowserRemotionExport } from "@/components/content/browser-remotion-export";
+import { VideoReviewActions } from "@/components/videos/video-review-actions";
 import { ContentTabs } from "@/components/content/content-tabs";
 import {
   resolveContentTab,
@@ -155,6 +157,36 @@ export default async function ContentDetailPage({
 
   const canProduce = approvedForProduce && grantActive;
 
+  const { data: reviewJob } = await supabase
+    .from("video_jobs")
+    .select("id")
+    .eq("concept_id", id)
+    .eq("owner_id", user!.id)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  let latestAttempt: {
+    id: string;
+    status: string;
+    output_asset_id: string | null;
+    approval_revoked_at: string | null;
+    video_job_id: string;
+  } | null = null;
+
+  if (reviewJob) {
+    const { data: attempt } = await supabase
+      .from("video_attempts")
+      .select(
+        "id, status, output_asset_id, approval_revoked_at, video_job_id",
+      )
+      .eq("video_job_id", reviewJob.id)
+      .order("attempt_number", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    latestAttempt = attempt;
+  }
+
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
       <div>
@@ -240,6 +272,7 @@ export default async function ContentDetailPage({
             canProduce,
             hasGrant: grantActive,
             latestRemotionJobId: latestJob?.id ?? null,
+            latestAttempt,
           })}
         </div>
       </section>
@@ -261,6 +294,13 @@ function renderTabPanel(
     canProduce: boolean;
     hasGrant: boolean;
     latestRemotionJobId: string | null;
+    latestAttempt: {
+      id: string;
+      status: string;
+      output_asset_id: string | null;
+      approval_revoked_at: string | null;
+      video_job_id: string;
+    } | null;
   },
 ): ReactNode {
   switch (tab) {
@@ -294,38 +334,11 @@ function renderTabPanel(
       );
     case "script":
       return (
-        <div className="space-y-4">
-          <InfoCard title="Script">
-            <pre className="whitespace-pre-wrap font-sans text-sm text-muted">
-              {ctx.content.script?.trim() || "No script yet."}
-            </pre>
-          </InfoCard>
-          {ctx.content.scenes.length > 0 && (
-            <div className="space-y-3">
-              <h2 className="font-display text-xl tracking-tight">Scenes</h2>
-              <ul className="flex flex-col gap-3">
-                {ctx.content.scenes.map((scene, index) => (
-                  <li
-                    key={scene.id}
-                    className="rounded-xl border border-border bg-surface-strong p-4"
-                  >
-                    <p className="text-sm font-medium">
-                      {scene.title?.trim() || `Scene ${index + 1}`}
-                    </p>
-                    {scene.narration && (
-                      <p className="mt-2 text-sm text-muted">{scene.narration}</p>
-                    )}
-                    {scene.visualDirection && (
-                      <p className="mt-1 text-xs text-muted">
-                        Visual · {scene.visualDirection}
-                      </p>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </div>
+        <ScriptEditor
+          conceptId={ctx.concept.id}
+          initial={ctx.content}
+          fixtureNote={Boolean(ctx.content.notes?.toLowerCase().includes("fixture"))}
+        />
       );
     case "storyboard":
       return (
@@ -402,6 +415,33 @@ function renderTabPanel(
               </li>
             </ul>
           </InfoCard>
+          {ctx.latestAttempt ? (
+            <div className="rounded-xl border border-border bg-surface-strong p-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-medium">Latest video attempt</p>
+                  <p className="mt-1 text-xs text-muted">
+                    Status · {ctx.latestAttempt.status.replaceAll("_", " ")}
+                    {ctx.latestAttempt.output_asset_id
+                      ? " · output saved"
+                      : " · no verified MP4 yet"}
+                  </p>
+                </div>
+                <Link
+                  href={`/videos/${ctx.latestAttempt.id}`}
+                  className="text-sm font-medium text-accent"
+                >
+                  Open review
+                </Link>
+              </div>
+              <VideoReviewActions
+                attemptId={ctx.latestAttempt.id}
+                jobId={ctx.latestAttempt.video_job_id}
+                status={ctx.latestAttempt.status}
+                revoked={Boolean(ctx.latestAttempt.approval_revoked_at)}
+              />
+            </div>
+          ) : null}
           {versionId ? (
             <BrowserRemotionExport
               conceptId={ctx.concept.id}

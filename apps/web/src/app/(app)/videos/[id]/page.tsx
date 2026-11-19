@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { Button } from "@/components/ui/button";
+import { VideoReviewActions } from "@/components/videos/video-review-actions";
 
 /**
  * Video review — loads attempt + signed render URL when an output asset exists.
@@ -177,16 +178,18 @@ async function ReviewBody({
           </p>
         ) : null}
 
+        <VideoReviewActions
+          attemptId={attempt.id}
+          jobId={attempt.video_job_id}
+          status={attempt.status}
+          revoked={Boolean(attempt.approval_revoked_at)}
+        />
         <div className="app-actions" style={{ marginTop: "1.5rem" }}>
           <Link href="/videos">
             <Button variant="secondary" className="studio-button-secondary">
               Back to videos
             </Button>
           </Link>
-          <p className="app-hero-copy" style={{ fontSize: "0.875rem", margin: 0 }}>
-            Approve / regenerate via{" "}
-            <code>POST /api/video-attempts/{attempt.id}/approve</code>
-          </p>
         </div>
       </section>
     </div>

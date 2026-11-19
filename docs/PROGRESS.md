@@ -7,9 +7,9 @@ Last updated: 2026-11-20
 | Milestone | Status | Notes |
 |---|---|---|
 | M1 Foundation | **done** | Monorepo, schema+RLS, auth, studio shell, Overview |
-| M2 Shared Agent | **partial** | Sync gateway **Verified**; Agent→n8n WF-A1/A3→gateway→draft **Verified** (fixture AI); live OpenAI still needs keys |
-| M3 Projects / Content / Activation | **partial** | Lifecycle and Creative Kit exist. Project tabs now load real concepts, rules, publishing jobs, assets, and workflow runs. Existing drafts created before this change still have empty scripts. New agent drafts include a labeled fixture script, storyboard, and publishing pack. |
-| M4 Video production | **partial** | Browser export is opt-in, 480p, ~4s, captions-only by default. Preview is not mounted until requested. Full Chrome encode still not verified here. Cloud render still not provisioned. |
+| M2 Shared Agent | **partial** | Local sync planning remains the live path because `N8N_WEBHOOK_BASE_URL` is empty. Cloud drafts exist for WF-A1 and WF-A3 and are not published. The UI polls `/api/agent/runs/[id]` once a webhook run is accepted. |
+| M3 Projects / Content / Activation | **partial** | Project content can save an initial-launch set. Empty drafts can be filled with a labeled fixture script. Script edits create a new draft version. Shell, type, and color now follow the v2.7 prototype. Screen-by-screen layout is still thinner than the prototype. |
+| M4 Video production | **partial** | Browser export stays opt-in. Production and video review now call approve, revoke, and regenerate. Approval still requires `ready_for_review` and a verified MP4. Full Chrome encode is still not verified here. |
 | M5 Automation / Publishing / Telegram | **partial** | UI + APIs + n8n JSON; live OAuth/Telegram blocked |
 | M6 Docs / hardening | **partial** | Specs + architecture + traceability landed; Playwright scaffold present (`ACS_E2E=1`) |
 
@@ -34,12 +34,11 @@ Unit tests: 19 passed (`@acs/domain` 15 + `@acs/integrations` 4).
 
 ## Next implementation priorities
 
-1. Browser-render E2E smoke on a real approved concept (Chrome WebCodecs) + visual review
-2. Vercel Sandbox remotion adapter when authorized (unattended / n8n-only production)
-3. Playwright: `pnpm exec playwright install chromium` then `ACS_E2E=1 pnpm test:e2e`
-4. Live OpenAI / fal / ElevenLabs when authorized — no paid calls yet
-5. Telegram / YouTube OAuth
-6. n8n Cloud / broader deploy only when separately authorized
+1. Publish cloud WF-A1 only after `ACS_API_BASE_URL` and `ACS_INTERNAL_SERVICE_TOKEN` are set on n8n and the app has a public URL. Then set `N8N_WEBHOOK_BASE_URL` to `https://codebyhani.app.n8n.cloud/webhook`.
+2. Browser-render E2E smoke on a real approved concept (Chrome WebCodecs) + visual review
+3. Finish remaining v2.7 screen layouts: project cards, content storyboard, calendar management, library, settings sections
+4. Vercel Sandbox remotion adapter when authorized
+5. Live OpenAI / fal / ElevenLabs when authorized — no paid calls yet
 
 ## Unattended video production (still incomplete)
 
@@ -57,7 +56,7 @@ Unit tests: 19 passed (`@acs/domain` 15 + `@acs/integrations` 4).
 | Provider keys | Live OpenAI/fal/ElevenLabs/Telegram/YouTube not supplied (adapters ready; fixture-tested) |
 | Playwright Chromium | Install aborted — re-run `pnpm exec playwright install chromium` |
 | Supabase Cloud | Auth + M4 job→storage **Verified**; Mailtrap SMTP optional for signup emails |
-| n8n | Force-recreate after token changes; import workflows from `n8n/workflows/` (recreate alone does not import); production rejects aliases |
+| n8n | Cloud drafts: WF-A3 `Tx1J1HPtoBAeLgQS`, WF-A1 `8qdIEtuApGDJXrPD` at `codebyhani.app.n8n.cloud`. Not published. App webhook URL remains empty so planning does not fire at an unreachable host. |
 | Browser WebCodecs | Chrome 94+ / Firefox 130+ / Safari 26+ required for in-browser MP4 |
 
 ## Decisions

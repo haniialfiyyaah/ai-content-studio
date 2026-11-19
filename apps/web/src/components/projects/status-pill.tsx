@@ -2,6 +2,7 @@ import { cn } from "@/lib/utils";
 
 const STATUS_STYLES: Record<string, string> = {
   draft: "bg-accent-soft text-accent",
+  ready_for_review: "bg-[#fff4e6] text-[#a36f39]",
   pending_review: "bg-warning/15 text-warning",
   approved: "bg-success/15 text-success",
   active: "bg-success/15 text-success",

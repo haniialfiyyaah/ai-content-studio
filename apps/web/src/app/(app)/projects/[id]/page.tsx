@@ -10,6 +10,7 @@ import {
   type ProjectTabId,
 } from "@/lib/project-tabs";
 import { ProjectLifecycleActions } from "@/components/projects/project-lifecycle-actions";
+import { InitialLaunchList } from "@/components/projects/initial-launch-list";
 import { CreativeKitPanel } from "@/components/projects/creative-kit-panel";
 
 interface ProjectDetailRow {
@@ -172,7 +173,7 @@ async function renderTabPanel(
       const { data } = await supabase
         .from("concepts")
         .select(
-          "id, title, updated_at, source, working:concept_versions!concepts_working_version_id_fkey(review_status)",
+          "id, title, updated_at, source, selected_for_initial_launch, working:concept_versions!concepts_working_version_id_fkey(review_status)",
         )
         .eq("project_id", project.id)
         .eq("owner_id", ownerId)
@@ -183,6 +184,7 @@ async function renderTabPanel(
         title: string | null;
         updated_at: string;
         source: string | null;
+        selected_for_initial_launch: boolean;
         working: { review_status: string } | { review_status: string }[] | null;
       }>;
 
@@ -195,31 +197,51 @@ async function renderTabPanel(
         );
       }
 
+      const items = concepts.map((concept) => {
+        const working = Array.isArray(concept.working)
+          ? concept.working[0]
+          : concept.working;
+        return {
+          id: concept.id,
+          title: concept.title,
+          updatedAt: formatDate(concept.updated_at),
+          source: concept.source,
+          reviewStatus: working?.review_status ?? "draft",
+          selected: concept.selected_for_initial_launch,
+        };
+      });
+
+      if (project.status === "draft") {
+        return (
+          <InitialLaunchList
+            projectId={project.id}
+            settingsVersion={project.settings_version}
+            concepts={items}
+          />
+        );
+      }
+
       return (
         <ul className="flex flex-col gap-3">
-          {concepts.map((concept) => {
-            const working = Array.isArray(concept.working)
-              ? concept.working[0]
-              : concept.working;
-            return (
-              <li key={concept.id}>
-                <Link
-                  href={`/content/${concept.id}`}
-                  className="flex flex-col gap-1 rounded-xl border border-border bg-surface-strong px-4 py-4 transition hover:border-accent sm:flex-row sm:items-center sm:justify-between"
-                >
-                  <span>
-                    <span className="block font-medium">
-                      {concept.title?.trim() || "Untitled concept"}
-                    </span>
-                    <span className="mt-1 block text-xs text-muted">
-                      {concept.source ?? "web"} · {formatDate(concept.updated_at)}
-                    </span>
+          {items.map((concept) => (
+            <li key={concept.id}>
+              <Link
+                href={`/content/${concept.id}`}
+                className="flex flex-col gap-1 rounded-xl border border-border bg-surface-strong px-4 py-4 transition hover:border-accent sm:flex-row sm:items-center sm:justify-between"
+              >
+                <span>
+                  <span className="block font-medium">
+                    {concept.title?.trim() || "Untitled concept"}
                   </span>
-                  <StatusPill status={working?.review_status ?? "draft"} />
-                </Link>
-              </li>
-            );
-          })}
+                  <span className="mt-1 block text-xs text-muted">
+                    {concept.source ?? "web"} · {concept.updatedAt}
+                    {concept.selected ? " · Initial launch" : ""}
+                  </span>
+                </span>
+                <StatusPill status={concept.reviewStatus} />
+              </Link>
+            </li>
+          ))}
         </ul>
       );
     }

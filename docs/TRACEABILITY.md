@@ -20,16 +20,16 @@ Status vocabulary:
 | First actionable message → Draft Project | **Verified** (fixture AI via gateway) | `POST /api/agent/messages` → `prepareOpenAiExecution` + `executeOpenAi` |
 | Agent → n8n → gateway live LLM | **Verified** (fixture AI) | WF-A1/A3 imported; executions success; draft project + `runStatus:completed`; live LLM still needs keys |
 | Secure BYOK execute (decrypt in-process) | **Verified** (fixture) | Store → test → mode byok → `/api/internal/ai/execute` `mode:"byok"`; never accepts plaintext BYOK from n8n |
-| Unified Project Detail by status | **Partial** | Same tabs for every status. Content, automation, publishing, assets, and activity read persisted rows. Visual match to v2.7 prototype is still incomplete. |
-| Concept Approve / Edit (immutable versions) | **Verified** | Approve API + revision create |
+| Unified Project Detail by status | **Partial** | Same tabs for every status. Content, automation, publishing, assets, and activity read persisted rows. Initial launch selection saves while draft. Shell color and navigation follow v2.7; individual layouts are still thinner than the prototype. |
+| Concept Approve / Edit (immutable versions) | **Implemented** | Approve API, script editor saves a new draft, empty drafts can be filled and labeled as fixture. |
+| Video Approve / Regenerate | **Implemented** | Review screen and Content → Production call approve, revoke, and regenerate. Approve succeeds only at `ready_for_review`. |
 | Initial launch ≠ approval; activation gate | **Verified** | `INITIAL_LAUNCH_NOT_READY` then activate OK |
 | Activate ≠ paid render ≠ publish | **Verified** | Activate succeeded without auto-render; render needs grant |
 | Video Remotion / fal / Hybrid | **Partial** | Browser Remotion + media prepare **Implemented** (fal LTX + ElevenLabs Flash into composition; fixture CORS samples). Storage upload smoke **Verified**. Chrome encode manual. WF-02 voice→`/api/internal/media/elevenlabs`, fal→`fal-ai/ltx-video`. Sandbox unattended **Not started** |
-| Video Approve / Regenerate | **Verified** (approve); regenerate **Implemented** | Smoke approved attempt |
 | Publishing calendar + schedule form | **Implemented** | UI + `publishing_jobs` API; live OAuth **Blocked** |
 | BYOK no silent managed fallback | **Verified** | Unit policy + fixture BYOK execute decrypt; invalid/missing key → `BYOK_KEY_INVALID` |
 | Telegram continuity | **Partial** | WF-A2 JSON + resolve-actor stub; bot **Blocked** |
-| n8n all 11 workflows | **Verified** (import) | 13 JSON imported via REST; WF-A1/A3 E2E **Verified** (fixture) |
+| n8n all 11 workflows | **Partial** | Repo JSON remains. Connected cloud drafts: WF-A1 `8qdIEtuApGDJXrPD`, WF-A3 `Tx1J1HPtoBAeLgQS`. Not published, and the app webhook is still empty. |
 
 ## Functional requirements (selected)
 

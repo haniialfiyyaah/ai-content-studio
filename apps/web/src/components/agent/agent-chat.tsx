@@ -85,13 +85,17 @@ export function AgentChat() {
       }
 
       setConversationId(json.data.conversationId);
-      if (json.data.projectId) {
-        setProjectId(json.data.projectId);
+      let nextProjectId = json.data.projectId;
+      if (!nextProjectId && json.status === "accepted" && json.data.runId) {
+        nextProjectId = await waitForProject(json.data.runId);
+      }
+      if (nextProjectId) {
+        setProjectId(nextProjectId);
       }
 
       const assistantContent =
         json.data.assistantReply?.trim() ||
-        buildFallbackReply(json.status, json.data.projectId);
+        buildFallbackReply(json.status, nextProjectId);
 
       setMessages((prev) => [
         ...prev,
@@ -99,7 +103,7 @@ export function AgentChat() {
           id: crypto.randomUUID(),
           role: "assistant",
           content: assistantContent,
-          projectId: json.data!.projectId,
+          projectId: nextProjectId,
         },
       ]);
     } catch {
@@ -221,6 +225,20 @@ function buildFallbackReply(
     return "Got it — planning is underway. I'll update this conversation when the draft is ready.";
   }
   return "Tell me what you want to create — a campaign theme, product story, or series — and I'll open a Draft Project.";
+}
+
+async function waitForProject(runId: string): Promise<string | null> {
+  for (let attempt = 0; attempt < 12; attempt += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+    const res = await fetch(`/api/agent/runs/${runId}`);
+    if (!res.ok) return null;
+    const json = (await res.json()) as {
+      data?: { projectId?: string | null; status?: string };
+    };
+    if (json.data?.projectId) return json.data.projectId;
+    if (json.data?.status === "failed") return null;
+  }
+  return null;
 }
 
 function EmptyState({ onPick }: { onPick: (prompt: string) => void }) {

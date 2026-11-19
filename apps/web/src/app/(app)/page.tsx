@@ -20,7 +20,7 @@ export default async function OverviewPage() {
 
   return (
     <div className="app-page">
-      <section className="studio-panel auth-card" style={{ maxWidth: "100%", padding: "2rem" }}>
+      <section className="studio-hero">
         <p className="auth-brand">Overview</p>
         <h1 className="app-hero-title">
           {isReturning
