@@ -4,7 +4,7 @@
 
 - Node.js 20+
 - pnpm 11+
-- Docker Desktop
+- Docker (Colima/Docker Desktop) + `docker-compose`
 - Supabase CLI (`brew install supabase/tap/supabase`)
 
 ## First-time setup
@@ -13,33 +13,56 @@
 cd ai-content-studio
 pnpm install
 cp .env.example apps/web/.env.local
-# Fill NEXT_PUBLIC_SUPABASE_* from `supabase status` after start
 
-supabase start
-pnpm db:reset
+supabase start --ignore-health-check -x logflare,vector
+# Copy API URL, anon key, service_role key into apps/web/.env.local
+
+pnpm db:reset   # optional: re-apply migrations + seed
 pnpm n8n:up
 pnpm dev
 ```
 
-- App: http://localhost:3000
-- Supabase Studio: http://127.0.0.1:54323
-- n8n: http://localhost:5678
+| Service | URL |
+|---|---|
+| App | http://localhost:3000 |
+| Supabase Studio | http://127.0.0.1:54323 |
+| n8n | http://localhost:5678 |
 
-## Fixture mode
+## Fixture vs live AI
 
-When provider keys are empty or `ACS_*_FIXTURE_MODE=true`, adapters return deterministic fixtures and never claim live provider success.
+| Setting | Effect |
+|---|---|
+| `ACS_AI_FIXTURE_MODE=true` | Gateway returns deterministic completions |
+| `ACS_AI_FIXTURE_MODE=false` + `OPENAI_API_KEY` | Managed live OpenAI via Next.js gateway |
+| Settings → BYOK | User key encrypted in DB; never put in n8n |
+
+n8n should **not** store OpenAI credentials. Configure only:
+
+- `ACS_API_BASE_URL` (e.g. `http://host.docker.internal:3000`)
+- `ACS_INTERNAL_SERVICE_TOKEN` (must match Next.js)
+
+Import workflows from `n8n/workflows/` (see `n8n/workflows/README.md`).
+
+## Agent paths
+
+| Condition | Behavior |
+|---|---|
+| `N8N_WEBHOOK_BASE_URL` empty | Sync fixture planning inside Next.js (**verified**) |
+| `N8N_WEBHOOK_BASE_URL` set | Dispatch to n8n WF-A1 webhook |
 
 ## Useful commands
 
 | Command | Purpose |
 |---|---|
-| `pnpm dev` | Next.js app |
-| `pnpm db:start` / `db:stop` | Supabase local |
-| `pnpm db:reset` | Apply migrations + seed |
-| `pnpm n8n:up` / `n8n:down` | Docker n8n |
-| `pnpm typecheck` | Typecheck workspace |
+| `pnpm dev` | Next.js |
+| `pnpm db:start` / `db:stop` / `db:reset` | Supabase |
+| `pnpm n8n:up` / `n8n:down` | n8n via docker-compose |
+| `pnpm --filter @acs/domain test` | Domain unit tests |
 
-## Notes
+## Specs & design
 
-- Master Package at `../AI-Content-Studio-Complete-Package-v2.7` is read-only reference.
-- Do not put real secrets in Git. See `docs/CREDENTIALS.md`.
+- Specs: [specifications/](specifications/)
+- Design: [design/README.md](design/README.md)
+- Architecture: [ARCHITECTURE.md](ARCHITECTURE.md)
+
+Master Package at `../AI-Content-Studio-Complete-Package-v2.7` is read-only reference (full 49-screen set lives there).

@@ -23,3 +23,15 @@
 - **Date:** 2026-03-19
 - **Decision:** Adapters support live + fixture modes; fixture mode is explicit and never reported as live success.
 - **Why:** Enables full journey testing without paid credentials.
+
+## ADR-005: Specs and design vendored under docs/
+
+- **Date:** 2026-11-19
+- **Decision:** Copy latest PRD/TDD/n8n/UX specs into `docs/specifications/` and keep v2.7 prototype + screenshots under `docs/design/`. Full 49-image archive stays in the external Master Package.
+- **Why:** GitHub-portable documentation without bloating the repo with historical binaries; Master Package remains read-only.
+
+## ADR-006: OpenAI only via Next.js AI Provider Gateway
+
+- **Date:** 2026-11-19
+- **Decision:** n8n workflows call `/api/internal/ai/*` over HTTP; no n8n OpenAI Chat Model credentials.
+- **Why:** BYOK isolation, single policy enforcement, no key duplication in workflow execution data.
