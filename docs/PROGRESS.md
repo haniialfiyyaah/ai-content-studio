@@ -7,7 +7,7 @@ Last updated: 2026-11-19
 | Milestone | Status | Notes |
 |---|---|---|
 | M1 Foundation | **done** | Monorepo, schema+RLS, auth, studio shell, Overview |
-| M2 Shared Agent | **partial** | Sync gateway path **Verified** (fixture); n8n WF-A1/A3 JSON carries `ownerId`; live webhook E2E needs import + `N8N_WEBHOOK_BASE_URL` |
+| M2 Shared Agent | **partial** | Sync gateway **Verified**; Agent→n8n WF-A1/A3→gateway→draft **Verified** (fixture AI); live OpenAI still needs keys |
 | M3 Projects / Content / Activation | **done** | Lifecycle, Creative Kit, Content Detail, launch gates |
 | M4 Video production | **fixture** | Job pipeline **Verified**; Remotion composition scaffold + honest fixture worker (live encode blocked by disk / packages) |
 | M5 Automation / Publishing / Telegram | **partial** | UI + APIs + n8n JSON; live OAuth/Telegram blocked |
@@ -27,14 +27,15 @@ Last updated: 2026-11-19
 4. Render blocked without grant → grant → job → claim/complete → video approve
 5. BYOK store → fixture verify → mode switch → `/api/internal/ai/execute` returns `mode:"byok"` after in-process decrypt (fixture completion; no silent managed fallback)
 6. Managed fixture execute after allowance exhaustion (fixtureMode skips spend gate)
+7. n8n: imported all 13 workflows; WF-A1 active; Agent `accepted` → WF-A1/A3 success → draft project (`runStatus: completed`)
 
 Unit tests: 19 passed (`@acs/domain` 15 + `@acs/integrations` 4).
 
 ## Next implementation priorities
 
-1. Import/activate WF-A1/A3 in n8n; set `N8N_WEBHOOK_BASE_URL`; E2E Agent→n8n→gateway
-2. Live OpenAI when `OPENAI_API_KEY` / real BYOK key available (`ACS_AI_FIXTURE_MODE=false`)
-3. Remotion live encode once disk + `remotion`/`@remotion/renderer` + Chromium available
+1. Live OpenAI when `OPENAI_API_KEY` / real BYOK key available (`ACS_AI_FIXTURE_MODE=false`)
+2. Remotion live encode once disk + `remotion`/`@remotion/renderer` + Chromium available
+3. `docker-compose up -d --force-recreate n8n` so container env matches `.env` token (dev alias covers current container)
 4. Playwright with `ACS_E2E=1` against running stack
 5. Remaining providers (fal, ElevenLabs, Telegram, YouTube OAuth)
 

@@ -18,7 +18,7 @@ Status vocabulary:
 |---|---|---|
 | Sign-in → Overview | **Verified** | API smoke 2026-11-19; `/login`, `/` |
 | First actionable message → Draft Project | **Verified** (fixture AI via gateway) | `POST /api/agent/messages` → `prepareOpenAiExecution` + `executeOpenAi` |
-| Agent → n8n → gateway live LLM | **Partial / Fixture** | Sync gateway **Verified**; WF-A1/A3 JSON pass `ownerId`; live n8n E2E **Partial** (import + webhook URL) |
+| Agent → n8n → gateway live LLM | **Verified** (fixture AI) | WF-A1/A3 imported; executions success; draft project + `runStatus:completed`; live LLM still needs keys |
 | Secure BYOK execute (decrypt in-process) | **Verified** (fixture) | Store → test → mode byok → `/api/internal/ai/execute` `mode:"byok"`; never accepts plaintext BYOK from n8n |
 | Unified Project Detail by status | **Implemented** | `/projects/[id]` tabs + lifecycle actions |
 | Concept Approve / Edit (immutable versions) | **Verified** | Approve API + revision create |
@@ -29,7 +29,7 @@ Status vocabulary:
 | Publishing calendar + schedule form | **Implemented** | UI + `publishing_jobs` API; live OAuth **Blocked** |
 | BYOK no silent managed fallback | **Verified** | Unit policy + fixture BYOK execute decrypt; invalid/missing key → `BYOK_KEY_INVALID` |
 | Telegram continuity | **Partial** | WF-A2 JSON + resolve-actor stub; bot **Blocked** |
-| n8n all 11 workflows | **Implemented** (JSON) | `n8n/workflows/*.json`; live import/run **Partial** |
+| n8n all 11 workflows | **Verified** (import) | 13 JSON imported via REST; WF-A1/A3 E2E **Verified** (fixture) |
 
 ## Functional requirements (selected)
 
@@ -54,9 +54,9 @@ Status vocabulary:
 
 | ID | Status |
 |---|---|
-| WF-A1 Web Agent Gateway | JSON **Implemented**; live E2E **Partial** |
+| WF-A1 Web Agent Gateway | **Verified** (fixture E2E) |
 | WF-A2 Telegram Gateway | JSON **Implemented**; credentials **Blocked** |
-| WF-A3 Shared Creative Agent | JSON **Implemented**; calls gateway HTTP |
+| WF-A3 Shared Creative Agent | **Verified** (sub-workflow via A1; fixture AI) |
 | WF-01 Ideation | JSON **Implemented** |
 | WF-02 Video Production | JSON **Implemented** |
 | WF-03 Publishing | JSON **Implemented** |

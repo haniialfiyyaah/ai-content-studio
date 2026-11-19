@@ -87,7 +87,7 @@ Browser / Telegram
 | fal.ai / ElevenLabs live | **Fixture** until keys |
 | Publishing OAuth (YouTube etc.) | **Blocked** on credentials |
 | Telegram agent | **Blocked** on bot token; stubs present |
-| n8n live E2E orchestration | JSON ready; full import/run **Partial** |
+| n8n Agent→gateway E2E | **Verified** with fixture AI (WF-A1/A3); other workflows imported |
 | Playwright E2E suite | **Not started** |
 
 Do **not** treat fixtures or stubs as production-ready. Details: [docs/TRACEABILITY.md](docs/TRACEABILITY.md) · [docs/PROGRESS.md](docs/PROGRESS.md).

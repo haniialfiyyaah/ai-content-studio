@@ -76,6 +76,8 @@ async function main() {
       connections: workflow.connections || {},
       settings: workflow.settings || { executionOrder: "v1" },
       staticData: workflow.staticData ?? null,
+      // n8n SQLite requires active boolean on create.
+      active: false,
     };
 
     const res = await fetch(`${baseUrl}/api/v1/workflows`, {
