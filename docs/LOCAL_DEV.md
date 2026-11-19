@@ -51,6 +51,8 @@ Import workflows from `n8n/workflows/` (see `n8n/workflows/README.md`).
 | `N8N_WEBHOOK_BASE_URL` set | Dispatch to n8n WF-A1 webhook (import + activate WF-A1/A3 first) |
 | BYOK | Settings → store key → Test → switch mode → gateway decrypts in-process (**verified** fixture) |
 | Remotion | Default worker returns explicit fixture; `ACS_REMOTION_LIVE=true` requires Remotion packages |
+| Playwright | `pnpm exec playwright install chromium` then `ACS_E2E=1 pnpm test:e2e` |
+| n8n token drift | After changing `.env`, run `docker-compose up -d --force-recreate n8n` (dev accepts legacy `local-internal-token`) |
 
 ## Useful commands
 

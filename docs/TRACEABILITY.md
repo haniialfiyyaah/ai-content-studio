@@ -72,7 +72,7 @@ Status vocabulary:
 |---|---|
 | Domain unit (`@acs/domain`) | **Verified** — 15 tests |
 | Integrations unit (`@acs/integrations`) | **Verified** — 4 tests |
-| Playwright E2E | **Partial** — `tests/e2e/smoke.spec.ts` (skipped unless `ACS_E2E=1`) |
+| Playwright E2E | **Partial** — `@playwright/test` + smoke spec; Chromium install blocked in agent sandbox (`pnpm exec playwright install`); login UI checked via browser |
 | n8n import helper | **Implemented** — `scripts/import-n8n-workflows.mjs` / `pnpm n8n:import` (needs API key) |
 
 ## Spec documents in-repo
