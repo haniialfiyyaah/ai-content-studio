@@ -5,3 +5,5 @@ export * from "./errors";
 export * from "./concept";
 export * from "./agent";
 export * from "./ai-provider";
+export * from "./video";
+export * from "./publishing";

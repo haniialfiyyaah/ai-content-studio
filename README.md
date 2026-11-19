@@ -17,6 +17,18 @@ pnpm n8n:up
 pnpm dev
 ```
 
+### Render worker (fixture stub)
+
+Minimal HTTP stub for Remotion composition jobs. Accepts `POST /render` with `{ "jobId": "..." }` and returns `{ "status": "accepted", "fixture": true }`.
+
+```bash
+pnpm --filter render-worker start
+# → http://localhost:8787
+curl -X POST http://localhost:8787/render \
+  -H 'content-type: application/json' \
+  -d '{"jobId":"00000000-0000-0000-0000-000000000001"}'
+```
+
 See [docs/LOCAL_DEV.md](docs/LOCAL_DEV.md) and [docs/PROGRESS.md](docs/PROGRESS.md).
 
 ## Workspace

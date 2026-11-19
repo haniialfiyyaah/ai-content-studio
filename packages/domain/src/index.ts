@@ -7,3 +7,6 @@ export * from "./services/projects";
 export * from "./services/agent";
 export * from "./services/concepts";
 export * from "./services/activation";
+export * from "./services/videos";
+export * from "./services/ai-provider";
+export * from "./services/publishing";

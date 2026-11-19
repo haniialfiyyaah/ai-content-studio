@@ -13,6 +13,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@acs/integrations": "workspace:*",
     "@acs/schemas": "workspace:*",
     "@supabase/supabase-js": "^2.57.4",
     "zod": "^3.25.76"
