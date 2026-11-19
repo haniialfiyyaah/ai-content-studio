@@ -1,0 +1,2 @@
+-- AI Content Studio local seed
+-- Keep empty for fresh local stacks; add demo fixtures only when needed for e2e.

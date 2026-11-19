@@ -1,0 +1,603 @@
+{
+  "name": "WF-02 Video Production",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "video-production",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "wf02-01-webhook",
+      "name": "02-01 Receive production intent",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 0],
+      "webhookId": "acs-video-production"
+    },
+    {
+      "parameters": {
+        "mode": "manual",
+        "duplicateItem": false,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "jobId",
+              "name": "jobId",
+              "value": "={{ $json.body.jobId || $json.jobId }}",
+              "type": "string"
+            },
+            {
+              "id": "projectId",
+              "name": "projectId",
+              "value": "={{ $json.body.projectId || $json.projectId || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "conceptVersionId",
+              "name": "conceptVersionId",
+              "value": "={{ $json.body.conceptVersionId || $json.conceptVersionId || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "productionMode",
+              "name": "productionMode",
+              "value": "={{ $json.body.productionMode || $json.productionMode || 'remotion' }}",
+              "type": "string"
+            },
+            {
+              "id": "consentId",
+              "name": "consentId",
+              "value": "={{ $json.body.consentId || $json.consentId || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "correlationId",
+              "name": "correlationId",
+              "value": "={{ $json.body.correlationId || $json.correlationId || $json.body.idempotencyKey || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "narrationRequired",
+              "name": "narrationRequired",
+              "value": "={{ !!( $json.body.narrationRequired ?? $json.narrationRequired ?? false ) }}",
+              "type": "boolean"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "wf02-02-set",
+      "name": "02-02 Normalize intent",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [260, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.ACS_API_BASE_URL}}/api/internal/jobs/claim",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-acs-service-token",
+              "value": "={{$env.ACS_INTERNAL_SERVICE_TOKEN}}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"jobId\": \"{{ $json.jobId }}\",\n  \"kind\": \"video\",\n  \"projectId\": \"{{ $json.projectId }}\",\n  \"conceptVersionId\": \"{{ $json.conceptVersionId }}\",\n  \"consentId\": \"{{ $json.consentId }}\",\n  \"correlationId\": \"{{ $json.correlationId }}\"\n}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "wf02-03-claim",
+      "name": "02-03 Claim job",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [520, 0]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "acquired",
+              "leftValue": "={{ $json.data?.claim || $json.claim || '' }}",
+              "rightValue": "acquired",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "wf02-04-if-claimed",
+      "name": "02-04 Claim acquired?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [780, 0]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "narration",
+              "leftValue": "={{ $('02-02 Normalize intent').item.json.narrationRequired }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "wf02-05-if-narration",
+      "name": "02-05 Narration required?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [1040, -40]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.ACS_API_BASE_URL}}/api/internal/jobs/progress",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-acs-service-token",
+              "value": "={{$env.ACS_INTERNAL_SERVICE_TOKEN}}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"jobId\": \"{{ $('02-02 Normalize intent').item.json.jobId }}\",\n  \"stage\": \"voice\",\n  \"state\": \"running\",\n  \"message\": \"Generating narration via provider adapter\",\n  \"correlationId\": \"{{ $('02-02 Normalize intent').item.json.correlationId }}\"\n}",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "wf02-06-voice",
+      "name": "02-06 Generate voice",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1300, -180]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $('02-02 Normalize intent').item.json.productionMode }}",
+                    "rightValue": "fal",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "fal"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $('02-02 Normalize intent').item.json.productionMode }}",
+                    "rightValue": "hybrid",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "hybrid"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "id": "wf02-07-mode-switch",
+      "name": "02-07 Mode switch",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [1560, -40]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.ACS_API_BASE_URL}}/api/internal/jobs/progress",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-acs-service-token",
+              "value": "={{$env.ACS_INTERNAL_SERVICE_TOKEN}}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"jobId\": \"{{ $('02-02 Normalize intent').item.json.jobId }}\",\n  \"stage\": \"render_remotion\",\n  \"state\": \"running\",\n  \"productionMode\": \"remotion\",\n  \"correlationId\": \"{{ $('02-02 Normalize intent').item.json.correlationId }}\"\n}",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "id": "wf02-08-remotion",
+      "name": "02-08 Remotion adapter",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1820, 80]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.ACS_API_BASE_URL}}/api/internal/jobs/progress",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-acs-service-token",
+              "value": "={{$env.ACS_INTERNAL_SERVICE_TOKEN}}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"jobId\": \"{{ $('02-02 Normalize intent').item.json.jobId }}\",\n  \"stage\": \"render_fal\",\n  \"state\": \"running\",\n  \"productionMode\": \"fal\",\n  \"correlationId\": \"{{ $('02-02 Normalize intent').item.json.correlationId }}\"\n}",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "id": "wf02-09-fal",
+      "name": "02-09 fal.ai adapter",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1820, -180]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.ACS_API_BASE_URL}}/api/internal/jobs/progress",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-acs-service-token",
+              "value": "={{$env.ACS_INTERNAL_SERVICE_TOKEN}}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"jobId\": \"{{ $('02-02 Normalize intent').item.json.jobId }}\",\n  \"stage\": \"render_hybrid\",\n  \"state\": \"running\",\n  \"productionMode\": \"hybrid\",\n  \"correlationId\": \"{{ $('02-02 Normalize intent').item.json.correlationId }}\"\n}",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "id": "wf02-10-hybrid",
+      "name": "02-10 Hybrid adapter",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1820, -40]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.ACS_API_BASE_URL}}/api/internal/jobs/complete",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-acs-service-token",
+              "value": "={{$env.ACS_INTERNAL_SERVICE_TOKEN}}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"jobId\": \"{{ $('02-02 Normalize intent').item.json.jobId }}\",\n  \"kind\": \"video\",\n  \"state\": \"ready_for_review\",\n  \"productionMode\": \"{{ $('02-02 Normalize intent').item.json.productionMode }}\",\n  \"providerRequestId\": \"{{ $json.data?.providerRequestId || $json.providerRequestId || '' }}\",\n  \"correlationId\": \"{{ $('02-02 Normalize intent').item.json.correlationId }}\"\n}",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "id": "wf02-11-complete",
+      "name": "02-11 Complete output",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2080, -40]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"jobId\": \"{{ $('02-02 Normalize intent').item.json.jobId }}\",\n  \"accepted\": true,\n  \"state\": \"ready_for_review\"\n}",
+        "options": {
+          "responseCode": 202
+        }
+      },
+      "id": "wf02-12-respond-ok",
+      "name": "02-12 Ack accepted",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [2340, -40]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.ACS_API_BASE_URL}}/api/internal/jobs/fail",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-acs-service-token",
+              "value": "={{$env.ACS_INTERNAL_SERVICE_TOKEN}}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"jobId\": \"{{ $('02-02 Normalize intent').item.json.jobId }}\",\n  \"kind\": \"video\",\n  \"category\": \"AUTHZ\",\n  \"message\": \"Video job claim not acquired; no provider call\",\n  \"correlationId\": \"{{ $('02-02 Normalize intent').item.json.correlationId }}\"\n}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "wf02-13-fail",
+      "name": "02-13 Block or fail",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1040, 180]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"jobId\": \"{{ $('02-02 Normalize intent').item.json.jobId }}\",\n  \"accepted\": false,\n  \"state\": \"blocked\"\n}",
+        "options": {
+          "responseCode": 202
+        }
+      },
+      "id": "wf02-14-respond-blocked",
+      "name": "02-14 Ack blocked",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1300, 180]
+    }
+  ],
+  "connections": {
+    "02-01 Receive production intent": {
+      "main": [
+        [
+          {
+            "node": "02-02 Normalize intent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "02-02 Normalize intent": {
+      "main": [
+        [
+          {
+            "node": "02-03 Claim job",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "02-03 Claim job": {
+      "main": [
+        [
+          {
+            "node": "02-04 Claim acquired?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "02-04 Claim acquired?": {
+      "main": [
+        [
+          {
+            "node": "02-05 Narration required?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "02-13 Block or fail",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "02-05 Narration required?": {
+      "main": [
+        [
+          {
+            "node": "02-06 Generate voice",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "02-07 Mode switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "02-06 Generate voice": {
+      "main": [
+        [
+          {
+            "node": "02-07 Mode switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "02-07 Mode switch": {
+      "main": [
+        [
+          {
+            "node": "02-09 fal.ai adapter",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "02-10 Hybrid adapter",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "02-08 Remotion adapter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "02-08 Remotion adapter": {
+      "main": [
+        [
+          {
+            "node": "02-11 Complete output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "02-09 fal.ai adapter": {
+      "main": [
+        [
+          {
+            "node": "02-11 Complete output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "02-10 Hybrid adapter": {
+      "main": [
+        [
+          {
+            "node": "02-11 Complete output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "02-11 Complete output": {
+      "main": [
+        [
+          {
+            "node": "02-12 Ack accepted",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "02-13 Block or fail": {
+      "main": [
+        [
+          {
+            "node": "02-14 Ack blocked",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}

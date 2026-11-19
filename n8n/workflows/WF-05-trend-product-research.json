@@ -1,0 +1,555 @@
+{
+  "name": "WF-05 Trend and Product Research",
+  "nodes": [
+    {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "id": "wf05-01-trigger",
+      "name": "05-01 Typed research request",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "mode": "manual",
+        "duplicateItem": false,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "projectId",
+              "name": "projectId",
+              "value": "={{ $json.projectId || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "runId",
+              "name": "runId",
+              "value": "={{ $json.runId || $json.jobId || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "correlationId",
+              "name": "correlationId",
+              "value": "={{ $json.correlationId || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "query",
+              "name": "query",
+              "value": "={{ $json.query || $json.searchQuery || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "sourceCategory",
+              "name": "sourceCategory",
+              "value": "={{ $json.sourceCategory || 'product' }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "wf05-02-normalize",
+      "name": "05-02 Normalize request",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [260, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.ACS_API_BASE_URL}}/api/internal/ai/check-policy",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-acs-service-token",
+              "value": "={{$env.ACS_INTERNAL_SERVICE_TOKEN}}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"runId\": \"{{ $json.runId }}\",\n  \"projectId\": \"{{ $json.projectId }}\",\n  \"correlationId\": \"{{ $json.correlationId }}\",\n  \"purpose\": \"research\"\n}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "wf05-03-scope",
+      "name": "05-03 Scope policy check",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [520, 0]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $('05-02 Normalize request').item.json.sourceCategory }}",
+                    "rightValue": "trend",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "trend"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $('05-02 Normalize request').item.json.sourceCategory }}",
+                    "rightValue": "product",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "product"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "id": "wf05-04-switch",
+      "name": "05-04 Provider search branch",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [780, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.ACS_API_BASE_URL}}/api/internal/ai/execute",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-acs-service-token",
+              "value": "={{$env.ACS_INTERNAL_SERVICE_TOKEN}}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"runId\": \"{{ $('05-02 Normalize request').item.json.runId }}\",\n  \"projectId\": \"{{ $('05-02 Normalize request').item.json.projectId }}\",\n  \"correlationId\": \"{{ $('05-02 Normalize request').item.json.correlationId }}\",\n  \"purpose\": \"research\",\n  \"sourceCategory\": \"trend\",\n  \"query\": {{ JSON.stringify($('05-02 Normalize request').item.json.query) }},\n  \"responseFormat\": \"json\"\n}",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "wf05-05-fetch-trend",
+      "name": "05-05 Fetch trend sources",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1040, -160]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.ACS_API_BASE_URL}}/api/internal/ai/execute",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-acs-service-token",
+              "value": "={{$env.ACS_INTERNAL_SERVICE_TOKEN}}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"runId\": \"{{ $('05-02 Normalize request').item.json.runId }}\",\n  \"projectId\": \"{{ $('05-02 Normalize request').item.json.projectId }}\",\n  \"correlationId\": \"{{ $('05-02 Normalize request').item.json.correlationId }}\",\n  \"purpose\": \"research\",\n  \"sourceCategory\": \"product\",\n  \"query\": {{ JSON.stringify($('05-02 Normalize request').item.json.query) }},\n  \"responseFormat\": \"json\"\n}",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "wf05-06-fetch-product",
+      "name": "05-06 Fetch product sources",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1040, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.ACS_API_BASE_URL}}/api/internal/workflows/record-error",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-acs-service-token",
+              "value": "={{$env.ACS_INTERNAL_SERVICE_TOKEN}}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"runId\": \"{{ $('05-02 Normalize request').item.json.runId }}\",\n  \"correlationId\": \"{{ $('05-02 Normalize request').item.json.correlationId }}\",\n  \"category\": \"VALIDATION\",\n  \"message\": \"Unsupported research source category\",\n  \"sanitized\": true\n}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "wf05-07-unsupported",
+      "name": "05-07 Unsupported category",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1040, 160]
+    },
+    {
+      "parameters": {
+        "mode": "manual",
+        "duplicateItem": false,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "sources",
+              "name": "sources",
+              "value": "={{ $json.data?.sources || $json.sources || [] }}",
+              "type": "array"
+            },
+            {
+              "id": "claimIds",
+              "name": "claimIds",
+              "value": "={{ $json.data?.claimIds || $json.claimIds || [] }}",
+              "type": "array"
+            },
+            {
+              "id": "warnings",
+              "name": "warnings",
+              "value": "={{ $json.data?.warnings || $json.warnings || [] }}",
+              "type": "array"
+            },
+            {
+              "id": "evidenceUnavailable",
+              "name": "evidenceUnavailable",
+              "value": "={{ !(($json.data?.sources || $json.sources || []).length) }}",
+              "type": "boolean"
+            },
+            {
+              "id": "retrievedAt",
+              "name": "retrievedAt",
+              "value": "={{ $json.data?.retrievedAt || $now.toISO() }}",
+              "type": "string"
+            },
+            {
+              "id": "projectId",
+              "name": "projectId",
+              "value": "={{ $('05-02 Normalize request').item.json.projectId }}",
+              "type": "string"
+            },
+            {
+              "id": "runId",
+              "name": "runId",
+              "value": "={{ $('05-02 Normalize request').item.json.runId }}",
+              "type": "string"
+            },
+            {
+              "id": "correlationId",
+              "name": "correlationId",
+              "value": "={{ $('05-02 Normalize request').item.json.correlationId }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "wf05-08-normalize-claims",
+      "name": "05-08 Normalize claims",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1300, -80]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.ACS_API_BASE_URL}}/api/internal/jobs/progress",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-acs-service-token",
+              "value": "={{$env.ACS_INTERNAL_SERVICE_TOKEN}}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"jobId\": \"{{ $json.runId }}\",\n  \"projectId\": \"{{ $json.projectId }}\",\n  \"stage\": \"research_persist\",\n  \"state\": \"running\",\n  \"correlationId\": \"{{ $json.correlationId }}\",\n  \"sources\": {{ JSON.stringify($json.sources || []) }},\n  \"claimIds\": {{ JSON.stringify($json.claimIds || []) }},\n  \"retrievedAt\": \"{{ $json.retrievedAt }}\"\n}",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "id": "wf05-09-persist",
+      "name": "05-09 Persist evidence",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1560, -80]
+    },
+    {
+      "parameters": {
+        "mode": "manual",
+        "duplicateItem": false,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "sources",
+              "name": "sources",
+              "value": "={{ $('05-08 Normalize claims').item.json.sources }}",
+              "type": "array"
+            },
+            {
+              "id": "claimIds",
+              "name": "claimIds",
+              "value": "={{ $('05-08 Normalize claims').item.json.claimIds }}",
+              "type": "array"
+            },
+            {
+              "id": "warnings",
+              "name": "warnings",
+              "value": "={{ $('05-08 Normalize claims').item.json.warnings }}",
+              "type": "array"
+            },
+            {
+              "id": "evidenceUnavailable",
+              "name": "evidenceUnavailable",
+              "value": "={{ $('05-08 Normalize claims').item.json.evidenceUnavailable }}",
+              "type": "boolean"
+            },
+            {
+              "id": "originalOnlyFallback",
+              "name": "originalOnlyFallback",
+              "value": "={{ $('05-08 Normalize claims').item.json.evidenceUnavailable }}",
+              "type": "boolean"
+            },
+            {
+              "id": "retrievedAt",
+              "name": "retrievedAt",
+              "value": "={{ $('05-08 Normalize claims').item.json.retrievedAt }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "wf05-10-return",
+      "name": "05-10 Return research bundle",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1820, -80]
+    },
+    {
+      "parameters": {
+        "mode": "manual",
+        "duplicateItem": false,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "sources",
+              "name": "sources",
+              "value": "=[]",
+              "type": "array"
+            },
+            {
+              "id": "claimIds",
+              "name": "claimIds",
+              "value": "=[]",
+              "type": "array"
+            },
+            {
+              "id": "warnings",
+              "name": "warnings",
+              "value": "=[\"unsupported_source_category\"]",
+              "type": "array"
+            },
+            {
+              "id": "evidenceUnavailable",
+              "name": "evidenceUnavailable",
+              "value": true,
+              "type": "boolean"
+            },
+            {
+              "id": "originalOnlyFallback",
+              "name": "originalOnlyFallback",
+              "value": true,
+              "type": "boolean"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "wf05-11-empty",
+      "name": "05-11 Empty research bundle",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1300, 160]
+    }
+  ],
+  "connections": {
+    "05-01 Typed research request": {
+      "main": [
+        [
+          {
+            "node": "05-02 Normalize request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "05-02 Normalize request": {
+      "main": [
+        [
+          {
+            "node": "05-03 Scope policy check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "05-03 Scope policy check": {
+      "main": [
+        [
+          {
+            "node": "05-04 Provider search branch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "05-04 Provider search branch": {
+      "main": [
+        [
+          {
+            "node": "05-05 Fetch trend sources",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "05-06 Fetch product sources",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "05-07 Unsupported category",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "05-05 Fetch trend sources": {
+      "main": [
+        [
+          {
+            "node": "05-08 Normalize claims",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "05-06 Fetch product sources": {
+      "main": [
+        [
+          {
+            "node": "05-08 Normalize claims",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "05-07 Unsupported category": {
+      "main": [
+        [
+          {
+            "node": "05-11 Empty research bundle",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "05-08 Normalize claims": {
+      "main": [
+        [
+          {
+            "node": "05-09 Persist evidence",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "05-09 Persist evidence": {
+      "main": [
+        [
+          {
+            "node": "05-10 Return research bundle",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}

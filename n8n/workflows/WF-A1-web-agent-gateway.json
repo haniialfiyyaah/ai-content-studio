@@ -1,0 +1,221 @@
+{
+  "name": "WF-A1 Web Agent Gateway",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "agent-web",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "a1-01-webhook",
+      "name": "A1-01 Receive dispatch",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 0],
+      "webhookId": "acs-agent-web"
+    },
+    {
+      "parameters": {
+        "mode": "manual",
+        "duplicateItem": false,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "runId",
+              "name": "runId",
+              "value": "={{ $json.body.runId || $json.runId }}",
+              "type": "string"
+            },
+            {
+              "id": "conversationId",
+              "name": "conversationId",
+              "value": "={{ $json.body.conversationId || $json.conversationId }}",
+              "type": "string"
+            },
+            {
+              "id": "messageId",
+              "name": "messageId",
+              "value": "={{ $json.body.messageId || $json.messageId }}",
+              "type": "string"
+            },
+            {
+              "id": "correlationId",
+              "name": "correlationId",
+              "value": "={{ $json.body.correlationId || $json.correlationId }}",
+              "type": "string"
+            },
+            {
+              "id": "signedExecutionContext",
+              "name": "signedExecutionContext",
+              "value": "={{ $json.body.signedExecutionContext || $json.signedExecutionContext || '' }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a1-02-set",
+      "name": "A1-02 Normalize envelope",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [260, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.ACS_API_BASE_URL}}/api/internal/agent/resolve-context",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-acs-service-token",
+              "value": "={{$env.ACS_INTERNAL_SERVICE_TOKEN}}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"runId\": \"{{ $json.runId }}\",\n  \"conversationId\": \"{{ $json.conversationId }}\",\n  \"messageId\": \"{{ $json.messageId }}\",\n  \"correlationId\": \"{{ $json.correlationId }}\",\n  \"signedExecutionContext\": \"{{ $json.signedExecutionContext }}\"\n}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "a1-03-resolve",
+      "name": "A1-03 Resolve signed context",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [520, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.ACS_API_BASE_URL}}/api/internal/jobs/claim",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-acs-service-token",
+              "value": "={{$env.ACS_INTERNAL_SERVICE_TOKEN}}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"jobId\": \"{{ $('A1-02 Normalize envelope').item.json.runId }}\",\n  \"kind\": \"agent_run\",\n  \"correlationId\": \"{{ $('A1-02 Normalize envelope').item.json.correlationId }}\"\n}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "a1-04-claim",
+      "name": "A1-04 Claim execution",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [780, 0]
+    },
+    {
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "WF-A3 Shared Creative Agent"
+        },
+        "options": {
+          "waitForSubWorkflow": false
+        }
+      },
+      "id": "a1-05-execute-a3",
+      "name": "A1-05 Launch shared creative agent",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [1040, 0]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"runId\": \"{{ $('A1-02 Normalize envelope').item.json.runId }}\",\n  \"accepted\": true,\n  \"correlationId\": \"{{ $('A1-02 Normalize envelope').item.json.correlationId }}\"\n}",
+        "options": {
+          "responseCode": 202
+        }
+      },
+      "id": "a1-06-respond",
+      "name": "A1-06 Ack accepted",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1300, 0]
+    }
+  ],
+  "connections": {
+    "A1-01 Receive dispatch": {
+      "main": [
+        [
+          {
+            "node": "A1-02 Normalize envelope",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "A1-02 Normalize envelope": {
+      "main": [
+        [
+          {
+            "node": "A1-03 Resolve signed context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "A1-03 Resolve signed context": {
+      "main": [
+        [
+          {
+            "node": "A1-04 Claim execution",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "A1-04 Claim execution": {
+      "main": [
+        [
+          {
+            "node": "A1-05 Launch shared creative agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "A1-05 Launch shared creative agent": {
+      "main": [
+        [
+          {
+            "node": "A1-06 Ack accepted",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}

@@ -1,0 +1,11 @@
+{
+  "schemaVersion": "1.0-proposal",
+  "jobId": "00000000-0000-4000-8000-000000000006",
+  "projectId": "00000000-0000-4000-8000-000000000007",
+  "conceptId": "00000000-0000-4000-8000-000000000008",
+  "conceptVersionId": "00000000-0000-4000-8000-000000000009",
+  "productionMode": "hybrid",
+  "requestedProviderModel": "<verified-model-catalog-id>",
+  "consentId": "00000000-0000-4000-8000-00000000000a",
+  "idempotencyKey": "video:approved-version:00000000-0000-4000-8000-000000000009:consent:00000000-0000-4000-8000-00000000000a"
+}

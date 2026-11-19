@@ -1,0 +1,188 @@
+{
+  "name": "WF-A3 Shared Creative Agent",
+  "nodes": [
+    {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "id": "a3-01-trigger",
+      "name": "A3-01 Start with typed input",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.ACS_API_BASE_URL}}/api/internal/ai/check-policy",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-acs-service-token",
+              "value": "={{$env.ACS_INTERNAL_SERVICE_TOKEN}}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"runId\": \"{{ $json.runId }}\",\n  \"conversationId\": \"{{ $json.conversationId }}\",\n  \"messageId\": \"{{ $json.messageId }}\",\n  \"correlationId\": \"{{ $json.correlationId }}\",\n  \"purpose\": \"ideation\"\n}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "a3-02-check-policy",
+      "name": "A3-02 Check AI policy",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [260, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.ACS_API_BASE_URL}}/api/internal/ai/execute",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-acs-service-token",
+              "value": "={{$env.ACS_INTERNAL_SERVICE_TOKEN}}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"runId\": \"{{ $('A3-01 Start with typed input').item.json.runId }}\",\n  \"conversationId\": \"{{ $('A3-01 Start with typed input').item.json.conversationId }}\",\n  \"messageId\": \"{{ $('A3-01 Start with typed input').item.json.messageId }}\",\n  \"correlationId\": \"{{ $('A3-01 Start with typed input').item.json.correlationId }}\",\n  \"purpose\": \"ideation\",\n  \"responseFormat\": \"json\"\n}",
+        "options": {
+          "timeout": 180000
+        }
+      },
+      "id": "a3-03-execute-ai",
+      "name": "A3-03 Execute AI",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [520, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.ACS_API_BASE_URL}}/api/internal/agent/record-progress",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-acs-service-token",
+              "value": "={{$env.ACS_INTERNAL_SERVICE_TOKEN}}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"runId\": \"{{ $('A3-01 Start with typed input').item.json.runId }}\",\n  \"stage\": \"persisting\",\n  \"state\": \"running\",\n  \"message\": \"Persisting draft Project and assistant reply\",\n  \"correlationId\": \"{{ $('A3-01 Start with typed input').item.json.correlationId }}\"\n}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "a3-04-record-progress",
+      "name": "A3-04 Record progress",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [780, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.ACS_API_BASE_URL}}/api/internal/agent/record-result",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-acs-service-token",
+              "value": "={{$env.ACS_INTERNAL_SERVICE_TOKEN}}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"runId\": \"{{ $('A3-01 Start with typed input').item.json.runId }}\",\n  \"conversationId\": \"{{ $('A3-01 Start with typed input').item.json.conversationId }}\",\n  \"messageId\": \"{{ $('A3-01 Start with typed input').item.json.messageId }}\",\n  \"correlationId\": \"{{ $('A3-01 Start with typed input').item.json.correlationId }}\",\n  \"assistantReply\": {{ JSON.stringify($('A3-03 Execute AI').item.json.data?.content || $('A3-03 Execute AI').item.json.content || '') }},\n  \"aiResult\": {{ JSON.stringify($('A3-03 Execute AI').item.json.data || $('A3-03 Execute AI').item.json) }}\n}",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "id": "a3-05-record-result",
+      "name": "A3-05 Record result",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1040, 0]
+    }
+  ],
+  "connections": {
+    "A3-01 Start with typed input": {
+      "main": [
+        [
+          {
+            "node": "A3-02 Check AI policy",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "A3-02 Check AI policy": {
+      "main": [
+        [
+          {
+            "node": "A3-03 Execute AI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "A3-03 Execute AI": {
+      "main": [
+        [
+          {
+            "node": "A3-04 Record progress",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "A3-04 Record progress": {
+      "main": [
+        [
+          {
+            "node": "A3-05 Record result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}

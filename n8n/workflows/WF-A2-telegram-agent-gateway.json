@@ -1,0 +1,447 @@
+{
+  "name": "WF-A2 Telegram Agent Gateway",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": ["message", "callback_query"],
+        "additionalFields": {}
+      },
+      "id": "a2-01-telegram-trigger",
+      "name": "A2-01 Telegram updates",
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.1,
+      "position": [0, 0],
+      "webhookId": "acs-agent-telegram"
+    },
+    {
+      "parameters": {
+        "mode": "manual",
+        "duplicateItem": false,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "updateId",
+              "name": "updateId",
+              "value": "={{ $json.update_id || $json.updateId || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "chatId",
+              "name": "chatId",
+              "value": "={{ ($json.message || $json.callback_query?.message || {}).chat?.id || $json.chatId || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "chatType",
+              "name": "chatType",
+              "value": "={{ ($json.message || $json.callback_query?.message || {}).chat?.type || 'unknown' }}",
+              "type": "string"
+            },
+            {
+              "id": "userId",
+              "name": "userId",
+              "value": "={{ ($json.message || $json.callback_query || {}).from?.id || $json.userId || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "messageId",
+              "name": "messageId",
+              "value": "={{ ($json.message || $json.callback_query?.message || {}).message_id || $json.messageId || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "text",
+              "name": "text",
+              "value": "={{ $json.message?.text || $json.callback_query?.data || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "hasAttachment",
+              "name": "hasAttachment",
+              "value": "={{ !!( $json.message?.photo || $json.message?.voice || $json.message?.document || $json.message?.audio || $json.message?.video ) }}",
+              "type": "boolean"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a2-02-set",
+      "name": "A2-02 Normalize update",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [260, 0]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "private-chat",
+              "leftValue": "={{ $json.chatType }}",
+              "rightValue": "private",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "a2-03-if-supported",
+      "name": "A2-03 Supported private update?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [520, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.ACS_API_BASE_URL}}/api/internal/telegram/resolve-actor",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-acs-service-token",
+              "value": "={{$env.ACS_INTERNAL_SERVICE_TOKEN}}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"updateId\": \"{{ $('A2-02 Normalize update').item.json.updateId }}\",\n  \"chatId\": \"{{ $('A2-02 Normalize update').item.json.chatId }}\",\n  \"telegramUserId\": \"{{ $('A2-02 Normalize update').item.json.userId }}\",\n  \"messageId\": \"{{ $('A2-02 Normalize update').item.json.messageId }}\",\n  \"text\": {{ JSON.stringify($('A2-02 Normalize update').item.json.text || '') }}\n}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "a2-04-resolve-actor",
+      "name": "A2-04 Resolve Studio actor",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [780, 0]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "linked",
+              "leftValue": "={{ $json.data?.linked ?? $json.linked ?? false }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "a2-05-if-linked",
+      "name": "A2-05 Actor linked?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [1040, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.ACS_API_BASE_URL}}/api/internal/jobs/progress",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-acs-service-token",
+              "value": "={{$env.ACS_INTERNAL_SERVICE_TOKEN}}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"kind\": \"telegram_link_required\",\n  \"chatId\": \"{{ $('A2-02 Normalize update').item.json.chatId }}\",\n  \"telegramUserId\": \"{{ $('A2-02 Normalize update').item.json.userId }}\",\n  \"updateId\": \"{{ $('A2-02 Normalize update').item.json.updateId }}\",\n  \"stage\": \"link_required\",\n  \"state\": \"held\",\n  \"message\": \"Telegram account is not linked to a Studio actor\"\n}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "a2-06-link-required",
+      "name": "A2-06 Record link required",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1300, 200]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.ACS_API_BASE_URL}}/api/internal/jobs/claim",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-acs-service-token",
+              "value": "={{$env.ACS_INTERNAL_SERVICE_TOKEN}}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"jobId\": \"{{ $json.data?.runId || $json.runId }}\",\n  \"kind\": \"agent_run\",\n  \"correlationId\": \"{{ $json.data?.correlationId || $json.correlationId || $('A2-02 Normalize update').item.json.updateId }}\",\n  \"source\": \"telegram\",\n  \"updateId\": \"{{ $('A2-02 Normalize update').item.json.updateId }}\",\n  \"messageId\": \"{{ $('A2-02 Normalize update').item.json.messageId }}\",\n  \"conversationId\": \"{{ $json.data?.conversationId || $json.conversationId || '' }}\",\n  \"hasAttachment\": {{ $('A2-02 Normalize update').item.json.hasAttachment }}\n}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "a2-07-claim",
+      "name": "A2-07 Claim and route",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1300, -120]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "acquired",
+              "leftValue": "={{ $json.data?.claim || $json.claim || '' }}",
+              "rightValue": "acquired",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "a2-08-if-acquired",
+      "name": "A2-08 Claim acquired?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [1560, -120]
+    },
+    {
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "WF-A3 Shared Creative Agent"
+        },
+        "options": {
+          "waitForSubWorkflow": false
+        }
+      },
+      "id": "a2-09-execute-a3",
+      "name": "A2-09 Invoke shared agent",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [1820, -220]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.ACS_API_BASE_URL}}/api/internal/jobs/progress",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-acs-service-token",
+              "value": "={{$env.ACS_INTERNAL_SERVICE_TOKEN}}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"jobId\": \"{{ $('A2-07 Claim and route').item.json.data?.runId || $('A2-07 Claim and route').item.json.runId || $('A2-07 Claim and route').item.json.data?.jobId }}\",\n  \"stage\": \"telegram_ack\",\n  \"state\": \"running\",\n  \"message\": \"Telegram planning run accepted; final reply via notifications\",\n  \"correlationId\": \"{{ $('A2-07 Claim and route').item.json.data?.correlationId || $('A2-07 Claim and route').item.json.correlationId || $('A2-02 Normalize update').item.json.updateId }}\",\n  \"chatId\": \"{{ $('A2-02 Normalize update').item.json.chatId }}\"\n}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "a2-10-ack",
+      "name": "A2-10 Record delivery state",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2080, -220]
+    },
+    {
+      "parameters": {
+        "mode": "manual",
+        "duplicateItem": false,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "skipped",
+              "name": "skipped",
+              "value": true,
+              "type": "boolean"
+            },
+            {
+              "id": "reason",
+              "name": "reason",
+              "value": "duplicate_or_unsupported",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a2-11-skip",
+      "name": "A2-11 Skip duplicate or unsupported",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1820, 40]
+    }
+  ],
+  "connections": {
+    "A2-01 Telegram updates": {
+      "main": [
+        [
+          {
+            "node": "A2-02 Normalize update",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "A2-02 Normalize update": {
+      "main": [
+        [
+          {
+            "node": "A2-03 Supported private update?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "A2-03 Supported private update?": {
+      "main": [
+        [
+          {
+            "node": "A2-04 Resolve Studio actor",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "A2-11 Skip duplicate or unsupported",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "A2-04 Resolve Studio actor": {
+      "main": [
+        [
+          {
+            "node": "A2-05 Actor linked?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "A2-05 Actor linked?": {
+      "main": [
+        [
+          {
+            "node": "A2-07 Claim and route",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "A2-06 Record link required",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "A2-07 Claim and route": {
+      "main": [
+        [
+          {
+            "node": "A2-08 Claim acquired?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "A2-08 Claim acquired?": {
+      "main": [
+        [
+          {
+            "node": "A2-09 Invoke shared agent",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "A2-11 Skip duplicate or unsupported",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "A2-09 Invoke shared agent": {
+      "main": [
+        [
+          {
+            "node": "A2-10 Record delivery state",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}

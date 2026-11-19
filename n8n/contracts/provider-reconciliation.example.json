@@ -1,0 +1,10 @@
+{
+  "jobId": "00000000-0000-4000-8000-00000000000f",
+  "jobKind": "video",
+  "attemptId": "00000000-0000-4000-8000-000000000010",
+  "provider": "fal",
+  "providerRequestId": "<real-provider-request-id>",
+  "lastKnownStatus": "reconciling",
+  "recheckAfter": "2026-11-20T02:10:00Z",
+  "correlationId": "00000000-0000-4000-8000-000000000004"
+}

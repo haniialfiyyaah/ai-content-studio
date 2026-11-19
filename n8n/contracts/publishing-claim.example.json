@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "1.0-proposal",
+  "publishingJobId": "00000000-0000-4000-8000-00000000000b",
+  "videoAttemptId": "00000000-0000-4000-8000-00000000000c",
+  "connectedAccountId": "00000000-0000-4000-8000-00000000000d",
+  "authorizationId": "00000000-0000-4000-8000-00000000000e",
+  "metadataSnapshot": {
+    "title": "Example approved title",
+    "visibility": "private"
+  },
+  "scheduledFor": "2026-11-20T02:00:00Z",
+  "idempotencyKey": "publish:00000000-0000-4000-8000-00000000000b"
+}
