@@ -24,7 +24,7 @@ Prerequisites: `pnpm dev`, Cloud Supabase env in `apps/web/.env.local`, Chrome 9
 8. On `/videos/[attemptId]`, play the signed MP4.
 9. **Approve** the video attempt; confirm status becomes approved (revoke still works).
 
-Expected fixture path (default): no fal/ElevenLabs spend; sample footage/narration URLs; real Remotion MP4 uploaded to `renders`.
+Browser export defaults to a short 480p caption clip. Preview and fal/ElevenLabs media are off until opted in, because in-browser encode is slow on typical laptops. Vercel Sandbox remains the later unattended option and is not provisioned.
 
 ## Paid live media (do not enable without approval)
 

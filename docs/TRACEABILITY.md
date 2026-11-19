@@ -20,7 +20,7 @@ Status vocabulary:
 | First actionable message → Draft Project | **Verified** (fixture AI via gateway) | `POST /api/agent/messages` → `prepareOpenAiExecution` + `executeOpenAi` |
 | Agent → n8n → gateway live LLM | **Verified** (fixture AI) | WF-A1/A3 imported; executions success; draft project + `runStatus:completed`; live LLM still needs keys |
 | Secure BYOK execute (decrypt in-process) | **Verified** (fixture) | Store → test → mode byok → `/api/internal/ai/execute` `mode:"byok"`; never accepts plaintext BYOK from n8n |
-| Unified Project Detail by status | **Implemented** | `/projects/[id]` tabs + lifecycle actions |
+| Unified Project Detail by status | **Partial** | Same tabs for every status. Content, automation, publishing, assets, and activity read persisted rows. Visual match to v2.7 prototype is still incomplete. |
 | Concept Approve / Edit (immutable versions) | **Verified** | Approve API + revision create |
 | Initial launch ≠ approval; activation gate | **Verified** | `INITIAL_LAUNCH_NOT_READY` then activate OK |
 | Activate ≠ paid render ≠ publish | **Verified** | Activate succeeded without auto-render; render needs grant |

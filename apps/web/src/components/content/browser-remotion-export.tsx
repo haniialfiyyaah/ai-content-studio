@@ -60,6 +60,8 @@ export function BrowserRemotionExport({
   const [compatNote, setCompatNote] = useState<string | null>(null);
   const [reviewPath, setReviewPath] = useState<string | null>(null);
   const [jobId, setJobId] = useState<string | null>(existingJobId);
+  const [showPreview, setShowPreview] = useState(false);
+  const [includeMedia, setIncludeMedia] = useState(false);
   const [footageUrl, setFootageUrl] = useState<string | null>(null);
   const [narrationUrl, setNarrationUrl] = useState<string | null>(null);
   const [mediaNote, setMediaNote] = useState<string | null>(null);
@@ -132,55 +134,63 @@ export function BrowserRemotionExport({
       setPhase("preparing");
       const queuedJobId = await queueJobIfNeeded();
 
-      const mediaRes = await fetch(
-        `/api/video-jobs/${queuedJobId}/media/prepare`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            title,
-            includeFootage: true,
-            includeNarration: true,
-          }),
-        },
-      );
-      const mediaJson = (await mediaRes.json()) as {
-        status: string;
-        data?: {
-          footageUrl?: string | null;
-          narrationUrl?: string | null;
-          narrationDurationMs?: number | null;
-          costEstimateUsd?: number;
-          failures?: string[];
-          fixtureMode?: { fal: boolean; elevenLabs: boolean };
-          message?: string;
+      let resolvedFootage: string | null = null;
+      let resolvedNarration: string | null = null;
+      let narrationDurationMs: number | null = null;
+
+      if (includeMedia) {
+        const mediaRes = await fetch(
+          `/api/video-jobs/${queuedJobId}/media/prepare`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              title,
+              includeFootage: true,
+              includeNarration: true,
+            }),
+          },
+        );
+        const mediaJson = (await mediaRes.json()) as {
+          status: string;
+          data?: {
+            footageUrl?: string | null;
+            narrationUrl?: string | null;
+            narrationDurationMs?: number | null;
+            costEstimateUsd?: number;
+            failures?: string[];
+            message?: string;
+          };
+          error?: { message?: string };
         };
-        error?: { message?: string };
-      };
-      if (!mediaRes.ok || mediaJson.status === "error") {
-        throw new Error(
-          mediaJson.error?.message ?? "Failed to prepare fal/ElevenLabs media",
+        if (!mediaRes.ok || mediaJson.status === "error") {
+          throw new Error(
+            mediaJson.error?.message ?? "Failed to prepare fal/ElevenLabs media",
+          );
+        }
+        resolvedFootage = mediaJson.data?.footageUrl ?? null;
+        resolvedNarration = mediaJson.data?.narrationUrl ?? null;
+        narrationDurationMs = mediaJson.data?.narrationDurationMs ?? null;
+        setFootageUrl(resolvedFootage);
+        setNarrationUrl(resolvedNarration);
+        setMediaNote(
+          [
+            mediaJson.data?.message,
+            mediaJson.data?.costEstimateUsd != null
+              ? `Advisory cost if live: ~$${mediaJson.data.costEstimateUsd.toFixed(3)}`
+              : null,
+            mediaJson.data?.failures?.length
+              ? `Media warnings: ${mediaJson.data.failures.join("; ")}`
+              : null,
+          ]
+            .filter(Boolean)
+            .join(" · ") || null,
+        );
+      } else {
+        setMediaNote(
+          "Fast export: captions only. Footage and narration stay off until you opt in.",
         );
       }
-
-      const resolvedFootage = mediaJson.data?.footageUrl ?? null;
-      const resolvedNarration = mediaJson.data?.narrationUrl ?? null;
-      const narrationDurationMs = mediaJson.data?.narrationDurationMs ?? null;
-      setFootageUrl(resolvedFootage);
-      setNarrationUrl(resolvedNarration);
-      setMediaNote(
-        [
-          mediaJson.data?.message,
-          mediaJson.data?.costEstimateUsd != null
-            ? `Advisory cost if live: ~$${mediaJson.data.costEstimateUsd.toFixed(3)}`
-            : null,
-          mediaJson.data?.failures?.length
-            ? `Media warnings: ${mediaJson.data.failures.join("; ")}`
-            : null,
-        ]
-          .filter(Boolean)
-          .join(" · ") || null,
-      );
 
       const compat = await checkBrowserRenderCompat({
         withAudio: Boolean(resolvedNarration),
@@ -329,28 +339,45 @@ export function BrowserRemotionExport({
           Browser video export
         </h2>
         <p className="mt-1 text-sm text-muted">
-          User-initiated Remotion encode in this browser (720p, ~5–10s). Not
-          unattended automation — closing the tab interrupts the job.
+          Encoding starts only when you export. Default is a short 480p caption
+          clip. Preview and provider media are optional because they are slow
+          in the browser.
         </p>
       </div>
 
-      <div className="overflow-hidden rounded-lg border border-border bg-black">
-        <Player
-          component={ShortFormVideo}
-          inputProps={{
-            title,
-            scenes: previewScenes,
-            footageUrl,
-            narrationUrl,
-          }}
-          durationInFrames={durationInFrames}
-          fps={BROWSER_COMPOSITION.fps}
-          compositionWidth={BROWSER_COMPOSITION.width}
-          compositionHeight={BROWSER_COMPOSITION.height}
-          style={{ width: "100%" }}
-          controls
+      <label className="flex items-center gap-2 text-sm text-muted">
+        <input
+          type="checkbox"
+          checked={includeMedia}
+          onChange={(event) => setIncludeMedia(event.target.checked)}
+          disabled={busy}
         />
-      </div>
+        Include fixture footage and narration (slower)
+      </label>
+
+      {showPreview ? (
+        <div className="overflow-hidden rounded-lg border border-border bg-black">
+          <Player
+            component={ShortFormVideo}
+            inputProps={{
+              title,
+              scenes: previewScenes,
+              footageUrl: includeMedia ? footageUrl : null,
+              narrationUrl: includeMedia ? narrationUrl : null,
+            }}
+            durationInFrames={durationInFrames}
+            fps={BROWSER_COMPOSITION.fps}
+            compositionWidth={BROWSER_COMPOSITION.width}
+            compositionHeight={BROWSER_COMPOSITION.height}
+            style={{ width: "100%" }}
+            controls
+          />
+        </div>
+      ) : (
+        <Button variant="secondary" onClick={() => setShowPreview(true)}>
+          Show lightweight preview
+        </Button>
+      )}
 
       <div className="flex flex-wrap items-center gap-2">
         <Button

@@ -4,11 +4,11 @@ import { Suspense, type ReactNode } from "react";
 import { getLatestKit } from "@acs/domain";
 import { createClient } from "@/lib/supabase/server";
 import { StatusPill } from "@/components/projects/status-pill";
+import { ProjectTabs } from "@/components/projects/project-tabs";
 import {
-  ProjectTabs,
   resolveProjectTab,
   type ProjectTabId,
-} from "@/components/projects/project-tabs";
+} from "@/lib/project-tabs";
 import { ProjectLifecycleActions } from "@/components/projects/project-lifecycle-actions";
 import { CreativeKitPanel } from "@/components/projects/creative-kit-panel";
 
@@ -167,13 +167,62 @@ async function renderTabPanel(
           </InfoCard>
         </div>
       );
-    case "content":
+    case "content": {
+      const supabase = await createClient();
+      const { data } = await supabase
+        .from("concepts")
+        .select(
+          "id, title, updated_at, source, working:concept_versions!concepts_working_version_id_fkey(review_status)",
+        )
+        .eq("project_id", project.id)
+        .eq("owner_id", ownerId)
+        .order("updated_at", { ascending: false });
+
+      const concepts = (data ?? []) as Array<{
+        id: string;
+        title: string | null;
+        updated_at: string;
+        source: string | null;
+        working: { review_status: string } | { review_status: string }[] | null;
+      }>;
+
+      if (concepts.length === 0) {
+        return (
+          <PlaceholderPanel
+            title="No concepts yet"
+            body="Ask the Creative Agent for a project idea. Planning creates one draft concept here. Script and storyboard stay empty until that draft is filled."
+          />
+        );
+      }
+
       return (
-        <PlaceholderPanel
-          title="Content"
-          body="Concept drafts and review queues will list here."
-        />
+        <ul className="flex flex-col gap-3">
+          {concepts.map((concept) => {
+            const working = Array.isArray(concept.working)
+              ? concept.working[0]
+              : concept.working;
+            return (
+              <li key={concept.id}>
+                <Link
+                  href={`/content/${concept.id}`}
+                  className="flex flex-col gap-1 rounded-xl border border-border bg-surface-strong px-4 py-4 transition hover:border-accent sm:flex-row sm:items-center sm:justify-between"
+                >
+                  <span>
+                    <span className="block font-medium">
+                      {concept.title?.trim() || "Untitled concept"}
+                    </span>
+                    <span className="mt-1 block text-xs text-muted">
+                      {concept.source ?? "web"} · {formatDate(concept.updated_at)}
+                    </span>
+                  </span>
+                  <StatusPill status={working?.review_status ?? "draft"} />
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
       );
+    }
     case "kit": {
       const supabase = await createClient();
       const kit = await getLatestKit(supabase, {
@@ -202,34 +251,153 @@ async function renderTabPanel(
         />
       );
     }
-    case "automation":
+    case "automation": {
+      const supabase = await createClient();
+      const { data } = await supabase
+        .from("automation_rules")
+        .select("id, kind, status, enabled, next_due_at")
+        .eq("project_id", project.id)
+        .eq("owner_id", ownerId)
+        .order("updated_at", { ascending: false });
+      const rules = data ?? [];
+      if (rules.length === 0) {
+        return (
+          <PlaceholderPanel
+            title="No automation rules"
+            body={
+              project.status === "active"
+                ? "This Active Project has no rules yet. Configure them from Automation Center."
+                : "Rules are available after the Project is Active. Nothing is scheduled yet."
+            }
+          />
+        );
+      }
       return (
-        <PlaceholderPanel
-          title="Automation"
-          body="Ideation and publishing rules appear once the Project is Active."
-        />
+        <ul className="flex flex-col gap-3">
+          {rules.map((rule) => (
+            <li
+              key={rule.id}
+              className="rounded-xl border border-border bg-surface-strong px-4 py-3 text-sm"
+            >
+              <p className="font-medium capitalize">{rule.kind}</p>
+              <p className="mt-1 text-xs text-muted">
+                {rule.enabled ? "Enabled" : "Disabled"} · {rule.status}
+                {rule.next_due_at ? ` · next ${formatDate(rule.next_due_at)}` : ""}
+              </p>
+            </li>
+          ))}
+        </ul>
       );
-    case "publishing":
+    }
+    case "publishing": {
+      const supabase = await createClient();
+      const { data } = await supabase
+        .from("publishing_jobs")
+        .select("id, status, scheduled_for")
+        .eq("project_id", project.id)
+        .eq("owner_id", ownerId)
+        .order("scheduled_for", { ascending: false })
+        .limit(20);
+      const jobs = (data ?? []) as Array<{
+        id: string;
+        status: string;
+        scheduled_for: string | null;
+      }>;
+      if (jobs.length === 0) {
+        return (
+          <PlaceholderPanel
+            title="Nothing scheduled"
+            body="Approved videos are scheduled from the Publishing composer. This Project has no publishing jobs."
+          />
+        );
+      }
       return (
-        <PlaceholderPanel
-          title="Publishing"
-          body="Schedules and destination authorizations will show here."
-        />
+        <ul className="flex flex-col gap-3">
+          {jobs.map((job) => (
+            <li
+              key={job.id}
+              className="rounded-xl border border-border bg-surface-strong px-4 py-3 text-sm"
+            >
+              <StatusPill status={job.status} />
+              <p className="mt-2 text-xs text-muted">
+                {job.scheduled_for ? formatDate(job.scheduled_for) : "Unscheduled"}
+              </p>
+            </li>
+          ))}
+        </ul>
       );
-    case "assets":
+    }
+    case "assets": {
+      const supabase = await createClient();
+      const { data } = await supabase
+        .from("media_assets")
+        .select("id, kind, source_type, mime_type, provider, created_at")
+        .eq("project_id", project.id)
+        .eq("owner_id", ownerId)
+        .is("deleted_at", null)
+        .order("created_at", { ascending: false })
+        .limit(30);
+      const assets = data ?? [];
+      if (assets.length === 0) {
+        return (
+          <PlaceholderPanel
+            title="No assets yet"
+            body="Uploads and generated videos for this Project appear here after a real render or upload."
+          />
+        );
+      }
       return (
-        <PlaceholderPanel
-          title="Assets"
-          body="Generated media and uploads for this Project."
-        />
+        <ul className="grid gap-3 sm:grid-cols-2">
+          {assets.map((asset) => (
+            <li
+              key={asset.id}
+              className="rounded-xl border border-border bg-surface-strong px-4 py-3"
+            >
+              <p className="text-sm font-medium capitalize">{asset.kind}</p>
+              <p className="mt-1 text-xs text-muted">
+                {asset.source_type ?? "unknown"}
+                {asset.provider ? ` · ${asset.provider}` : ""}
+                {asset.mime_type ? ` · ${asset.mime_type}` : ""}
+              </p>
+            </li>
+          ))}
+        </ul>
       );
-    case "activity":
+    }
+    case "activity": {
+      const supabase = await createClient();
+      const { data } = await supabase
+        .from("workflow_runs")
+        .select("id, workflow_type, stage, status, created_at")
+        .eq("project_id", project.id)
+        .eq("owner_id", ownerId)
+        .order("created_at", { ascending: false })
+        .limit(20);
+      const runs = data ?? [];
+      if (runs.length === 0) {
+        return (
+          <PlaceholderPanel
+            title="No activity yet"
+            body="Agent runs for this Project will show here. Nothing has been recorded."
+          />
+        );
+      }
       return (
-        <PlaceholderPanel
-          title="Activity"
-          body="Agent runs, stage events, and audit history will stream here."
-        />
+        <ul className="flex flex-col gap-3">
+          {runs.map((run) => (
+            <li
+              key={run.id}
+              className="rounded-xl border border-border bg-surface-strong px-4 py-3 text-sm"
+            >
+              <p className="font-medium">{run.workflow_type}</p>
+              <p className="mt-1 text-xs text-muted">
+                {run.stage ?? run.status} · {formatDate(run.created_at)}
+              </p>
+            </li>
+          ))}
+        </ul>
       );
+    }
     default:
       return null;
   }

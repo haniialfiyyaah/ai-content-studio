@@ -13,11 +13,11 @@ import { createClient } from "@/lib/supabase/server";
 import { StatusPill } from "@/components/projects/status-pill";
 import { ContentActions } from "@/components/content/content-actions";
 import { BrowserRemotionExport } from "@/components/content/browser-remotion-export";
+import { ContentTabs } from "@/components/content/content-tabs";
 import {
-  ContentTabs,
   resolveContentTab,
   type ContentTabId,
-} from "@/components/content/content-tabs";
+} from "@/lib/content-tabs";
 
 interface ConceptRow {
   id: string;

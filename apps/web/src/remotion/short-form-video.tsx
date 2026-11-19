@@ -25,16 +25,16 @@ export interface ShortFormVideoProps {
   narrationVolume?: number;
 }
 
-/** Frames per scene at 30fps → ~3s; 3 scenes ≈ 9s MVP clip. */
-export const SHORT_FORM_SCENE_FRAMES = 90;
+/** Frames per scene at 24fps → 2s; 2 scenes ≈ 4s fast browser export. */
+export const SHORT_FORM_SCENE_FRAMES = 48;
 
-/** Browser MVP composition: 720p landscape, short duration. */
+/** Lightweight browser composition. Preview stays off until requested. */
 export const BROWSER_COMPOSITION = {
   id: "ShortFormVideo",
-  fps: 30,
-  width: 1280,
-  height: 720,
-  maxScenes: 3,
+  fps: 24,
+  width: 854,
+  height: 480,
+  maxScenes: 2,
 } as const;
 
 /**

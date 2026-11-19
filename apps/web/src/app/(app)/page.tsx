@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
+import { OverviewPrompt } from "@/components/overview/overview-prompt";
 
 export default async function OverviewPage() {
   const supabase = await createClient();
@@ -31,6 +32,7 @@ export default async function OverviewPage() {
             ? "Review Projects that need attention, or open the agent to continue planning."
             : "Describe what you want to make. The shared AI agent will open a Draft Project you can refine, approve, and activate."}
         </p>
+        <OverviewPrompt />
         <div className="app-actions">
           <Link href="/agent">
             <Button size="lg" className="studio-button" style={{ width: "auto" }}>
@@ -48,7 +50,7 @@ export default async function OverviewPage() {
       <section className="app-stat-grid">
         <StatCard label="Draft" value={countStatus(projects, "draft")} />
         <StatCard label="Active" value={countStatus(projects, "active")} />
-        <StatCard label="Needs review" value={0} />
+        <StatCard label="Needs review" value="—" />
       </section>
 
       <section className="studio-panel" style={{ padding: "1.5rem 2rem" }}>
@@ -86,7 +88,7 @@ function countStatus(
   return projects?.filter((p) => p.status === status).length ?? 0;
 }
 
-function StatCard({ label, value }: { label: string; value: number }) {
+function StatCard({ label, value }: { label: string; value: number | string }) {
   return (
     <div className="studio-panel app-stat-card">
       <p className="app-stat-label">{label}</p>

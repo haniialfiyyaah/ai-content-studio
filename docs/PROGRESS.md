@@ -8,8 +8,8 @@ Last updated: 2026-11-20
 |---|---|---|
 | M1 Foundation | **done** | Monorepo, schema+RLS, auth, studio shell, Overview |
 | M2 Shared Agent | **partial** | Sync gateway **Verified**; Agent→n8n WF-A1/A3→gateway→draft **Verified** (fixture AI); live OpenAI still needs keys |
-| M3 Projects / Content / Activation | **done** | Lifecycle, Creative Kit, Content Detail, launch gates |
-| M4 Video production | **partial** | Browser Remotion export **Implemented**; fal (`fal-ai/ltx-video`) + ElevenLabs (`eleven_flash_v2_5`) wired into media prepare + composition (fixture sample media by default). Storage upload smoke **Verified**. Full Chrome WebCodecs encode = manual. Unattended Sandbox **Not started**. |
+| M3 Projects / Content / Activation | **partial** | Lifecycle and Creative Kit exist. Project tabs now load real concepts, rules, publishing jobs, assets, and workflow runs. Existing drafts created before this change still have empty scripts. New agent drafts include a labeled fixture script, storyboard, and publishing pack. |
+| M4 Video production | **partial** | Browser export is opt-in, 480p, ~4s, captions-only by default. Preview is not mounted until requested. Full Chrome encode still not verified here. Cloud render still not provisioned. |
 | M5 Automation / Publishing / Telegram | **partial** | UI + APIs + n8n JSON; live OAuth/Telegram blocked |
 | M6 Docs / hardening | **partial** | Specs + architecture + traceability landed; Playwright scaffold present (`ACS_E2E=1`) |
 

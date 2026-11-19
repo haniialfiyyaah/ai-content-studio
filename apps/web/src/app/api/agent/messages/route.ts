@@ -222,6 +222,61 @@ export async function POST(request: Request) {
             title: `${proposedName} — first concept`,
             originalInput: proposedObjective,
             source: "agent",
+            hook: proposedObjective.slice(0, 180),
+            content: {
+              hook: proposedObjective.slice(0, 180),
+              script: completion.fixture
+                ? `Fixture draft for “${proposedName}”.\n\n${proposedObjective}\n\nThis script is a planning stub so Content Detail is reviewable. It is not a live model write.`
+                : proposedObjective,
+              locale: "en",
+              notes: completion.fixture
+                ? "Fixture-generated planning draft. Not a live OpenAI result."
+                : undefined,
+              scenes: [
+                {
+                  id: "scene-1",
+                  title: "Open",
+                  narration: proposedObjective.slice(0, 240),
+                  visualDirection: "Wide establishing shot",
+                  durationMs: 3000,
+                },
+                {
+                  id: "scene-2",
+                  title: "Point",
+                  narration: "State the main idea in one sentence.",
+                  visualDirection: "Medium shot with caption",
+                  durationMs: 3000,
+                },
+              ],
+            },
+            visualPlan: {
+              productionMode: "remotion",
+              aspectRatio: "16:9",
+              captionStyle: "lower-third",
+              scenes: [
+                {
+                  sceneId: "scene-1",
+                  shotType: "wide",
+                  motion: "slow push",
+                  assets: [],
+                  caption: "Open",
+                },
+                {
+                  sceneId: "scene-2",
+                  shotType: "medium",
+                  motion: "hold",
+                  assets: [],
+                  caption: "Point",
+                },
+              ],
+            },
+            publishingPack: {
+              title: proposedName,
+              description: proposedObjective.slice(0, 300),
+              tags: ["draft"],
+              locale: "en",
+              platforms: {},
+            },
           },
           correlationId,
         });

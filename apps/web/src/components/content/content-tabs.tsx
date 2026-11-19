@@ -2,19 +2,13 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import {
+  CONTENT_TABS,
+  type ContentTabId,
+} from "@/lib/content-tabs";
 import { cn } from "@/lib/utils";
 
-export const CONTENT_TABS = [
-  { id: "overview", label: "Overview" },
-  { id: "script", label: "Script" },
-  { id: "storyboard", label: "Storyboard" },
-  { id: "production", label: "Production" },
-  { id: "assets", label: "Assets" },
-  { id: "publishing", label: "Publishing" },
-  { id: "history", label: "History" },
-] as const;
-
-export type ContentTabId = (typeof CONTENT_TABS)[number]["id"];
+export { CONTENT_TABS, type ContentTabId } from "@/lib/content-tabs";
 
 export function ContentTabs({ conceptId }: { conceptId: string }) {
   const searchParams = useSearchParams();
@@ -50,12 +44,4 @@ export function ContentTabs({ conceptId }: { conceptId: string }) {
       })}
     </nav>
   );
-}
-
-export function resolveContentTab(
-  tabParam: string | string[] | undefined,
-): ContentTabId {
-  const value = Array.isArray(tabParam) ? tabParam[0] : tabParam;
-  const match = CONTENT_TABS.find((tab) => tab.id === value);
-  return match?.id ?? "overview";
 }
