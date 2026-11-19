@@ -4,7 +4,8 @@
   "version": "0.1.0",
   "packageManager": "pnpm@11.5.2",
   "scripts": {
-    "dev": "pnpm --filter web dev",
+    "dev": "bash scripts/dev-web.sh",
+    "dev:web": "pnpm --filter web dev",
     "build": "pnpm -r build",
     "lint": "pnpm -r lint",
     "test": "pnpm -r test",

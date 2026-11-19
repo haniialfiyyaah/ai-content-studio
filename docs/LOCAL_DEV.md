@@ -53,6 +53,7 @@ Import workflows from `n8n/workflows/` (see `n8n/workflows/README.md`).
 | Remotion | Default worker returns explicit fixture; `ACS_REMOTION_LIVE=true` requires Remotion packages |
 | Playwright | `pnpm exec playwright install chromium` then `ACS_E2E=1 pnpm test:e2e` |
 | n8n token drift | After changing `.env`, run `docker-compose up -d --force-recreate n8n` (dev accepts legacy `local-internal-token`) |
+| `EMFILE: too many open files` | Cursor often inherits macOS soft `maxfiles=256`. Use `pnpm dev` (raises `ulimit` + Watchpack polling). Or: `ulimit -n 10240` then restart. |
 
 ## Useful commands
 
