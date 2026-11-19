@@ -13,7 +13,7 @@ Importable workflow JSON for local Docker n8n (`pnpm n8n:up`). Spec baseline: n8
 4. After import, re-link **Execute Sub-workflow** nodes if n8n remapped IDs (workflows are matched by name in these exports).
 5. For Web Agent live dispatch, set `N8N_WEBHOOK_BASE_URL=http://localhost:5678/webhook` in `apps/web/.env.local` and activate **WF-A1**.
 
-All domain HTTP nodes call `{{$env.ACS_API_BASE_URL}}/api/internal/...` with header `x-acs-service-token={{$env.ACS_INTERNAL_SERVICE_TOKEN}}`. Provider secrets stay in Next.js / workers, not in n8n. WF-A1 merges `ownerId` from resolve-context before launching WF-A3.
+All domain HTTP nodes call `{{$vars.ACS_API_BASE_URL}}/api/internal/...` with header `x-acs-service-token={{$vars.ACS_INTERNAL_SERVICE_TOKEN}}`. Provider secrets stay in Next.js / workers, not in n8n. WF-A1 merges `ownerId` from resolve-context before launching WF-A3.
 
 ## Phase map
 

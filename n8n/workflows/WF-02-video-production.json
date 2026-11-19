@@ -82,13 +82,13 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{$env.ACS_API_BASE_URL}}/api/internal/jobs/claim",
+        "url": "={{$vars.ACS_API_BASE_URL}}/api/internal/jobs/claim",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
             {
               "name": "x-acs-service-token",
-              "value": "={{$env.ACS_INTERNAL_SERVICE_TOKEN}}"
+              "value": "={{$vars.ACS_INTERNAL_SERVICE_TOKEN}}"
             },
             {
               "name": "Content-Type",
@@ -180,13 +180,13 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{$env.ACS_API_BASE_URL}}/api/internal/media/elevenlabs",
+        "url": "={{$vars.ACS_API_BASE_URL}}/api/internal/media/elevenlabs",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
             {
               "name": "x-acs-service-token",
-              "value": "={{$env.ACS_INTERNAL_SERVICE_TOKEN}}"
+              "value": "={{$vars.ACS_INTERNAL_SERVICE_TOKEN}}"
             },
             {
               "name": "Content-Type",
@@ -276,13 +276,13 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{$env.ACS_API_BASE_URL}}/api/internal/render/remotion",
+        "url": "={{$vars.ACS_API_BASE_URL}}/api/internal/render/remotion",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
             {
               "name": "x-acs-service-token",
-              "value": "={{$env.ACS_INTERNAL_SERVICE_TOKEN}}"
+              "value": "={{$vars.ACS_INTERNAL_SERVICE_TOKEN}}"
             },
             {
               "name": "Content-Type",
@@ -309,13 +309,13 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{$env.ACS_API_BASE_URL}}/api/internal/media/fal",
+        "url": "={{$vars.ACS_API_BASE_URL}}/api/internal/media/fal",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
             {
               "name": "x-acs-service-token",
-              "value": "={{$env.ACS_INTERNAL_SERVICE_TOKEN}}"
+              "value": "={{$vars.ACS_INTERNAL_SERVICE_TOKEN}}"
             },
             {
               "name": "Content-Type",
@@ -342,13 +342,13 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{$env.ACS_API_BASE_URL}}/api/internal/jobs/progress",
+        "url": "={{$vars.ACS_API_BASE_URL}}/api/internal/jobs/progress",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
             {
               "name": "x-acs-service-token",
-              "value": "={{$env.ACS_INTERNAL_SERVICE_TOKEN}}"
+              "value": "={{$vars.ACS_INTERNAL_SERVICE_TOKEN}}"
             },
             {
               "name": "Content-Type",
@@ -375,13 +375,13 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{$env.ACS_API_BASE_URL}}/api/internal/jobs/complete",
+        "url": "={{$vars.ACS_API_BASE_URL}}/api/internal/jobs/complete",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
             {
               "name": "x-acs-service-token",
-              "value": "={{$env.ACS_INTERNAL_SERVICE_TOKEN}}"
+              "value": "={{$vars.ACS_INTERNAL_SERVICE_TOKEN}}"
             },
             {
               "name": "Content-Type",
@@ -425,13 +425,13 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{$env.ACS_API_BASE_URL}}/api/internal/jobs/fail",
+        "url": "={{$vars.ACS_API_BASE_URL}}/api/internal/jobs/fail",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
             {
               "name": "x-acs-service-token",
-              "value": "={{$env.ACS_INTERNAL_SERVICE_TOKEN}}"
+              "value": "={{$vars.ACS_INTERNAL_SERVICE_TOKEN}}"
             },
             {
               "name": "Content-Type",

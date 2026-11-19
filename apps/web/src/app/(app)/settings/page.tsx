@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { TelegramLinkCard } from "@/components/settings/telegram-link-card";
 import { createClient } from "@/lib/supabase/server";
 
 const SECTIONS = [
@@ -46,9 +47,7 @@ export default async function SettingsPage() {
         </article>
         <article className="studio-panel p-6">
           <h2 className="font-display text-2xl tracking-tight">Telegram</h2>
-          <p className="mt-2 text-sm text-muted">
-            Bot linking is not connected. No fictional chat history is shown.
-          </p>
+          <TelegramLinkCard />
         </article>
         <article className="studio-panel p-6">
           <h2 className="font-display text-2xl tracking-tight">

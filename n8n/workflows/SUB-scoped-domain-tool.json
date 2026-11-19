@@ -104,13 +104,13 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{$env.ACS_API_BASE_URL}}/api/internal/ai/check-policy",
+        "url": "={{$vars.ACS_API_BASE_URL}}/api/internal/ai/check-policy",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
             {
               "name": "x-acs-service-token",
-              "value": "={{$env.ACS_INTERNAL_SERVICE_TOKEN}}"
+              "value": "={{$vars.ACS_INTERNAL_SERVICE_TOKEN}}"
             },
             {
               "name": "Content-Type",
@@ -137,13 +137,13 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{$env.ACS_API_BASE_URL}}/api/internal/agent/tool",
+        "url": "={{$vars.ACS_API_BASE_URL}}/api/internal/agent/tool",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
             {
               "name": "x-acs-service-token",
-              "value": "={{$env.ACS_INTERNAL_SERVICE_TOKEN}}"
+              "value": "={{$vars.ACS_INTERNAL_SERVICE_TOKEN}}"
             },
             {
               "name": "Content-Type",
@@ -219,13 +219,13 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{$env.ACS_API_BASE_URL}}/api/internal/workflows/record-error",
+        "url": "={{$vars.ACS_API_BASE_URL}}/api/internal/workflows/record-error",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
             {
               "name": "x-acs-service-token",
-              "value": "={{$env.ACS_INTERNAL_SERVICE_TOKEN}}"
+              "value": "={{$vars.ACS_INTERNAL_SERVICE_TOKEN}}"
             },
             {
               "name": "Content-Type",

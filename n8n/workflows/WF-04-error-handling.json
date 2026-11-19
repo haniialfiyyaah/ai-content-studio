@@ -70,13 +70,13 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{$env.ACS_API_BASE_URL}}/api/internal/workflows/record-error",
+        "url": "={{$vars.ACS_API_BASE_URL}}/api/internal/workflows/record-error",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
             {
               "name": "x-acs-service-token",
-              "value": "={{$env.ACS_INTERNAL_SERVICE_TOKEN}}"
+              "value": "={{$vars.ACS_INTERNAL_SERVICE_TOKEN}}"
             },
             {
               "name": "Content-Type",

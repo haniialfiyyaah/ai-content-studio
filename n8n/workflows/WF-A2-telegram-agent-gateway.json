@@ -115,13 +115,13 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{$env.ACS_API_BASE_URL}}/api/internal/telegram/resolve-actor",
+        "url": "={{$vars.ACS_API_BASE_URL}}/api/internal/telegram/resolve-actor",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
             {
               "name": "x-acs-service-token",
-              "value": "={{$env.ACS_INTERNAL_SERVICE_TOKEN}}"
+              "value": "={{$vars.ACS_INTERNAL_SERVICE_TOKEN}}"
             },
             {
               "name": "Content-Type",
@@ -180,47 +180,39 @@
     },
     {
       "parameters": {
-        "method": "POST",
-        "url": "={{$env.ACS_API_BASE_URL}}/api/internal/jobs/progress",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "x-acs-service-token",
-              "value": "={{$env.ACS_INTERNAL_SERVICE_TOKEN}}"
-            },
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            }
-          ]
-        },
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={\n  \"kind\": \"telegram_link_required\",\n  \"chatId\": \"{{ $('A2-02 Normalize update').item.json.chatId }}\",\n  \"telegramUserId\": \"{{ $('A2-02 Normalize update').item.json.userId }}\",\n  \"updateId\": \"{{ $('A2-02 Normalize update').item.json.updateId }}\",\n  \"stage\": \"link_required\",\n  \"state\": \"held\",\n  \"message\": \"Telegram account is not linked to a Studio actor\"\n}",
-        "options": {
-          "timeout": 30000
+        "resource": "message",
+        "operation": "sendMessage",
+        "chatId": "={{ $('A2-02 Normalize update').item.json.chatId }}",
+        "text": "Your Telegram is not linked to AI Content Studio yet. Open Studio → Integrations → Telegram, complete the link, then message me again.",
+        "additionalFields": {
+          "appendAttribution": false
         }
       },
       "id": "a2-06-link-required",
-      "name": "A2-06 Record link required",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
+      "name": "A2-06 Notify link required",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
       "position": [
         1300,
         200
-      ]
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "REPLACE_ME",
+          "name": "Telegram account"
+        }
+      }
     },
     {
       "parameters": {
         "method": "POST",
-        "url": "={{$env.ACS_API_BASE_URL}}/api/internal/jobs/claim",
+        "url": "={{$vars.ACS_API_BASE_URL}}/api/internal/jobs/claim",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
             {
               "name": "x-acs-service-token",
-              "value": "={{$env.ACS_INTERNAL_SERVICE_TOKEN}}"
+              "value": "={{$vars.ACS_INTERNAL_SERVICE_TOKEN}}"
             },
             {
               "name": "Content-Type",
@@ -300,13 +292,13 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{$env.ACS_API_BASE_URL}}/api/internal/jobs/progress",
+        "url": "={{$vars.ACS_API_BASE_URL}}/api/internal/jobs/progress",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
             {
               "name": "x-acs-service-token",
-              "value": "={{$env.ACS_INTERNAL_SERVICE_TOKEN}}"
+              "value": "={{$vars.ACS_INTERNAL_SERVICE_TOKEN}}"
             },
             {
               "name": "Content-Type",
@@ -425,7 +417,7 @@
         ],
         [
           {
-            "node": "A2-06 Record link required",
+            "node": "A2-06 Notify link required",
             "type": "main",
             "index": 0
           }
