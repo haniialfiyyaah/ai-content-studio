@@ -16,7 +16,7 @@ Status vocabulary:
 
 | Requirement | Status | Evidence |
 |---|---|---|
-| Sign-in → Overview | **Verified** | API smoke 2026-11-19; `/login`, `/` |
+| Sign-in → Studio home | **Verified** | API smoke 2026-11-19; `/login`, `/`. Since 2026-11-20 `/` is the conversation-first Studio home, which replaces the Overview. |
 | First actionable message → Draft Project | **Verified** (fixture AI via gateway) | `POST /api/agent/messages` → `prepareOpenAiExecution` + `executeOpenAi` |
 | Agent → n8n → gateway live LLM | **Verified** (fixture AI) | WF-A1/A3 imported; executions success; draft project + `runStatus:completed`; live LLM still needs keys |
 | Secure BYOK execute (decrypt in-process) | **Verified** (fixture) | Store → test → mode byok → `/api/internal/ai/execute` `mode:"byok"`; never accepts plaintext BYOK from n8n |
@@ -25,6 +25,8 @@ Status vocabulary:
 | Video Approve / Regenerate | **Implemented** | Review screen and Content → Production call approve, revoke, and regenerate. Approve succeeds only at `ready_for_review`. |
 | Initial launch ≠ approval; activation gate | **Verified** | `INITIAL_LAUNCH_NOT_READY` then activate OK |
 | Activate ≠ paid render ≠ publish | **Verified** | Activate succeeded without auto-render; render needs grant |
+| Creator authorizes spend from the UI | **Implemented** | `AuthorizeSpendButton` on the Studio home decision card and Content → Production posts a `produce_paid_media` grant ($5, 30 days) after an explicit confirm. Not yet clicked through live. |
+| Consent gates visible per concept | **Implemented** | `deriveConsentTrack` (Concept, Spend, Video, Publish) from persisted rows; shown on the Studio home and Content Detail. Home confirmed by screenshot; Content Detail and mobile not yet. |
 | Video Remotion / fal / Hybrid | **Partial** | Browser Remotion + media prepare **Implemented** (fal LTX + ElevenLabs Flash into composition; fixture CORS samples). Storage upload smoke **Verified**. Chrome encode manual. WF-02 voice→`/api/internal/media/elevenlabs`, fal→`fal-ai/ltx-video`. Sandbox unattended **Not started** |
 | Publishing calendar + schedule form | **Implemented** | UI + `publishing_jobs` API; live OAuth **Blocked** |
 | BYOK no silent managed fallback | **Verified** | Unit policy + fixture BYOK execute decrypt; invalid/missing key → `BYOK_KEY_INVALID` |

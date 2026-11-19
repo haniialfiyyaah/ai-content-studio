@@ -1,24 +1,22 @@
+import { after } from "next/server";
 import {
   AppError,
   ErrorCodes,
   appendMessage,
-  createConceptWithDraftVersion,
   createConversation,
-  createDraftProject,
-  createKitVersion,
   detectActionableIntent,
-  getLatestKit,
-  prepareOpenAiExecution,
   startPlanningRun,
 } from "@acs/domain";
-import { executeOpenAi } from "@acs/integrations";
 import { PostAgentMessageSchema } from "@acs/schemas";
+import { runLocalPlanning } from "@/lib/agent/local-planning";
 import { jsonAccepted, jsonError, jsonOk } from "@/lib/api/response";
 import { createClient } from "@/lib/supabase/server";
 
 /**
  * POST /api/agent/messages
  * Persists a user message and optionally kicks off project_planning.
+ * Planning always answers 202 with a runId; clients follow progress on
+ * GET /api/agent/runs/{runId}, whether n8n or the in-app planner runs it.
  */
 export async function POST(request: Request) {
   const correlationId = crypto.randomUUID();
@@ -74,7 +72,6 @@ export async function POST(request: Request) {
     });
 
     const actionable = detectActionableIntent(body.content);
-    let runId: string | null = null;
 
     if (actionable && !projectId) {
       const run = await startPlanningRun(supabase, {
@@ -84,7 +81,6 @@ export async function POST(request: Request) {
         projectId,
         correlationId,
       });
-      runId = run.id;
 
       await supabase.from("outbox_events").insert({
         owner_id: user.id,
@@ -121,218 +117,28 @@ export async function POST(request: Request) {
         }).catch(() => {
           // Swallow network errors; outbox remains for retry workers.
         });
-
-        return jsonAccepted(
-          {
-            conversationId,
-            runId,
-            projectId: null,
-            messageId: message.id,
-            assistantReply: null,
-          },
-          correlationId,
+      } else {
+        // In-app planning through the same AI Provider Gateway (managed/BYOK/fixture),
+        // run after the response so the client can show each recorded step.
+        const planningConversationId = conversationId;
+        after(() =>
+          runLocalPlanning(supabase, {
+            ownerId: user.id,
+            runId: run.id,
+            conversationId: planningConversationId,
+            content: body.content,
+            correlationId,
+          }),
         );
       }
 
-      // Synchronous gateway planning when n8n webhook is not configured.
-      // Uses the same AI Provider Gateway path (managed/BYOK/fixture).
-      const prepared = await prepareOpenAiExecution(supabase, user.id);
-      const completion = await executeOpenAi(
-        {
-          ownerId: user.id,
-          purpose: "ideation",
-          messages: [{ role: "user", content: body.content }],
-          responseFormat: "json",
-          correlationId,
-          workflowRunId: run.id,
-        },
-        {
-          fixtureMode: prepared.fixtureMode,
-          managedApiKey: prepared.managedApiKey,
-          byokApiKey: prepared.byokApiKey,
-          mode: prepared.mode,
-        },
-      );
-
-      let proposedName = "Untitled Project";
-      let proposedObjective = body.content.slice(0, 500);
-      let assistantReply = completion.content;
-      try {
-        const parsed = JSON.parse(completion.content) as {
-          reply?: string;
-          proposedProject?: { name?: string; objective?: string };
-        };
-        proposedName =
-          parsed.proposedProject?.name?.trim() || proposedName;
-        proposedObjective =
-          parsed.proposedProject?.objective?.trim() || proposedObjective;
-        assistantReply = parsed.reply?.trim() || completion.content;
-      } catch {
-        // Fixture JSON is expected; fall back to prompt-derived title.
-      }
-
-      const project = await createDraftProject(supabase, {
-        ownerId: user.id,
-        input: {
-          name: proposedName,
-          objective: proposedObjective,
-        },
-        correlationId,
-      });
-      projectId = project.id;
-
-      // Seed an initial Creative Kit + launch-selected concept for fixture planning.
-      const existingKit = await getLatestKit(supabase, {
-        projectId: project.id,
-        ownerId: user.id,
-      });
-      if (!existingKit) {
-        await createKitVersion(supabase, {
-          projectId: project.id,
-          ownerId: user.id,
-          actorId: user.id,
-          inheritPrevious: false,
-          input: {
-            brandOrCreatorName: proposedName,
-            tone: "clear and practical",
-            audience: "general audience",
-            languageDefault: "en",
-            visualNotes: "Fixture Creative Kit seeded by agent planning",
-            doSay: [],
-            dontSay: [],
-          },
-          correlationId,
-        });
-      }
-
-      const { data: selectedLaunch } = await supabase
-        .from("concepts")
-        .select("id")
-        .eq("project_id", project.id)
-        .eq("owner_id", user.id)
-        .eq("selected_for_initial_launch", true)
-        .limit(1)
-        .maybeSingle();
-
-      if (!selectedLaunch) {
-        const { concept } = await createConceptWithDraftVersion(supabase, {
-          projectId: project.id,
-          ownerId: user.id,
-          input: {
-            title: `${proposedName} — first concept`,
-            originalInput: proposedObjective,
-            source: "agent",
-            hook: proposedObjective.slice(0, 180),
-            content: {
-              hook: proposedObjective.slice(0, 180),
-              script: completion.fixture
-                ? `Fixture draft for “${proposedName}”.\n\n${proposedObjective}\n\nThis script is a planning stub so Content Detail is reviewable. It is not a live model write.`
-                : proposedObjective,
-              locale: "en",
-              notes: completion.fixture
-                ? "Fixture-generated planning draft. Not a live OpenAI result."
-                : undefined,
-              scenes: [
-                {
-                  id: "scene-1",
-                  title: "Open",
-                  narration: proposedObjective.slice(0, 240),
-                  visualDirection: "Wide establishing shot",
-                  durationMs: 3000,
-                },
-                {
-                  id: "scene-2",
-                  title: "Point",
-                  narration: "State the main idea in one sentence.",
-                  visualDirection: "Medium shot with caption",
-                  durationMs: 3000,
-                },
-              ],
-            },
-            visualPlan: {
-              productionMode: "remotion",
-              aspectRatio: "16:9",
-              captionStyle: "lower-third",
-              scenes: [
-                {
-                  sceneId: "scene-1",
-                  shotType: "wide",
-                  motion: "slow push",
-                  assets: [],
-                  caption: "Open",
-                },
-                {
-                  sceneId: "scene-2",
-                  shotType: "medium",
-                  motion: "hold",
-                  assets: [],
-                  caption: "Point",
-                },
-              ],
-            },
-            publishingPack: {
-              title: proposedName,
-              description: proposedObjective.slice(0, 300),
-              tags: ["draft"],
-              locale: "en",
-              platforms: {},
-            },
-          },
-          correlationId,
-        });
-
-        await supabase
-          .from("concepts")
-          .update({ selected_for_initial_launch: true })
-          .eq("id", concept.id)
-          .eq("owner_id", user.id);
-      }
-
-      await supabase
-        .from("agent_conversations")
-        .update({ project_id: project.id })
-        .eq("id", conversationId);
-
-      await appendMessage(supabase, {
-        conversationId,
-        ownerId: user.id,
-        role: "assistant",
-        content: assistantReply,
-        sourceSurface: "system",
-        modelMetadata: {
-          fixture: completion.fixture,
-          model: completion.model,
-          mode: completion.mode,
-        },
-      });
-
-      await supabase
-        .from("workflow_runs")
-        .update({
-          project_id: project.id,
-          stage: "completed",
-          status: "completed",
-          completed_at: new Date().toISOString(),
-        })
-        .eq("id", run.id);
-
-      await supabase.from("workflow_run_events").insert({
-        run_id: run.id,
-        sequence: 1,
-        stage: "completed",
-        state: "completed",
-        message: completion.fixture
-          ? "Gateway planning completed (fixture)"
-          : "Gateway planning completed",
-      });
-
-      return jsonOk(
+      return jsonAccepted(
         {
           conversationId,
-          runId,
-          projectId,
+          runId: run.id,
+          projectId: null,
           messageId: message.id,
-          assistantReply,
+          assistantReply: null,
         },
         correlationId,
       );
@@ -341,7 +147,7 @@ export async function POST(request: Request) {
     return jsonOk(
       {
         conversationId,
-        runId,
+        runId: null,
         projectId,
         messageId: message.id,
         assistantReply: null,

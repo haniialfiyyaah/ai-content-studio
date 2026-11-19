@@ -1,6 +1,9 @@
 import { AppError, ErrorCodes } from "@acs/domain";
 import { jsonError, jsonOk } from "@/lib/api/response";
+import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
+
+const RUN_ID = z.string().uuid();
 
 /**
  * GET /api/agent/runs/[id]
@@ -24,12 +27,25 @@ export async function GET(
       throw new AppError(ErrorCodes.UNAUTHENTICATED, "Not signed in", 401);
     }
 
-    const { data: run, error } = await supabase
-      .from("workflow_runs")
-      .select("id, status, stage, project_id")
-      .eq("id", id)
-      .eq("owner_id", user.id)
-      .maybeSingle();
+    if (!RUN_ID.safeParse(id).success) {
+      throw new AppError(ErrorCodes.NOT_FOUND, "Planning run not found", 404);
+    }
+
+    // Events are owner-scoped through RLS on workflow_runs, so both reads can run together.
+    const [{ data: run, error }, { data: events }] = await Promise.all([
+      supabase
+        .from("workflow_runs")
+        .select("id, status, stage, project_id")
+        .eq("id", id)
+        .eq("owner_id", user.id)
+        .maybeSingle(),
+      supabase
+        .from("workflow_run_events")
+        .select("sequence, stage, state, message, created_at")
+        .eq("run_id", id)
+        .order("sequence", { ascending: true })
+        .limit(50),
+    ]);
 
     if (error || !run) {
       throw new AppError(ErrorCodes.NOT_FOUND, "Planning run not found", 404);
@@ -41,6 +57,13 @@ export async function GET(
         status: run.status,
         stage: run.stage,
         projectId: run.project_id,
+        events: (events ?? []).map((event) => ({
+          sequence: event.sequence,
+          stage: event.stage,
+          state: event.state,
+          message: event.message,
+          createdAt: event.created_at,
+        })),
       },
       correlationId,
     );

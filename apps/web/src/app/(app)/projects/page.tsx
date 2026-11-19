@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
 import { StatusPill } from "@/components/projects/status-pill";
+import { projectInitial, projectTone } from "@/lib/project-tone";
 
 interface ProjectListRow {
   id: string;
@@ -62,17 +63,16 @@ export default async function ProjectsLibraryPage() {
           </div>
         ) : (
           <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {list.map((project, index) => (
+            {list.map((project) => (
               <li key={project.id}>
-                <Link
-                  href={`/projects/${project.id}`}
-                  className="flex h-full flex-col gap-3 rounded-[17px] border border-border bg-white p-3 transition hover:-translate-y-px hover:border-[#c6b8f8]"
-                >
-                  <div
-                    className={`flex h-28 items-center justify-center rounded-[11px] text-3xl font-semibold text-white ${COVERS[index % COVERS.length]}`}
+                <Link href={`/projects/${project.id}`} className="project-card">
+                  <span
+                    className="project-tile project-tile--cover"
+                    data-tone={projectTone(project.id)}
+                    aria-hidden
                   >
-                    {project.name.trim().slice(0, 1).toUpperCase()}
-                  </div>
+                    {projectInitial(project.name)}
+                  </span>
                   <div className="px-1">
                     <h2 className="text-sm font-extrabold tracking-tight">
                       {project.name}
@@ -99,13 +99,6 @@ export default async function ProjectsLibraryPage() {
     </div>
   );
 }
-
-const COVERS = [
-  "bg-gradient-to-br from-[#ffdfcd] to-[#f8c7c5] text-[#7a4b46]",
-  "bg-gradient-to-br from-[#e5dbff] to-[#b7d6f9] text-[#4d4580]",
-  "bg-gradient-to-br from-[#3b344d] to-[#79678c] text-white",
-  "bg-gradient-to-br from-[#d6f3e8] to-[#c9d6f5] text-[#2f5d55]",
-];
 
 function formatRelative(iso: string): string {
   const date = new Date(iso);

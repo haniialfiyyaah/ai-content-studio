@@ -11,20 +11,19 @@ import {
   Folder,
   Images,
   LayoutGrid,
+  LogOut,
   Menu,
-  PanelLeftClose,
-  PanelLeftOpen,
+  MessageCircle,
   Settings,
   Sparkles,
   X,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
 import { MANAGE_NAV, WORKSPACE_NAV } from "./nav-config";
 
 const NAV_ICONS: Record<string, LucideIcon> = {
-  "/": LayoutGrid,
+  "/": MessageCircle,
   "/projects": Folder,
   "/content": FileText,
   "/videos": Clapperboard,
@@ -34,27 +33,21 @@ const NAV_ICONS: Record<string, LucideIcon> = {
   "/settings": Settings,
 };
 
-const CRUMBS: Record<string, string> = {
-  "/": "Overview",
-  "/projects": "Projects",
-  "/content": "Content",
-  "/videos": "Videos",
-  "/publishing": "Publishing",
-  "/automation": "Automation",
-  "/library": "Library",
-  "/settings": "Settings",
-  "/agent": "Agent",
-  "/production": "Production",
-};
+const RAIL_ITEMS = [...WORKSPACE_NAV, ...MANAGE_NAV].filter(
+  (item) => item.href !== "/settings",
+);
 
-const SIDEBAR_KEY = "acs.sidebar.collapsed";
+const MOBILE_TABS = [
+  { href: "/", label: "Studio", icon: MessageCircle },
+  { href: "/projects", label: "Projects", icon: Folder },
+  { href: "/content", label: "Content", icon: FileText },
+  { href: "/publishing", label: "Publishing", icon: Calendar },
+] as const;
 
-function crumbFor(pathname: string): string {
-  const match = Object.keys(CRUMBS)
-    .filter((href) => href !== "/")
-    .sort((a, b) => b.length - a.length)
-    .find((href) => pathname === href || pathname.startsWith(`${href}/`));
-  return match ? CRUMBS[match] : "Overview";
+function isActive(pathname: string, href: string): boolean {
+  return href === "/"
+    ? pathname === "/"
+    : pathname === href || pathname.startsWith(`${href}/`);
 }
 
 interface AppShellProps {
@@ -65,199 +58,174 @@ interface AppShellProps {
 
 export function AppShell({ children, userEmail, displayName }: AppShellProps) {
   const pathname = usePathname();
-  const [collapsed, setCollapsed] = useState(false);
-  const [mobileOpen, setMobileOpen] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
   useEffect(() => {
-    const stored = window.localStorage.getItem(SIDEBAR_KEY);
-    if (stored === "1") setCollapsed(true);
-  }, []);
-
-  useEffect(() => {
-    setMobileOpen(false);
+    setDrawerOpen(false);
   }, [pathname]);
 
-  function toggleCollapsed() {
-    setCollapsed((prev) => {
-      const next = !prev;
-      window.localStorage.setItem(SIDEBAR_KEY, next ? "1" : "0");
-      return next;
-    });
+  async function signOut() {
+    await fetch("/api/auth/logout", { method: "POST" });
+    window.location.href = "/login";
   }
+
+  const who = displayName || userEmail || "Signed in";
+  const initial = who.trim().charAt(0).toUpperCase() || "S";
+  // Studio home owns its own full-height layout; other screens get page padding.
+  const flush = pathname === "/";
 
   return (
     <div className="app-shell">
-      <aside
-        className={cn("app-sidebar", collapsed && "is-collapsed")}
-      >
-        <div className="app-sidebar-header">
-          <Link href="/" className="app-brand">
-            <span className="app-brand-mark">
-              <Sparkles className="size-4" />
-            </span>
-            {!collapsed && (
-              <span className="app-brand-copy">
-                <span className="app-brand-name">AI Content Studio</span>
-                <span className="app-brand-kicker">YOUR CREATIVE WORKSPACE</span>
-              </span>
-            )}
-          </Link>
-          <button
-            type="button"
-            onClick={toggleCollapsed}
-            className="app-sidebar-toggle studio-focus-ring"
-            aria-label={collapsed ? "Expand navigation" : "Collapse navigation"}
-          >
-            {collapsed ? (
-              <PanelLeftOpen className="size-4" />
-            ) : (
-              <PanelLeftClose className="size-4" />
-            )}
-          </button>
-        </div>
-
-        <div className="app-sidebar-cta-wrap">
+      <nav className="app-rail" aria-label="Main">
+        <Link href="/" className="app-rail-brand" aria-label="AI Content Studio">
+          <span className="brand-mark">
+            <Sparkles className="size-5" aria-hidden />
+          </span>
+        </Link>
+        <ul className="app-rail-list">
+          {RAIL_ITEMS.map((item) => {
+            const Icon = NAV_ICONS[item.href] ?? LayoutGrid;
+            const active = isActive(pathname, item.href);
+            const label = item.href === "/" ? "Studio" : item.label;
+            return (
+              <li key={item.href}>
+                <Link
+                  href={item.href}
+                  className={cn("rail-link", active && "is-active")}
+                  aria-label={label}
+                  aria-current={active ? "page" : undefined}
+                  data-label={label}
+                >
+                  <Icon className="size-5" aria-hidden />
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+        <div className="app-rail-bottom">
           <Link
-            href="/agent"
-            className={cn("app-sidebar-cta", collapsed && "is-collapsed")}
+            href="/settings"
+            className={cn("rail-link", isActive(pathname, "/settings") && "is-active")}
+            aria-label="Settings"
+            aria-current={isActive(pathname, "/settings") ? "page" : undefined}
+            data-label="Settings"
           >
-            <Sparkles className="size-4 shrink-0" />
-            {!collapsed && <span>Create with AI</span>}
+            <Settings className="size-5" aria-hidden />
           </Link>
-        </div>
-
-        <nav className="app-sidebar-nav">
-          <NavGroup
-            title="Workspace"
-            items={WORKSPACE_NAV}
-            pathname={pathname}
-            collapsed={collapsed}
-          />
-          <NavGroup
-            title="Manage"
-            items={MANAGE_NAV}
-            pathname={pathname}
-            collapsed={collapsed}
-          />
-        </nav>
-
-        <div className="app-sidebar-footer">
-          {!collapsed && (
-            <p>{displayName || userEmail || "Signed in"}</p>
-          )}
-        </div>
-      </aside>
-
-      {mobileOpen && (
-        <div className="fixed inset-0 z-40 md:hidden" style={{ position: "fixed", inset: 0, zIndex: 40 }}>
           <button
             type="button"
-            className="absolute inset-0 bg-black/40"
-            style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.4)", border: 0 }}
+            className="rail-link"
+            onClick={() => void signOut()}
+            aria-label="Sign out"
+            data-label="Sign out"
+          >
+            <LogOut className="size-5" aria-hidden />
+          </button>
+          <span className="rail-avatar" title={who} aria-label={`Signed in as ${who}`}>
+            {initial}
+          </span>
+        </div>
+      </nav>
+
+      <div className="app-main-column">
+        <header className="app-mobilebar">
+          <span className="app-mobilebar-title">
+            <span className="brand-mark">
+              <Sparkles className="size-5" aria-hidden />
+            </span>
+            AI Content Studio
+          </span>
+          <button
+            type="button"
+            className="studio-button-ghost"
+            onClick={() => setDrawerOpen(true)}
+            aria-label="Open navigation"
+          >
+            <Menu className="size-5" />
+          </button>
+        </header>
+        <main className={cn("app-content", flush && "is-flush")}>{children}</main>
+      </div>
+
+      <nav className="app-tabbar" aria-label="Quick">
+        {MOBILE_TABS.map((tab) => {
+          const Icon = tab.icon;
+          const active = isActive(pathname, tab.href);
+          return (
+            <Link
+              key={tab.href}
+              href={tab.href}
+              className={cn("app-tab", active && "is-active")}
+              aria-current={active ? "page" : undefined}
+            >
+              <Icon className="size-5" aria-hidden />
+              {tab.label}
+            </Link>
+          );
+        })}
+        <button
+          type="button"
+          className="app-tab"
+          onClick={() => setDrawerOpen(true)}
+          aria-label="Open all navigation"
+        >
+          <Menu className="size-5" aria-hidden />
+          More
+        </button>
+      </nav>
+
+      {drawerOpen && (
+        <div className="fixed inset-0 z-40 md:hidden">
+          <button
+            type="button"
+            className="absolute inset-0 border-0 bg-black/30"
             aria-label="Close navigation"
-            onClick={() => setMobileOpen(false)}
+            onClick={() => setDrawerOpen(false)}
           />
           <aside
-            className="app-sidebar"
-            style={{ display: "flex", position: "relative", zIndex: 10, width: 280 }}
+            className="absolute inset-y-0 right-0 flex w-72 flex-col gap-4 bg-white p-4"
+            aria-label="Navigation"
           >
-            <div className="app-sidebar-header">
-              <span className="app-brand-name">Content Studio</span>
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-semibold">{who}</span>
               <button
                 type="button"
-                onClick={() => setMobileOpen(false)}
-                className="app-sidebar-toggle"
-                aria-label="Close"
+                className="studio-button-ghost"
+                onClick={() => setDrawerOpen(false)}
+                aria-label="Close navigation"
               >
-                <X className="size-4" />
+                <X className="size-5" />
               </button>
             </div>
-            <div className="app-sidebar-cta-wrap">
-              <Link href="/agent" className="app-sidebar-cta">
-                <Sparkles className="size-4" />
-                Create with AI
-              </Link>
-            </div>
-            <nav className="app-sidebar-nav">
-              <NavGroup title="Workspace" items={WORKSPACE_NAV} pathname={pathname} />
-              <NavGroup title="Manage" items={MANAGE_NAV} pathname={pathname} />
-            </nav>
+            <ul className="drawer-nav">
+              {[...WORKSPACE_NAV, ...MANAGE_NAV].map((item) => {
+                const Icon = NAV_ICONS[item.href] ?? LayoutGrid;
+                const active = isActive(pathname, item.href);
+                return (
+                  <li key={item.href}>
+                    <Link
+                      href={item.href}
+                      className={cn("drawer-link", active && "is-active")}
+                      aria-current={active ? "page" : undefined}
+                    >
+                      <Icon className="size-5" aria-hidden />
+                      {item.href === "/" ? "Studio" : item.label}
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+            <button
+              type="button"
+              className="secondary-button mt-auto"
+              onClick={() => void signOut()}
+            >
+              <LogOut className="size-4" aria-hidden />
+              Sign out
+            </button>
           </aside>
         </div>
       )}
-
-      <div className="app-main-column">
-        <header className="app-topbar">
-          <div className="app-topbar-left">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="studio-button-ghost md:hidden"
-              onClick={() => setMobileOpen(true)}
-              aria-label="Open navigation"
-            >
-              <Menu className="size-5" />
-            </Button>
-            <p className="app-topbar-label">Studio / {crumbFor(pathname)}</p>
-          </div>
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
-            className="studio-button-secondary"
-            onClick={async () => {
-              await fetch("/api/auth/logout", { method: "POST" });
-              window.location.href = "/login";
-            }}
-          >
-            Sign out
-          </Button>
-        </header>
-        <main className="app-content">{children}</main>
-      </div>
-    </div>
-  );
-}
-
-function NavGroup({
-  title,
-  items,
-  pathname,
-  collapsed = false,
-}: {
-  title: string;
-  items: readonly { href: string; label: string }[];
-  pathname: string;
-  collapsed?: boolean;
-}) {
-  return (
-    <div>
-      {!collapsed && <p className="app-nav-group-title">{title}</p>}
-      <ul className="app-nav-list">
-        {items.map((item) => {
-          const active =
-            item.href === "/"
-              ? pathname === "/"
-              : pathname === item.href || pathname.startsWith(`${item.href}/`);
-          const Icon = NAV_ICONS[item.href];
-          return (
-            <li key={item.href}>
-              <Link
-                href={item.href}
-                title={item.label}
-                className={cn(
-                  "app-nav-link",
-                  active && "is-active",
-                  collapsed && "is-collapsed",
-                )}
-              >
-                {Icon ? <Icon className="size-4 shrink-0" aria-hidden /> : null}
-                {collapsed ? <span className="sr-only">{item.label}</span> : item.label}
-              </Link>
-            </li>
-          );
-        })}
-      </ul>
     </div>
   );
 }

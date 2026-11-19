@@ -16,10 +16,13 @@ import { ScriptEditor } from "@/components/content/script-editor";
 import { BrowserRemotionExport } from "@/components/content/browser-remotion-export";
 import { VideoReviewActions } from "@/components/videos/video-review-actions";
 import { ContentTabs } from "@/components/content/content-tabs";
+import { ConsentTrack } from "@/components/consent/consent-track";
+import { AuthorizeSpendButton } from "@/components/consent/authorize-spend-button";
 import {
   resolveContentTab,
   type ContentTabId,
 } from "@/lib/content-tabs";
+import { deriveConsentTrack } from "@/lib/consent-track";
 
 interface ConceptRow {
   id: string;
@@ -187,6 +190,42 @@ export default async function ContentDetailPage({
     latestAttempt = attempt;
   }
 
+  let latestPublish: { status: string; scheduled_for: string | null } | null =
+    null;
+  if (latestAttempt) {
+    const { data: publishRow } = await supabase
+      .from("publishing_jobs")
+      .select("status, scheduled_for")
+      .eq("owner_id", user!.id)
+      .eq("video_attempt_id", latestAttempt.id)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    latestPublish = publishRow;
+  }
+
+  const consent = deriveConsentTrack({
+    conceptId: concept.id,
+    workingReviewStatus: workingVersion?.review_status ?? null,
+    conceptApproved: approvedForProduce,
+    spendAuthorized: grantActive,
+    video: latestAttempt
+      ? {
+          attemptId: latestAttempt.id,
+          status: latestAttempt.status,
+          approved:
+            latestAttempt.status === "approved" &&
+            !latestAttempt.approval_revoked_at,
+        }
+      : null,
+    publish: latestPublish
+      ? {
+          status: latestPublish.status,
+          scheduledFor: latestPublish.scheduled_for,
+        }
+      : null,
+  });
+
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
       <div>
@@ -252,6 +291,8 @@ export default async function ContentDetailPage({
             isApprovedLive={isApprovedLive}
           />
         </div>
+
+        <ConsentTrack gates={consent.gates} size="wide" className="mt-6" />
 
         <div className="mt-8">
           <Suspense fallback={<div className="h-10 border-b border-border" />}>
@@ -406,14 +447,19 @@ function renderTabPanel(
                 {ctx.approvedVersion ? "approved version present" : "required"}
               </li>
               <li>
-                produce_paid_media grant ·{" "}
-                {ctx.hasGrant ? "active" : "required"}
+                Spend authorization ·{" "}
+                {ctx.hasGrant ? "active" : "required before production"}
               </li>
               <li>
                 Render path · browser @remotion/web-renderer (MVP). Vercel
                 Sandbox unattended path is not provisioned yet.
               </li>
             </ul>
+            {ctx.approvedVersion && !ctx.hasGrant ? (
+              <div className="mt-4 max-w-xs">
+                <AuthorizeSpendButton projectId={ctx.concept.project_id} />
+              </div>
+            ) : null}
           </InfoCard>
           {ctx.latestAttempt ? (
             <div className="rounded-xl border border-border bg-surface-strong p-4">

@@ -1,102 +1,95 @@
-import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { Button } from "@/components/ui/button";
-import { OverviewPrompt } from "@/components/overview/overview-prompt";
+import { StudioThread, type ThreadMessage } from "@/components/home/studio-thread";
+import { DecisionCard } from "@/components/home/decision-card";
+import { TodayPanel } from "@/components/home/today-panel";
+import {
+  loadDecisionQueue,
+  loadRecentRuns,
+} from "@/lib/overview/decision-queue";
 
-export default async function OverviewPage() {
+const THREAD_LIMIT = 40;
+
+/**
+ * Studio home is the agent conversation. The latest persisted thread loads
+ * first; the creator's pending decisions sit at its end, and a calm summary
+ * column shows today's counts and Projects.
+ */
+export default async function StudioHomePage() {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
+  const ownerId = user!.id;
 
-  const { data: projects } = await supabase
-    .from("projects")
-    .select("id, name, status, updated_at")
-    .eq("owner_id", user!.id)
-    .order("updated_at", { ascending: false })
-    .limit(5);
+  const [queue, runs, projectsRes, conversationRes] = await Promise.all([
+    loadDecisionQueue(supabase, ownerId),
+    loadRecentRuns(supabase, ownerId),
+    supabase
+      .from("projects")
+      .select("id, name, status")
+      .eq("owner_id", ownerId)
+      .neq("status", "archived")
+      .order("updated_at", { ascending: false })
+      .limit(5),
+    supabase
+      .from("agent_conversations")
+      .select("id")
+      .eq("owner_id", ownerId)
+      .order("updated_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+  ]);
 
-  const isReturning = (projects?.length ?? 0) > 0;
+  const conversationId = conversationRes.data?.id ?? null;
+  let messages: ThreadMessage[] = [];
+  if (conversationId) {
+    const { data } = await supabase
+      .from("agent_messages")
+      .select("id, role, content, created_at")
+      .eq("conversation_id", conversationId)
+      .in("role", ["user", "assistant"])
+      .order("created_at", { ascending: false })
+      .limit(THREAD_LIMIT);
+    messages = (data ?? [])
+      .reverse()
+      .filter((row) => typeof row.content === "string" && row.content.trim())
+      .map((row) => ({
+        id: row.id as string,
+        role: row.role as ThreadMessage["role"],
+        content: row.content as string,
+        createdAt: row.created_at as string,
+      }));
+  }
+
+  const yourCall = queue.filter((row) => row.track.waitingOn === "creator");
+  const withAgent = queue.filter((row) => row.track.waitingOn === "agent");
+  const scheduled = queue.filter((row) =>
+    row.track.gates.some((gate) => gate.id === "publish" && gate.state === "working"),
+  ).length;
 
   return (
-    <div className="app-page">
-      <section className="studio-hero">
-        <p className="auth-brand">Overview</p>
-        <h1 className="app-hero-title">
-          {isReturning
-            ? "Pick up where your creative system left off."
-            : "Your idea. On-brand creativity. Automated production."}
-        </h1>
-        <p className="app-hero-copy">
-          {isReturning
-            ? "Review Projects that need attention, or open the agent to continue planning."
-            : "Describe what you want to make. The shared AI agent will open a Draft Project you can refine, approve, and activate."}
-        </p>
-        <OverviewPrompt />
-        <div className="app-actions">
-          <Link href="/agent">
-            <Button size="lg" className="studio-button" style={{ width: "auto" }}>
-              Create with AI
-            </Button>
-          </Link>
-          <Link href="/projects">
-            <Button size="lg" variant="secondary" className="studio-button-secondary" style={{ height: "3rem", padding: "0 1.25rem" }}>
-              Browse Projects
-            </Button>
-          </Link>
-        </div>
-      </section>
-
-      <section className="app-stat-grid">
-        <StatCard label="Draft" value={countStatus(projects, "draft")} />
-        <StatCard label="Active" value={countStatus(projects, "active")} />
-        <StatCard label="Needs review" value="—" />
-      </section>
-
-      <section className="studio-panel" style={{ padding: "1.5rem 2rem" }}>
-        <div className="app-section-head">
-          <h2 className="app-section-title">Recent Projects</h2>
-          <Link href="/projects" className="auth-footer" style={{ margin: 0, color: "var(--accent)", fontWeight: 500 }}>
-            View all
-          </Link>
-        </div>
-        {(projects?.length ?? 0) === 0 ? (
-          <p className="auth-copy" style={{ marginTop: "1.5rem" }}>
-            No Projects yet. Start a conversation with the agent to create your first Draft.
-          </p>
-        ) : (
-          <ul className="app-list">
-            {projects!.map((project) => (
-              <li key={project.id}>
-                <Link href={`/projects/${project.id}`} className="app-list-link">
-                  <span style={{ fontWeight: 500 }}>{project.name}</span>
-                  <StatusPill status={project.status} />
-                </Link>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+    <div className="home">
+      <StudioThread
+        initialMessages={messages}
+        initialConversationId={conversationId}
+        decisions={
+          <DecisionCard
+            yourCall={yourCall}
+            withAgent={withAgent}
+            hasAnyConcepts={queue.length > 0}
+          />
+        }
+      />
+      <TodayPanel
+        counts={{
+          waitingOnYou: yourCall.length,
+          withAgent: withAgent.length,
+          scheduled,
+        }}
+        latestRun={runs[0] ?? null}
+        projects={projectsRes.data ?? []}
+        orchestratedByN8n={Boolean(process.env.N8N_WEBHOOK_BASE_URL?.trim())}
+      />
     </div>
   );
-}
-
-function countStatus(
-  projects: { status: string }[] | null | undefined,
-  status: string,
-): number {
-  return projects?.filter((p) => p.status === status).length ?? 0;
-}
-
-function StatCard({ label, value }: { label: string; value: number | string }) {
-  return (
-    <div className="studio-panel app-stat-card">
-      <p className="app-stat-label">{label}</p>
-      <p className="app-stat-value">{value}</p>
-    </div>
-  );
-}
-
-function StatusPill({ status }: { status: string }) {
-  return <span className="app-status-pill">{status}</span>;
 }

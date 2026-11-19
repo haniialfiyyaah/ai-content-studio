@@ -1,26 +1,39 @@
 import { cn } from "@/lib/utils";
 
-const STATUS_STYLES: Record<string, string> = {
-  draft: "bg-accent-soft text-accent",
-  ready_for_review: "bg-[#fff4e6] text-[#a36f39]",
-  pending_review: "bg-warning/15 text-warning",
-  approved: "bg-success/15 text-success",
-  active: "bg-success/15 text-success",
-  paused: "bg-warning/15 text-warning",
-  stopped: "bg-danger/10 text-danger",
-  archived: "bg-black/5 text-muted",
-  enabled: "bg-success/15 text-success",
-  disabled: "bg-black/5 text-muted",
-  draft_intent: "bg-accent-soft text-accent",
-  scheduled: "bg-info/15 text-info",
-  publishing: "bg-info/15 text-info",
-  published: "bg-success/15 text-success",
-  failed: "bg-danger/10 text-danger",
-  blocked: "bg-warning/15 text-warning",
-  upload: "bg-accent-soft text-accent",
-  generated: "bg-success/15 text-success",
-  imported: "bg-info/15 text-info",
-  derived: "bg-black/5 text-muted",
+type PillTone = "done" | "current" | "working" | "blocked" | "quiet";
+
+/**
+ * Status tone follows the consent track: teal when a decision is settled,
+ * sand when the creator owes one, sage while work is running, clay on trouble.
+ */
+const STATUS_TONES: Record<string, PillTone> = {
+  draft: "quiet",
+  pending_review: "current",
+  ready_for_review: "current",
+  approved: "done",
+  active: "done",
+  enabled: "done",
+  published: "done",
+  generated: "done",
+  paused: "blocked",
+  stopped: "blocked",
+  failed: "blocked",
+  blocked: "blocked",
+  held: "blocked",
+  queued: "working",
+  preparing: "working",
+  generating: "working",
+  rendering: "working",
+  validating: "working",
+  scheduled: "working",
+  publishing: "working",
+  running: "working",
+  draft_intent: "quiet",
+  archived: "quiet",
+  disabled: "quiet",
+  upload: "quiet",
+  imported: "quiet",
+  derived: "quiet",
 };
 
 export function StatusPill({
@@ -30,15 +43,12 @@ export function StatusPill({
   status: string;
   className?: string;
 }) {
+  const tone = STATUS_TONES[status] ?? "quiet";
   return (
     <span
-      className={cn(
-        "rounded-full px-2.5 py-1 text-xs font-medium capitalize",
-        STATUS_STYLES[status] ?? "bg-accent-soft text-accent",
-        className,
-      )}
+      className={cn("pill", tone !== "quiet" && `pill--${tone}`, className)}
     >
-      {status}
+      {status.replaceAll("_", " ")}
     </span>
   );
 }
