@@ -171,9 +171,13 @@ export async function POST(request: Request) {
       status: "pending",
     });
 
-    const appUrl =
-      process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ??
-      "https://ai-content-studio-one-sigma.vercel.app";
+    // Prefer ACS_API_BASE_URL (n8n/service canonical host) over NEXT_PUBLIC_APP_URL,
+    // which may still point at an older Vercel alias.
+    const appUrl = (
+      process.env.ACS_API_BASE_URL ||
+      process.env.NEXT_PUBLIC_APP_URL ||
+      "https://ai-content-studio-one-sigma.vercel.app"
+    ).replace(/\/$/, "");
 
     return jsonOk(
       {
