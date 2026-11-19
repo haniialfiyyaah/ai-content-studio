@@ -18,6 +18,7 @@ import { VideoReviewActions } from "@/components/videos/video-review-actions";
 import { ContentTabs } from "@/components/content/content-tabs";
 import { ConsentTrack } from "@/components/consent/consent-track";
 import { AuthorizeSpendButton } from "@/components/consent/authorize-spend-button";
+import { QueueVideoButton } from "@/components/content/queue-video-button";
 import {
   resolveContentTab,
   type ContentTabId,
@@ -312,6 +313,7 @@ export default async function ContentDetailPage({
             assets,
             canProduce,
             hasGrant: grantActive,
+            grantId: grantRow?.id ?? null,
             latestRemotionJobId: latestJob?.id ?? null,
             latestAttempt,
           })}
@@ -334,6 +336,7 @@ function renderTabPanel(
     assets: MediaAssetRow[];
     canProduce: boolean;
     hasGrant: boolean;
+    grantId: string | null;
     latestRemotionJobId: string | null;
     latestAttempt: {
       id: string;
@@ -461,6 +464,13 @@ function renderTabPanel(
               </div>
             ) : null}
           </InfoCard>
+          {ctx.approvedVersion ? (
+            <QueueVideoButton
+              conceptVersionId={ctx.approvedVersion.id}
+              canProduce={ctx.canProduce}
+              consentId={ctx.grantId}
+            />
+          ) : null}
           {ctx.latestAttempt ? (
             <div className="rounded-xl border border-border bg-surface-strong p-4">
               <div className="flex flex-wrap items-center justify-between gap-3">

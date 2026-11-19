@@ -36,6 +36,30 @@ export async function POST(
       correlationId,
     });
 
+    // Capstone path: enqueue then wake WF-02 — do not block the client on render.
+    const webhookBase = process.env.N8N_WEBHOOK_BASE_URL?.trim();
+    if (webhookBase && !result.reused) {
+      void fetch(`${webhookBase}/video-production`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-acs-service-token":
+            process.env.ACS_INTERNAL_SERVICE_TOKEN ?? "",
+        },
+        body: JSON.stringify({
+          jobId: result.job.id,
+          projectId: result.job.projectId,
+          conceptVersionId: result.job.conceptVersionId,
+          productionMode: result.job.productionMode,
+          consentId: result.job.consentId,
+          correlationId,
+          idempotencyKey: result.job.idempotencyKey,
+        }),
+      }).catch(() => {
+        // Outbox remains for retry; queue row is already durable.
+      });
+    }
+
     return jsonAccepted(result, correlationId);
   } catch (error) {
     return jsonError(error, correlationId);

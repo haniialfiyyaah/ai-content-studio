@@ -858,9 +858,52 @@ export async function completeVideoJob(
     );
   }
 
+  const completedAttempt = mapVideoAttemptRow(
+    updatedAttempt as VideoAttemptRow,
+  );
+  const completedJob = mapVideoJobRow(updatedJob as VideoJobRow);
+
+  // Async notify linked Telegram — WF-06 delivers; chat does not wait on render.
+  const { data: telegramLink } = await supabase
+    .from("telegram_links")
+    .select("id, telegram_chat_id, notifications_enabled")
+    .eq("owner_id", completedJob.ownerId)
+    .is("revoked_at", null)
+    .maybeSingle();
+
+  if (
+    telegramLink &&
+    telegramLink.notifications_enabled !== false &&
+    telegramLink.telegram_chat_id
+  ) {
+    const appUrl = (
+      process.env.ACS_API_BASE_URL ||
+      process.env.NEXT_PUBLIC_APP_URL ||
+      ""
+    ).replace(/\/$/, "");
+    const deepLink = appUrl
+      ? `${appUrl}/videos/${completedAttempt.id}`
+      : `/videos/${completedAttempt.id}`;
+
+    await supabase.from("notifications").insert({
+      owner_id: completedJob.ownerId,
+      project_id: completedJob.projectId,
+      channel: "telegram",
+      template: "video_ready_for_review",
+      payload: {
+        jobId: completedJob.id,
+        attemptId: completedAttempt.id,
+        chatId: telegramLink.telegram_chat_id,
+        previewText: "Your video is ready for review.",
+        deepLink,
+      },
+      delivery_state: "pending",
+    });
+  }
+
   return {
-    job: mapVideoJobRow(updatedJob as VideoJobRow),
-    attempt: mapVideoAttemptRow(updatedAttempt as VideoAttemptRow),
+    job: completedJob,
+    attempt: completedAttempt,
   };
 }
 
