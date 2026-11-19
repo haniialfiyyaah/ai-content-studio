@@ -123,7 +123,7 @@ export function TelegramLinkCard() {
         </p>
         <Button
           type="button"
-          variant="outline"
+          variant="secondary"
           disabled={busy}
           onClick={() => void onUnlink()}
         >

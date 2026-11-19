@@ -35,7 +35,7 @@ export async function GET() {
       .maybeSingle();
 
     if (error) {
-      throw new AppError(ErrorCodes.INTERNAL, error.message, 500);
+      throw new AppError(ErrorCodes.INTERNAL_ERROR, error.message, 500);
     }
 
     return jsonOk(
@@ -109,7 +109,7 @@ export async function POST(request: Request) {
       .single();
 
     if (error) {
-      throw new AppError(ErrorCodes.INTERNAL, error.message, 500);
+      throw new AppError(ErrorCodes.INTERNAL_ERROR, error.message, 500);
     }
 
     return jsonOk(
@@ -155,7 +155,7 @@ export async function DELETE() {
       .is("revoked_at", null);
 
     if (error) {
-      throw new AppError(ErrorCodes.INTERNAL, error.message, 500);
+      throw new AppError(ErrorCodes.INTERNAL_ERROR, error.message, 500);
     }
 
     return jsonOk({ linked: false, link: null }, correlationId);
