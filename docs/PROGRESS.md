@@ -56,7 +56,7 @@ Unit tests: 19 passed (`@acs/domain` 15 + `@acs/integrations` 4).
 | Provider keys | Live OpenAI/fal/ElevenLabs/Telegram/YouTube not supplied (adapters ready; fixture-tested) |
 | Playwright Chromium | Install aborted — re-run `pnpm exec playwright install chromium` |
 | Supabase Cloud | Auth + M4 job→storage **Verified**; Mailtrap SMTP optional for signup emails |
-| n8n | Cloud drafts: WF-A3 `Tx1J1HPtoBAeLgQS`, WF-A1 `8qdIEtuApGDJXrPD` at `codebyhani.app.n8n.cloud`. Not published. App webhook URL remains empty so planning does not fire at an unreachable host. |
+| n8n | Cloud account now has WF-A1, WF-A3, published WF-04 Error Handling, SUB Progress Reporter, and SUB Scoped Domain Tool. A1, A3, the progress reporter, and the domain tool point at WF-04. Still only in the repo: WF-01, WF-02, WF-03, WF-05, WF-06, WF-07, WF-08, WF-A2. Webhook URL remains empty. |
 | Browser WebCodecs | Chrome 94+ / Firefox 130+ / Safari 26+ required for in-browser MP4 |
 
 ## Decisions

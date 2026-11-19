@@ -29,7 +29,7 @@ Status vocabulary:
 | Publishing calendar + schedule form | **Implemented** | UI + `publishing_jobs` API; live OAuth **Blocked** |
 | BYOK no silent managed fallback | **Verified** | Unit policy + fixture BYOK execute decrypt; invalid/missing key → `BYOK_KEY_INVALID` |
 | Telegram continuity | **Partial** | WF-A2 JSON + resolve-actor stub; bot **Blocked** |
-| n8n all 11 workflows | **Partial** | Repo JSON remains. Connected cloud drafts: WF-A1 `8qdIEtuApGDJXrPD`, WF-A3 `Tx1J1HPtoBAeLgQS`. Not published, and the app webhook is still empty. |
+| n8n all 11 workflows | **Partial** | Repo still has all 13 JSON files. Cloud account: WF-A1, WF-A3, published WF-04, SUB Progress Reporter, SUB Scoped Domain Tool. WF-01, WF-02, WF-03, WF-05, WF-06, WF-07, WF-08, and WF-A2 are not on the account yet. |
 
 ## Functional requirements (selected)
 
