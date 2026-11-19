@@ -87,7 +87,9 @@ export async function POST(request: Request) {
     if (body.kind === "notifications") {
       const { data: rows, error } = await supabase
         .from("notifications")
-        .select("id, owner_id, project_id, channel, template, scheduled_for")
+        .select(
+          "id, owner_id, project_id, channel, template, payload, scheduled_for",
+        )
         .in("delivery_state", ["pending", "scheduled"])
         .or(`scheduled_for.is.null,scheduled_for.lte.${now}`)
         .order("created_at", { ascending: true })
@@ -101,18 +103,44 @@ export async function POST(request: Request) {
         );
       }
 
+      const notifications = (rows ?? []).map((row) => {
+        const payload =
+          row.payload &&
+          typeof row.payload === "object" &&
+          !Array.isArray(row.payload)
+            ? (row.payload as Record<string, unknown>)
+            : {};
+        return {
+          jobId: row.id,
+          notificationId: row.id,
+          ownerId: row.owner_id,
+          projectId: row.project_id,
+          channel: row.channel,
+          template: row.template,
+          scheduledFor: row.scheduled_for,
+          deliveryAllowed: true,
+          previewText:
+            typeof payload.previewText === "string"
+              ? payload.previewText
+              : row.template,
+          deepLink:
+            typeof payload.deepLink === "string" ? payload.deepLink : "",
+          chatId:
+            payload.chatId != null ? String(payload.chatId) : "",
+          attemptId:
+            typeof payload.attemptId === "string" ? payload.attemptId : "",
+          jobIdVideo:
+            typeof payload.jobId === "string" ? payload.jobId : "",
+          eventType: row.template,
+        };
+      });
+
       return jsonOk(
         {
           kind: body.kind,
-          jobs: (rows ?? []).map((row) => ({
-            jobId: row.id,
-            notificationId: row.id,
-            ownerId: row.owner_id,
-            projectId: row.project_id,
-            channel: row.channel,
-            template: row.template,
-            scheduledFor: row.scheduled_for,
-          })),
+          // WF-06 historically checks `notifications`; also expose `jobs`.
+          notifications,
+          jobs: notifications,
         },
         body.correlationId ?? correlationId,
       );
