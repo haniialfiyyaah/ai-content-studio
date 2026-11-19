@@ -46,30 +46,24 @@ export default function SignupPage() {
   }
 
   return (
-    <div className="relative z-10 flex min-h-screen items-center justify-center px-4 py-10">
-      <div className="studio-panel w-full max-w-md p-8 md:p-10">
-        <p className="text-sm font-medium uppercase tracking-[0.16em] text-accent">
-          AI Content Studio
-        </p>
-        <h1 className="font-display mt-3 text-3xl tracking-tight">Create account</h1>
-        <p className="mt-2 text-sm text-muted">
+    <div className="auth-shell">
+      <div className="studio-panel auth-card">
+        <p className="auth-brand">AI Content Studio</p>
+        <h1 className="auth-title">Create account</h1>
+        <p className="auth-copy">
           Start from Overview and let the agent open your first Draft Project.
         </p>
-        <form onSubmit={onSubmit} className="mt-8 flex flex-col gap-4">
-          <div className="flex flex-col gap-2">
-            <label htmlFor="displayName" className="text-sm font-medium">
-              Display name
-            </label>
+        <form onSubmit={onSubmit} className="auth-form">
+          <div className="auth-field">
+            <label htmlFor="displayName">Display name</label>
             <Input
               id="displayName"
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
             />
           </div>
-          <div className="flex flex-col gap-2">
-            <label htmlFor="email" className="text-sm font-medium">
-              Email
-            </label>
+          <div className="auth-field">
+            <label htmlFor="email">Email</label>
             <Input
               id="email"
               type="email"
@@ -79,10 +73,8 @@ export default function SignupPage() {
               onChange={(e) => setEmail(e.target.value)}
             />
           </div>
-          <div className="flex flex-col gap-2">
-            <label htmlFor="password" className="text-sm font-medium">
-              Password
-            </label>
+          <div className="auth-field">
+            <label htmlFor="password">Password</label>
             <Input
               id="password"
               type="password"
@@ -94,24 +86,21 @@ export default function SignupPage() {
             />
           </div>
           {error && (
-            <p className="rounded-xl bg-danger/10 px-3 py-2 text-sm text-danger" role="alert">
+            <p className="auth-alert" role="alert">
               {error}
             </p>
           )}
           {info && (
-            <p className="rounded-xl bg-accent-soft px-3 py-2 text-sm text-accent" role="status">
+            <p className="auth-alert" role="status" style={{ background: "var(--accent-soft)", color: "var(--accent)" }}>
               {info}
             </p>
           )}
-          <Button type="submit" size="lg" disabled={loading}>
+          <Button type="submit" size="lg" disabled={loading} className="studio-button">
             {loading ? "Creating…" : "Create account"}
           </Button>
         </form>
-        <p className="mt-6 text-sm text-muted">
-          Already have an account?{" "}
-          <Link href="/login" className="font-medium text-accent underline-offset-4 hover:underline">
-            Sign in
-          </Link>
+        <p className="auth-footer">
+          Already have an account? <Link href="/login">Sign in</Link>
         </p>
       </div>
     </div>

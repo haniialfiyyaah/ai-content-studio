@@ -41,11 +41,9 @@ function LoginForm() {
   }
 
   return (
-    <form onSubmit={onSubmit} className="flex flex-col gap-4">
-      <div className="flex flex-col gap-2">
-        <label htmlFor="email" className="text-sm font-medium">
-          Email
-        </label>
+    <form onSubmit={onSubmit} className="auth-form">
+      <div className="auth-field">
+        <label htmlFor="email">Email</label>
         <Input
           id="email"
           type="email"
@@ -55,10 +53,8 @@ function LoginForm() {
           onChange={(e) => setEmail(e.target.value)}
         />
       </div>
-      <div className="flex flex-col gap-2">
-        <label htmlFor="password" className="text-sm font-medium">
-          Password
-        </label>
+      <div className="auth-field">
+        <label htmlFor="password">Password</label>
         <Input
           id="password"
           type="password"
@@ -70,11 +66,11 @@ function LoginForm() {
         />
       </div>
       {error && (
-        <p className="rounded-xl bg-danger/10 px-3 py-2 text-sm text-danger" role="alert">
+        <p className="auth-alert" role="alert">
           {error}
         </p>
       )}
-      <Button type="submit" size="lg" disabled={loading}>
+      <Button type="submit" size="lg" disabled={loading} className="studio-button">
         {loading ? "Signing in…" : "Sign in"}
       </Button>
     </form>
@@ -83,27 +79,18 @@ function LoginForm() {
 
 export default function LoginPage() {
   return (
-    <div className="relative z-10 flex min-h-screen items-center justify-center px-4 py-10">
-      <div className="studio-panel w-full max-w-md p-8 md:p-10">
-        <p className="text-sm font-medium uppercase tracking-[0.16em] text-accent">
-          AI Content Studio
-        </p>
-        <h1 className="font-display mt-3 text-3xl tracking-tight text-foreground">
-          Welcome back
-        </h1>
-        <p className="mt-2 text-sm text-muted">
+    <div className="auth-shell">
+      <div className="studio-panel auth-card">
+        <p className="auth-brand">AI Content Studio</p>
+        <h1 className="auth-title">Welcome back</h1>
+        <p className="auth-copy">
           Sign in to continue to Overview and your creative workspace.
         </p>
-        <div className="mt-8">
-          <Suspense fallback={<p className="text-sm text-muted">Loading…</p>}>
-            <LoginForm />
-          </Suspense>
-        </div>
-        <p className="mt-6 text-sm text-muted">
-          New here?{" "}
-          <Link href="/signup" className="font-medium text-accent underline-offset-4 hover:underline">
-            Create an account
-          </Link>
+        <Suspense fallback={<p className="auth-copy">Loading…</p>}>
+          <LoginForm />
+        </Suspense>
+        <p className="auth-footer">
+          New here? <Link href="/signup">Create an account</Link>
         </p>
       </div>
     </div>
