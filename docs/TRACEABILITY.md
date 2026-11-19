@@ -24,7 +24,7 @@ Status vocabulary:
 | Concept Approve / Edit (immutable versions) | **Verified** | Approve API + revision create |
 | Initial launch ≠ approval; activation gate | **Verified** | `INITIAL_LAUNCH_NOT_READY` then activate OK |
 | Activate ≠ paid render ≠ publish | **Verified** | Activate succeeded without auto-render; render needs grant |
-| Video Remotion / fal / Hybrid | **Fixture** | Job pipeline verified; Remotion worker stub; fal fixture |
+| Video Remotion / fal / Hybrid | **Partial** | Remotion live MP4 **Verified** (`render:verify`); `/api/internal/render/remotion` persists to `renders`; fal/ElevenLabs gateways **Implemented** (fixture unit tests); Hybrid + full review E2E open |
 | Video Approve / Regenerate | **Verified** (approve); regenerate **Implemented** | Smoke approved attempt |
 | Publishing calendar + schedule form | **Implemented** | UI + `publishing_jobs` API; live OAuth **Blocked** |
 | BYOK no silent managed fallback | **Verified** | Unit policy + fixture BYOK execute decrypt; invalid/missing key → `BYOK_KEY_INVALID` |

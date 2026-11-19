@@ -45,29 +45,21 @@ export function AppShell({ children, userEmail, displayName }: AppShellProps) {
   }
 
   return (
-    <div className="relative z-10 flex min-h-screen">
-      {/* Desktop sidebar */}
+    <div className="app-shell">
       <aside
-        className={cn(
-          "sticky top-0 hidden h-screen shrink-0 flex-col bg-sidebar text-sidebar-foreground transition-[width] duration-300 ease-out md:flex",
-          collapsed ? "w-[84px]" : "w-[260px]",
-        )}
+        className={cn("app-sidebar", collapsed && "is-collapsed")}
       >
-        <div className="flex items-center justify-between gap-2 px-4 py-5">
-          <Link href="/" className="flex min-w-0 items-center gap-2">
-            <span className="flex size-9 items-center justify-center rounded-xl bg-accent text-accent-foreground">
+        <div className="app-sidebar-header">
+          <Link href="/" className="app-brand">
+            <span className="app-brand-mark">
               <Sparkles className="size-4" />
             </span>
-            {!collapsed && (
-              <span className="font-display text-lg tracking-tight">
-                Content Studio
-              </span>
-            )}
+            {!collapsed && <span className="app-brand-name">Content Studio</span>}
           </Link>
           <button
             type="button"
             onClick={toggleCollapsed}
-            className="studio-focus-ring rounded-lg p-2 text-sidebar-muted hover:bg-white/5 hover:text-sidebar-foreground"
+            className="app-sidebar-toggle studio-focus-ring"
             aria-label={collapsed ? "Expand navigation" : "Collapse navigation"}
           >
             {collapsed ? (
@@ -78,20 +70,17 @@ export function AppShell({ children, userEmail, displayName }: AppShellProps) {
           </button>
         </div>
 
-        <div className="px-3">
+        <div className="app-sidebar-cta-wrap">
           <Link
             href="/agent"
-            className={cn(
-              "flex items-center gap-2 rounded-xl bg-accent px-3 py-2.5 text-sm font-medium text-accent-foreground transition hover:brightness-110",
-              collapsed && "justify-center px-0",
-            )}
+            className={cn("app-sidebar-cta", collapsed && "is-collapsed")}
           >
             <Sparkles className="size-4 shrink-0" />
             {!collapsed && <span>Create with AI</span>}
           </Link>
         </div>
 
-        <nav className="mt-6 flex flex-1 flex-col gap-6 overflow-y-auto px-3 pb-6">
+        <nav className="app-sidebar-nav">
           <NavGroup
             title="Workspace"
             items={WORKSPACE_NAV}
@@ -106,44 +95,44 @@ export function AppShell({ children, userEmail, displayName }: AppShellProps) {
           />
         </nav>
 
-        <div className="border-t border-white/10 px-4 py-4 text-xs text-sidebar-muted">
+        <div className="app-sidebar-footer">
           {!collapsed && (
-            <p className="truncate">{displayName || userEmail || "Signed in"}</p>
+            <p>{displayName || userEmail || "Signed in"}</p>
           )}
         </div>
       </aside>
 
-      {/* Mobile drawer */}
       {mobileOpen && (
-        <div className="fixed inset-0 z-40 md:hidden">
+        <div className="fixed inset-0 z-40 md:hidden" style={{ position: "fixed", inset: 0, zIndex: 40 }}>
           <button
             type="button"
             className="absolute inset-0 bg-black/40"
+            style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.4)", border: 0 }}
             aria-label="Close navigation"
             onClick={() => setMobileOpen(false)}
           />
-          <aside className="relative z-10 flex h-full w-[280px] flex-col bg-sidebar text-sidebar-foreground shadow-2xl">
-            <div className="flex items-center justify-between px-4 py-5">
-              <span className="font-display text-lg">Content Studio</span>
+          <aside
+            className="app-sidebar"
+            style={{ display: "flex", position: "relative", zIndex: 10, width: 280 }}
+          >
+            <div className="app-sidebar-header">
+              <span className="app-brand-name">Content Studio</span>
               <button
                 type="button"
                 onClick={() => setMobileOpen(false)}
-                className="rounded-lg p-2 text-sidebar-muted"
+                className="app-sidebar-toggle"
                 aria-label="Close"
               >
                 <X className="size-4" />
               </button>
             </div>
-            <div className="px-3">
-              <Link
-                href="/agent"
-                className="flex items-center gap-2 rounded-xl bg-accent px-3 py-2.5 text-sm font-medium text-accent-foreground"
-              >
+            <div className="app-sidebar-cta-wrap">
+              <Link href="/agent" className="app-sidebar-cta">
                 <Sparkles className="size-4" />
                 Create with AI
               </Link>
             </div>
-            <nav className="mt-6 flex flex-col gap-6 px-3">
+            <nav className="app-sidebar-nav">
               <NavGroup title="Workspace" items={WORKSPACE_NAV} pathname={pathname} />
               <NavGroup title="Manage" items={MANAGE_NAV} pathname={pathname} />
             </nav>
@@ -151,35 +140,34 @@ export function AppShell({ children, userEmail, displayName }: AppShellProps) {
         </div>
       )}
 
-      <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-20 flex items-center justify-between gap-3 border-b border-border/70 bg-[rgba(247,243,236,0.8)] px-4 py-3 backdrop-blur-md md:px-8">
-          <div className="flex items-center gap-2">
+      <div className="app-main-column">
+        <header className="app-topbar">
+          <div className="app-topbar-left">
             <Button
               variant="ghost"
               size="icon"
-              className="md:hidden"
+              className="studio-button-ghost md:hidden"
               onClick={() => setMobileOpen(true)}
               aria-label="Open navigation"
             >
               <Menu className="size-5" />
             </Button>
-            <p className="text-sm text-muted">AI Content Studio</p>
+            <p className="app-topbar-label">AI Content Studio</p>
           </div>
-          <form action="/api/auth/logout" method="post">
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              onClick={async () => {
-                await fetch("/api/auth/logout", { method: "POST" });
-                window.location.href = "/login";
-              }}
-            >
-              Sign out
-            </Button>
-          </form>
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            className="studio-button-secondary"
+            onClick={async () => {
+              await fetch("/api/auth/logout", { method: "POST" });
+              window.location.href = "/login";
+            }}
+          >
+            Sign out
+          </Button>
         </header>
-        <main className="flex-1 px-4 py-6 md:px-8 md:py-8">{children}</main>
+        <main className="app-content">{children}</main>
       </div>
     </div>
   );
@@ -198,12 +186,8 @@ function NavGroup({
 }) {
   return (
     <div>
-      {!collapsed && (
-        <p className="mb-2 px-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-sidebar-muted">
-          {title}
-        </p>
-      )}
-      <ul className="flex flex-col gap-1">
+      {!collapsed && <p className="app-nav-group-title">{title}</p>}
+      <ul className="app-nav-list">
         {items.map((item) => {
           const active =
             item.href === "/"
@@ -215,11 +199,9 @@ function NavGroup({
                 href={item.href}
                 title={item.label}
                 className={cn(
-                  "block rounded-xl px-3 py-2 text-sm transition",
-                  active
-                    ? "bg-white/10 text-sidebar-foreground"
-                    : "text-sidebar-muted hover:bg-white/5 hover:text-sidebar-foreground",
-                  collapsed && "text-center px-2",
+                  "app-nav-link",
+                  active && "is-active",
+                  collapsed && "is-collapsed",
                 )}
               >
                 {collapsed ? item.label.slice(0, 1) : item.label}

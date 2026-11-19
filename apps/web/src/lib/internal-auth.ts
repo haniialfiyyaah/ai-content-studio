@@ -2,10 +2,17 @@ import { AppError, ErrorCodes } from "@acs/domain";
 
 /**
  * Authenticates n8n / worker calls to /api/internal/*.
- * Accepts ACS_INTERNAL_SERVICE_TOKEN plus optional comma-separated
- * ACS_INTERNAL_SERVICE_TOKEN_ALIASES. In non-production, also accepts the
- * historical compose default `local-internal-token` so a running n8n container
- * keeps working until `docker-compose up -d --force-recreate n8n`.
+ *
+ * Allowed tokens:
+ * - ACS_INTERNAL_SERVICE_TOKEN (required)
+ * - ACS_INTERNAL_SERVICE_TOKEN_ALIASES (optional comma-separated)
+ *
+ * Legacy hardcoded `local-internal-token` is NO longer accepted.
+ * Align docker-compose with .env via:
+ *   docker-compose up -d --force-recreate n8n
+ *
+ * Production: set ACS_REJECT_INTERNAL_TOKEN_ALIASES=true (or NODE_ENV=production)
+ * to refuse aliases entirely — only the primary token works.
  */
 export function assertInternalServiceAuth(request: Request): void {
   const primary = process.env.ACS_INTERNAL_SERVICE_TOKEN;
@@ -17,14 +24,16 @@ export function assertInternalServiceAuth(request: Request): void {
     );
   }
 
-  const aliases = (process.env.ACS_INTERNAL_SERVICE_TOKEN_ALIASES ?? "")
-    .split(",")
-    .map((value) => value.trim())
-    .filter(Boolean);
+  const rejectAliases =
+    process.env.NODE_ENV === "production" ||
+    process.env.ACS_REJECT_INTERNAL_TOKEN_ALIASES === "true";
 
-  if (process.env.NODE_ENV !== "production") {
-    aliases.push("local-internal-token");
-  }
+  const aliases = rejectAliases
+    ? []
+    : (process.env.ACS_INTERNAL_SERVICE_TOKEN_ALIASES ?? "")
+        .split(",")
+        .map((value) => value.trim())
+        .filter(Boolean);
 
   const allowed = new Set([primary, ...aliases]);
   const provided = request.headers.get("x-acs-service-token");

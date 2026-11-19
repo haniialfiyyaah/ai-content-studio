@@ -1,6 +1,8 @@
-import { mkdir, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { mkdir, access, stat } from "node:fs/promises";
+import { join, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 import { randomUUID } from "node:crypto";
+import { createRequire } from "node:module";
 
 export interface RenderRequest {
   jobId?: string;
@@ -16,8 +18,54 @@ export interface RenderResult {
   jobId: string | null;
   attemptId: string | null;
   outputPath: string | null;
+  bytes?: number;
+  durationMs?: number;
   error?: string;
   message?: string;
+}
+
+const require = createRequire(import.meta.url);
+const workerRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
+
+let cachedBundle: string | null = null;
+let bundlePromise: Promise<string> | null = null;
+
+function remotionPackagesInstalled(): boolean {
+  try {
+    require.resolve("@remotion/bundler");
+    require.resolve("@remotion/renderer");
+    require.resolve("remotion");
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function getOrCreateBundle(): Promise<string> {
+  if (cachedBundle) {
+    await access(cachedBundle);
+    return cachedBundle;
+  }
+  if (bundlePromise) return bundlePromise;
+
+  bundlePromise = (async () => {
+    const { bundle } = await import("@remotion/bundler");
+    const entryPoint = join(workerRoot, "src", "remotion-entry.ts");
+    const serveUrl = await bundle({
+      entryPoint,
+      // Keep webpack defaults — no custom remotion.config yet.
+      webpackOverride: (config) => config,
+    });
+    cachedBundle = serveUrl;
+    return serveUrl;
+  })();
+
+  try {
+    return await bundlePromise;
+  } catch (error) {
+    bundlePromise = null;
+    throw error;
+  }
 }
 
 /**
@@ -44,46 +92,87 @@ export async function renderShortForm(
     };
   }
 
-  try {
-    // Dynamic import keeps default installs light (disk-constrained local stacks).
-    const remotionRenderer = await import("@remotion/renderer");
-    const remotion = await import("remotion");
-    void remotion;
+  if (!remotionPackagesInstalled()) {
+    return {
+      status: "failed",
+      fixture: false,
+      remotion: false,
+      jobId,
+      attemptId,
+      outputPath: null,
+      error: "REMOTION_NOT_INSTALLED",
+      message:
+        "Install remotion and @remotion/renderer in apps/render-worker to enable live encode.",
+    };
+  }
 
-    const outDir = process.env.ACS_RENDER_OUTPUT_DIR ?? "/tmp/acs-renders";
+  const started = Date.now();
+
+  try {
+    const { renderMedia, selectComposition, ensureBrowser } = await import(
+      "@remotion/renderer"
+    );
+    const { COMPOSITION_ID } = await import("./compositions/Root.js");
+
+    // Ensure Chrome Headless Shell is fully downloaded/extracted before encode.
+    const browser = await ensureBrowser();
+    const browserExecutable =
+      process.env.REMOTION_BROWSER_EXECUTABLE ??
+      (browser && "path" in browser ? (browser.path as string) : undefined);
+
+    const outDir = process.env.ACS_RENDER_OUTPUT_DIR ?? join(workerRoot, "out");
     await mkdir(outDir, { recursive: true });
     const outputPath = join(outDir, `${jobId ?? randomUUID()}.mp4`);
 
-    // Composition entry is apps/render-worker/src/compositions/Root.tsx once
-    // Remotion bundling is configured. Until then fail loudly — no fake MP4.
-    if (typeof remotionRenderer.renderMedia !== "function") {
-      throw new Error("REMOTION_RENDER_MEDIA_MISSING");
+    const inputProps = {
+      title: body.title?.trim() || "AI Content Studio",
+      scenes:
+        body.scenes && body.scenes.length > 0
+          ? body.scenes
+          : [{ caption: "Authorized Remotion render" }],
+    };
+
+    const serveUrl = await getOrCreateBundle();
+    const composition = await selectComposition({
+      serveUrl,
+      id: COMPOSITION_ID,
+      inputProps,
+      ...(browserExecutable ? { browserExecutable } : {}),
+    });
+
+    await renderMedia({
+      composition,
+      serveUrl,
+      codec: "h264",
+      outputLocation: outputPath,
+      inputProps,
+      // Cap concurrency for laptop-friendly encodes.
+      concurrency: Number(process.env.ACS_REMOTION_CONCURRENCY ?? 2) || 2,
+      ...(browserExecutable ? { browserExecutable } : {}),
+    });
+
+    const fileStat = await stat(outputPath);
+    if (!fileStat.isFile() || fileStat.size < 1024) {
+      throw new Error("REMOTION_OUTPUT_TOO_SMALL");
     }
 
-    await writeFile(
-      join(outDir, `${jobId ?? "job"}.meta.json`),
-      JSON.stringify({
-        title: body.title ?? "Untitled",
-        scenes: body.scenes ?? [],
-        note: "Bundle + renderMedia wiring required before live encode",
-      }),
-      "utf8",
-    );
-
     return {
-      status: "failed",
+      status: "completed",
       fixture: false,
       remotion: true,
       jobId,
       attemptId,
-      outputPath: null,
-      error: "REMOTION_BUNDLE_NOT_CONFIGURED",
-      message:
-        "Remotion packages detected but composition bundling is not configured yet.",
+      outputPath,
+      bytes: fileStat.size,
+      durationMs: Date.now() - started,
+      message: "Remotion live encode completed",
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : "unknown";
-    if (message.includes("Cannot find package") || message.includes("Cannot find module")) {
+    if (
+      message.includes("Cannot find package") ||
+      message.includes("Cannot find module")
+    ) {
       return {
         status: "failed",
         fixture: false,
@@ -100,12 +189,13 @@ export async function renderShortForm(
     return {
       status: "failed",
       fixture: false,
-      remotion: false,
+      remotion: true,
       jobId,
       attemptId,
       outputPath: null,
       error: "REMOTION_RENDER_FAILED",
       message,
+      durationMs: Date.now() - started,
     };
   }
 }

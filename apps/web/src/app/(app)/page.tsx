@@ -18,59 +18,56 @@ export default async function OverviewPage() {
   const isReturning = (projects?.length ?? 0) > 0;
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-8">
-      <section className="studio-panel overflow-hidden p-8 md:p-10">
-        <p className="text-sm font-medium uppercase tracking-[0.16em] text-accent">
-          Overview
-        </p>
-        <h1 className="font-display mt-3 max-w-2xl text-4xl leading-tight tracking-tight md:text-5xl">
+    <div className="app-page">
+      <section className="studio-panel auth-card" style={{ maxWidth: "100%", padding: "2rem" }}>
+        <p className="auth-brand">Overview</p>
+        <h1 className="app-hero-title">
           {isReturning
             ? "Pick up where your creative system left off."
             : "Your idea. On-brand creativity. Automated production."}
         </h1>
-        <p className="mt-4 max-w-xl text-base text-muted">
+        <p className="app-hero-copy">
           {isReturning
             ? "Review Projects that need attention, or open the agent to continue planning."
             : "Describe what you want to make. The shared AI agent will open a Draft Project you can refine, approve, and activate."}
         </p>
-        <div className="mt-8 flex flex-wrap gap-3">
+        <div className="app-actions">
           <Link href="/agent">
-            <Button size="lg">Create with AI</Button>
+            <Button size="lg" className="studio-button" style={{ width: "auto" }}>
+              Create with AI
+            </Button>
           </Link>
           <Link href="/projects">
-            <Button size="lg" variant="secondary">
+            <Button size="lg" variant="secondary" className="studio-button-secondary" style={{ height: "3rem", padding: "0 1.25rem" }}>
               Browse Projects
             </Button>
           </Link>
         </div>
       </section>
 
-      <section className="grid gap-4 md:grid-cols-3">
+      <section className="app-stat-grid">
         <StatCard label="Draft" value={countStatus(projects, "draft")} />
         <StatCard label="Active" value={countStatus(projects, "active")} />
         <StatCard label="Needs review" value={0} />
       </section>
 
-      <section className="studio-panel p-6 md:p-8">
-        <div className="flex items-center justify-between gap-3">
-          <h2 className="font-display text-2xl tracking-tight">Recent Projects</h2>
-          <Link href="/projects" className="text-sm font-medium text-accent">
+      <section className="studio-panel" style={{ padding: "1.5rem 2rem" }}>
+        <div className="app-section-head">
+          <h2 className="app-section-title">Recent Projects</h2>
+          <Link href="/projects" className="auth-footer" style={{ margin: 0, color: "var(--accent)", fontWeight: 500 }}>
             View all
           </Link>
         </div>
         {(projects?.length ?? 0) === 0 ? (
-          <p className="mt-6 text-sm text-muted">
+          <p className="auth-copy" style={{ marginTop: "1.5rem" }}>
             No Projects yet. Start a conversation with the agent to create your first Draft.
           </p>
         ) : (
-          <ul className="mt-6 flex flex-col gap-3">
+          <ul className="app-list">
             {projects!.map((project) => (
               <li key={project.id}>
-                <Link
-                  href={`/projects/${project.id}`}
-                  className="flex items-center justify-between rounded-xl border border-border bg-surface-strong px-4 py-3 transition hover:border-accent/40"
-                >
-                  <span className="font-medium">{project.name}</span>
+                <Link href={`/projects/${project.id}`} className="app-list-link">
+                  <span style={{ fontWeight: 500 }}>{project.name}</span>
                   <StatusPill status={project.status} />
                 </Link>
               </li>
@@ -91,17 +88,13 @@ function countStatus(
 
 function StatCard({ label, value }: { label: string; value: number }) {
   return (
-    <div className="studio-panel p-5">
-      <p className="text-sm text-muted">{label}</p>
-      <p className="font-display mt-2 text-3xl tracking-tight">{value}</p>
+    <div className="studio-panel app-stat-card">
+      <p className="app-stat-label">{label}</p>
+      <p className="app-stat-value">{value}</p>
     </div>
   );
 }
 
 function StatusPill({ status }: { status: string }) {
-  return (
-    <span className="rounded-full bg-accent-soft px-2.5 py-1 text-xs font-medium capitalize text-accent">
-      {status}
-    </span>
-  );
+  return <span className="app-status-pill">{status}</span>;
 }

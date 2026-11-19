@@ -41,3 +41,9 @@
 - **Date:** 2026-11-19
 - **Decision:** `prepareOpenAiExecution` decrypts BYOK with `ACS_CREDENTIAL_ENCRYPTION_KEY` inside Next.js. n8n sends `ownerId` only — never plaintext keys. Fixture managed allowance exhaustion is skipped when `fixtureMode` is true (no spend).
 - **Why:** Prevents key leakage into n8n execution data; keeps consent/billing invariants enforceable in one place.
+
+## ADR-008: Supabase Cloud fallback when local disk is exhausted
+
+- **Date:** 2026-11-19
+- **Decision:** Prefer local Supabase CLI. If Docker/disk blocks local Postgres, create a cloud project via Supabase MCP (`create_project` on org **Code by Hani**), copy URL + anon + service_role into `apps/web/.env.local`, and apply migrations with the CLI against the linked project. No paid upgrades without explicit authorization.
+- **Why:** Unblocks auth/API verification without buying infra; keeps credentials out of git.

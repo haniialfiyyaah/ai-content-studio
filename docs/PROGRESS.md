@@ -9,7 +9,7 @@ Last updated: 2026-11-19
 | M1 Foundation | **done** | Monorepo, schema+RLS, auth, studio shell, Overview |
 | M2 Shared Agent | **partial** | Sync gateway **Verified**; Agent→n8n WF-A1/A3→gateway→draft **Verified** (fixture AI); live OpenAI still needs keys |
 | M3 Projects / Content / Activation | **done** | Lifecycle, Creative Kit, Content Detail, launch gates |
-| M4 Video production | **fixture** | Job pipeline **Verified**; Remotion composition scaffold + honest fixture worker (live encode blocked by disk / packages) |
+| M4 Video production | **partial** | Job pipeline **Verified**; Remotion live encode **Verified** (local MP4 via `render:verify`); fal/ElevenLabs adapters **Implemented** (fixture-tested); compose quality + full job→storage→review E2E still open |
 | M5 Automation / Publishing / Telegram | **partial** | UI + APIs + n8n JSON; live OAuth/Telegram blocked |
 | M6 Docs / hardening | **partial** | Specs + architecture + traceability landed; Playwright scaffold present (`ACS_E2E=1`) |
 
@@ -33,20 +33,20 @@ Unit tests: 19 passed (`@acs/domain` 15 + `@acs/integrations` 4).
 
 ## Next implementation priorities
 
-1. Live OpenAI when `OPENAI_API_KEY` / real BYOK key available (`ACS_AI_FIXTURE_MODE=false`)
-2. Remotion live encode once disk + `remotion`/`@remotion/renderer` + Chromium available
-3. `docker-compose up -d --force-recreate n8n` so container env matches `.env` token (dev alias covers current container)
-4. Playwright with `ACS_E2E=1` against running stack
-5. Remaining providers (fal, ElevenLabs, Telegram, YouTube OAuth)
+1. Remotion composition quality (PRD motion/layouts) + authorized job → storage → video review E2E
+2. Playwright: `pnpm exec playwright install chromium` then `ACS_E2E=1 pnpm test:e2e` (install was aborted once)
+3. `docker-compose up -d --force-recreate n8n` so container token matches `.env` (no hardcoded legacy tokens)
+4. Live OpenAI when you authorize keys (`ACS_AI_FIXTURE_MODE=false`) — managed/BYOK path ready, no paid calls yet
+5. Telegram / YouTube OAuth
 
 ## Blockers
 
 | Item | Notes |
 |---|---|
-| Provider keys | Live OpenAI/fal/ElevenLabs/Telegram/YouTube not supplied |
-| Disk space | ~2GB free — cannot install Remotion/Chromium here |
-| n8n API import | Needs `N8N_API_KEY` or UI import; CLI: `docker exec … n8n import:workflow` |
-| Docker compose | Use `docker-compose`; Supabase: `--ignore-health-check -x logflare,vector` |
+| Provider keys | Live OpenAI/fal/ElevenLabs/Telegram/YouTube not supplied (adapters ready; fixture-tested) |
+| Playwright Chromium | Install aborted — re-run `pnpm exec playwright install chromium` |
+| Supabase local | Start stack or use Cloud via MCP (ADR-008) if disk blocks Docker |
+| n8n recreate | Force-recreate after token changes; production rejects aliases |
 
 ## Decisions
 

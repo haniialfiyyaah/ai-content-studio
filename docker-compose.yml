@@ -16,6 +16,8 @@ services:
       - N8N_PERSONALIZATION_ENABLED=false
       # Point workflows at the Next.js internal API
       - ACS_API_BASE_URL=${ACS_API_BASE_URL:-http://host.docker.internal:3000}
+      # Must match apps/web ACS_INTERNAL_SERVICE_TOKEN. Recreate after changes:
+      #   docker-compose up -d --force-recreate n8n
       - ACS_INTERNAL_SERVICE_TOKEN=${ACS_INTERNAL_SERVICE_TOKEN:-local-internal-token-change-me}
     volumes:
       - n8n_data:/home/node/.n8n

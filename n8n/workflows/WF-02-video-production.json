@@ -255,7 +255,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{$env.ACS_API_BASE_URL}}/api/internal/jobs/progress",
+        "url": "={{$env.ACS_API_BASE_URL}}/api/internal/render/remotion",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -271,9 +271,9 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"jobId\": \"{{ $('02-02 Normalize intent').item.json.jobId }}\",\n  \"stage\": \"render_remotion\",\n  \"state\": \"running\",\n  \"productionMode\": \"remotion\",\n  \"correlationId\": \"{{ $('02-02 Normalize intent').item.json.correlationId }}\"\n}",
+        "jsonBody": "={\n  \"jobId\": \"{{ $('02-02 Normalize intent').item.json.jobId }}\",\n  \"title\": \"{{ $('02-02 Normalize intent').item.json.title || 'Content Studio render' }}\",\n  \"correlationId\": \"{{ $('02-02 Normalize intent').item.json.correlationId }}\"\n}",
         "options": {
-          "timeout": 60000
+          "timeout": 600000
         }
       },
       "id": "wf02-08-remotion",
@@ -285,7 +285,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{$env.ACS_API_BASE_URL}}/api/internal/jobs/progress",
+        "url": "={{$env.ACS_API_BASE_URL}}/api/internal/media/fal",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -301,9 +301,9 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"jobId\": \"{{ $('02-02 Normalize intent').item.json.jobId }}\",\n  \"stage\": \"render_fal\",\n  \"state\": \"running\",\n  \"productionMode\": \"fal\",\n  \"correlationId\": \"{{ $('02-02 Normalize intent').item.json.correlationId }}\"\n}",
+        "jsonBody": "={\n  \"action\": \"submit\",\n  \"prompt\": \"{{ $('02-02 Normalize intent').item.json.prompt || 'Authorized fal render' }}\",\n  \"correlationId\": \"{{ $('02-02 Normalize intent').item.json.correlationId }}\"\n}",
         "options": {
-          "timeout": 60000
+          "timeout": 120000
         }
       },
       "id": "wf02-09-fal",
