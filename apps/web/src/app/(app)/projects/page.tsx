@@ -61,28 +61,30 @@ export default async function ProjectsLibraryPage() {
             </Link>
           </div>
         ) : (
-          <ul className="flex flex-col gap-3">
-            {list.map((project) => (
+          <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {list.map((project, index) => (
               <li key={project.id}>
                 <Link
                   href={`/projects/${project.id}`}
-                  className="flex flex-col gap-2 rounded-xl border border-border bg-surface-strong px-4 py-4 transition hover:border-accent/40 sm:flex-row sm:items-center sm:justify-between"
+                  className="flex h-full flex-col gap-3 rounded-[17px] border border-border bg-white p-3 transition hover:-translate-y-px hover:border-[#c6b8f8]"
                 >
-                  <div className="min-w-0">
-                    <p className="truncate font-medium">{project.name}</p>
-                    {project.objective && (
-                      <p className="mt-1 line-clamp-1 text-sm text-muted">
-                        {project.objective}
-                      </p>
-                    )}
+                  <div
+                    className={`flex h-28 items-center justify-center rounded-[11px] text-3xl font-semibold text-white ${COVERS[index % COVERS.length]}`}
+                  >
+                    {project.name.trim().slice(0, 1).toUpperCase()}
                   </div>
-                  <div className="flex shrink-0 items-center gap-3">
-                    <span className="text-xs capitalize text-muted">
-                      {project.content_mode}
-                    </span>
+                  <div className="px-1">
+                    <h2 className="text-sm font-extrabold tracking-tight">
+                      {project.name}
+                    </h2>
+                    <p className="mt-1 line-clamp-2 min-h-10 text-xs leading-5 text-muted">
+                      {project.objective?.trim() || "No objective saved yet."}
+                    </p>
+                  </div>
+                  <div className="mt-auto flex items-center justify-between border-t border-border px-1 pt-3">
                     <StatusPill status={project.status} />
                     <time
-                      className="hidden text-xs text-muted sm:inline"
+                      className="text-[10px] text-muted"
                       dateTime={project.updated_at}
                     >
                       {formatRelative(project.updated_at)}
@@ -97,6 +99,13 @@ export default async function ProjectsLibraryPage() {
     </div>
   );
 }
+
+const COVERS = [
+  "bg-gradient-to-br from-[#ffdfcd] to-[#f8c7c5] text-[#7a4b46]",
+  "bg-gradient-to-br from-[#e5dbff] to-[#b7d6f9] text-[#4d4580]",
+  "bg-gradient-to-br from-[#3b344d] to-[#79678c] text-white",
+  "bg-gradient-to-br from-[#d6f3e8] to-[#c9d6f5] text-[#2f5d55]",
+];
 
 function formatRelative(iso: string): string {
   const date = new Date(iso);

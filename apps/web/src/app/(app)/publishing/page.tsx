@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import {
   MonthCalendar,
@@ -52,8 +53,11 @@ export default async function PublishingCalendarPage({
         </p>
         <h1 className="font-display mt-3 text-4xl tracking-tight">Calendar</h1>
         <p className="mt-3 max-w-2xl text-sm text-muted">
-          Month view of scheduled publishing intents. Connect destinations and
-          schedule approved videos from the composer.
+          Month view of scheduled publishing intents.{" "}
+          <Link href="/publishing/schedule" className="font-medium text-accent">
+            Open the schedule composer
+          </Link>{" "}
+          after a video is approved.
         </p>
       </section>
 
