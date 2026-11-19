@@ -7,3 +7,5 @@ export * from "./agent";
 export * from "./ai-provider";
 export * from "./video";
 export * from "./publishing";
+export * from "./grants";
+export * from "./creative-kit";

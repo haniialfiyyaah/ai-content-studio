@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense, type ReactNode } from "react";
+import { getLatestKit } from "@acs/domain";
 import { createClient } from "@/lib/supabase/server";
 import { StatusPill } from "@/components/projects/status-pill";
 import {
@@ -9,6 +10,7 @@ import {
   type ProjectTabId,
 } from "@/components/projects/project-tabs";
 import { ProjectLifecycleActions } from "@/components/projects/project-lifecycle-actions";
+import { CreativeKitPanel } from "@/components/projects/creative-kit-panel";
 
 interface ProjectDetailRow {
   id: string;
@@ -116,13 +118,19 @@ export default async function ProjectDetailPage({
           </Suspense>
         </div>
 
-        <div className="mt-6">{renderTabPanel(activeTab, row)}</div>
+        <div className="mt-6">
+          {await renderTabPanel(activeTab, row, user!.id)}
+        </div>
       </section>
     </div>
   );
 }
 
-function renderTabPanel(tab: ProjectTabId, project: ProjectDetailRow) {
+async function renderTabPanel(
+  tab: ProjectTabId,
+  project: ProjectDetailRow,
+  ownerId: string,
+) {
   switch (tab) {
     case "overview":
       return (
@@ -154,8 +162,8 @@ function renderTabPanel(tab: ProjectTabId, project: ProjectDetailRow) {
             </ul>
           </InfoCard>
           <InfoCard title="Creative context">
-            Version {project.creative_context_version}. Kit and brand context
-            will appear here once configured.
+            Version {project.creative_context_version}. Open the Creative Kit tab
+            to review or update brand voice.
           </InfoCard>
         </div>
       );
@@ -166,13 +174,34 @@ function renderTabPanel(tab: ProjectTabId, project: ProjectDetailRow) {
           body="Concept drafts and review queues will list here."
         />
       );
-    case "kit":
+    case "kit": {
+      const supabase = await createClient();
+      const kit = await getLatestKit(supabase, {
+        projectId: project.id,
+        ownerId,
+      });
       return (
-        <PlaceholderPanel
-          title="Creative Kit"
-          body="Brand voice, visual rules, and kit overrides will live here."
+        <CreativeKitPanel
+          projectId={project.id}
+          initialKit={
+            kit
+              ? {
+                  id: kit.id,
+                  version: kit.version,
+                  languageDefault: kit.languageDefault,
+                  tone: kit.tone,
+                  audience: kit.audience,
+                  brandOrCreatorName: kit.brandOrCreatorName,
+                  doSay: kit.doSay,
+                  dontSay: kit.dontSay,
+                  visualNotes: kit.visualNotes,
+                  updatedAt: kit.updatedAt,
+                }
+              : null
+          }
         />
       );
+    }
     case "automation":
       return (
         <PlaceholderPanel

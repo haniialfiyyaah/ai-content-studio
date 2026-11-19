@@ -92,6 +92,10 @@ export const CreateConceptInputSchema = z.object({
   title: z.string().min(1).max(200).optional(),
   originalInput: z.string().max(8000).optional(),
   source: ConceptSourceSchema.default("web"),
+  /** Convenience fields merged into content when `content` is omitted. */
+  hook: z.string().max(2000).optional(),
+  script: z.string().max(20000).optional(),
+  selectedForInitialLaunch: z.boolean().default(false),
   content: ConceptContentSchema.optional(),
   visualPlan: VisualPlanSchema.optional(),
   publishingPack: PublishingPackSchema.optional(),

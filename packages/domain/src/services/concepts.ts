@@ -128,7 +128,7 @@ export async function createConceptWithDraftVersion(
       title: input.title ?? "Untitled concept",
       original_input: input.originalInput ?? null,
       source: input.source,
-      selected_for_initial_launch: false,
+      selected_for_initial_launch: input.selectedForInitialLaunch,
     })
     .select("*")
     .single();
@@ -143,7 +143,12 @@ export async function createConceptWithDraftVersion(
   }
 
   const concept = conceptRow as ConceptRow;
-  const content = input.content ?? ConceptContentSchema.parse({});
+  const content =
+    input.content ??
+    ConceptContentSchema.parse({
+      hook: input.hook,
+      script: input.script,
+    });
   const visualPlan = input.visualPlan ?? null;
   const publishingPack = input.publishingPack ?? null;
 

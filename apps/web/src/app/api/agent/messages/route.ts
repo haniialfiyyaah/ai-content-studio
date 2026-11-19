@@ -2,9 +2,12 @@ import {
   AppError,
   ErrorCodes,
   appendMessage,
+  createConceptWithDraftVersion,
   createConversation,
   createDraftProject,
+  createKitVersion,
   detectActionableIntent,
+  getLatestKit,
   startPlanningRun,
 } from "@acs/domain";
 import { fixtureAiCompletion } from "@acs/integrations";
@@ -164,6 +167,58 @@ export async function POST(request: Request) {
         correlationId,
       });
       projectId = project.id;
+
+      // Seed an initial Creative Kit + launch-selected concept for fixture planning.
+      const existingKit = await getLatestKit(supabase, {
+        projectId: project.id,
+        ownerId: user.id,
+      });
+      if (!existingKit) {
+        await createKitVersion(supabase, {
+          projectId: project.id,
+          ownerId: user.id,
+          actorId: user.id,
+          inheritPrevious: false,
+          input: {
+            brandOrCreatorName: proposedName,
+            tone: "clear and practical",
+            audience: "general audience",
+            languageDefault: "en",
+            visualNotes: "Fixture Creative Kit seeded by agent planning",
+            doSay: [],
+            dontSay: [],
+          },
+          correlationId,
+        });
+      }
+
+      const { data: selectedLaunch } = await supabase
+        .from("concepts")
+        .select("id")
+        .eq("project_id", project.id)
+        .eq("owner_id", user.id)
+        .eq("selected_for_initial_launch", true)
+        .limit(1)
+        .maybeSingle();
+
+      if (!selectedLaunch) {
+        const { concept } = await createConceptWithDraftVersion(supabase, {
+          projectId: project.id,
+          ownerId: user.id,
+          input: {
+            title: `${proposedName} — first concept`,
+            originalInput: proposedObjective,
+            source: "agent",
+          },
+          correlationId,
+        });
+
+        await supabase
+          .from("concepts")
+          .update({ selected_for_initial_launch: true })
+          .eq("id", concept.id)
+          .eq("owner_id", user.id);
+      }
 
       await supabase
         .from("agent_conversations")
