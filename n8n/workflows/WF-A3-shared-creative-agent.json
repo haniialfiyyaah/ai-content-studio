@@ -9,7 +9,10 @@
       "name": "A3-01 Start with typed input",
       "type": "n8n-nodes-base.executeWorkflowTrigger",
       "typeVersion": 1.1,
-      "position": [0, 0]
+      "position": [
+        0,
+        0
+      ]
     },
     {
       "parameters": {
@@ -30,7 +33,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"runId\": \"{{ $json.runId }}\",\n  \"conversationId\": \"{{ $json.conversationId }}\",\n  \"messageId\": \"{{ $json.messageId }}\",\n  \"correlationId\": \"{{ $json.correlationId }}\",\n  \"purpose\": \"ideation\"\n}",
+        "jsonBody": "={\n  \"ownerId\": \"{{ $json.ownerId }}\",\n  \"runId\": \"{{ $json.runId }}\",\n  \"conversationId\": \"{{ $json.conversationId }}\",\n  \"messageId\": \"{{ $json.messageId }}\",\n  \"correlationId\": \"{{ $json.correlationId }}\",\n  \"purpose\": \"agent_chat\"\n}",
         "options": {
           "timeout": 30000
         }
@@ -39,7 +42,10 @@
       "name": "A3-02 Check AI policy",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [260, 0]
+      "position": [
+        260,
+        0
+      ]
     },
     {
       "parameters": {
@@ -60,7 +66,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"runId\": \"{{ $('A3-01 Start with typed input').item.json.runId }}\",\n  \"conversationId\": \"{{ $('A3-01 Start with typed input').item.json.conversationId }}\",\n  \"messageId\": \"{{ $('A3-01 Start with typed input').item.json.messageId }}\",\n  \"correlationId\": \"{{ $('A3-01 Start with typed input').item.json.correlationId }}\",\n  \"purpose\": \"ideation\",\n  \"responseFormat\": \"json\"\n}",
+        "jsonBody": "={\n  \"ownerId\": \"{{ $('A3-01 Start with typed input').item.json.ownerId }}\",\n  \"runId\": \"{{ $('A3-01 Start with typed input').item.json.runId }}\",\n  \"conversationId\": \"{{ $('A3-01 Start with typed input').item.json.conversationId }}\",\n  \"messageId\": \"{{ $('A3-01 Start with typed input').item.json.messageId }}\",\n  \"correlationId\": \"{{ $('A3-01 Start with typed input').item.json.correlationId }}\",\n  \"purpose\": \"agent_chat\",\n  \"responseFormat\": \"json\"\n}",
         "options": {
           "timeout": 180000
         }
@@ -69,7 +75,10 @@
       "name": "A3-03 Execute AI",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [520, 0]
+      "position": [
+        520,
+        0
+      ]
     },
     {
       "parameters": {
@@ -99,7 +108,10 @@
       "name": "A3-04 Record progress",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [780, 0]
+      "position": [
+        780,
+        0
+      ]
     },
     {
       "parameters": {
@@ -120,7 +132,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"runId\": \"{{ $('A3-01 Start with typed input').item.json.runId }}\",\n  \"conversationId\": \"{{ $('A3-01 Start with typed input').item.json.conversationId }}\",\n  \"messageId\": \"{{ $('A3-01 Start with typed input').item.json.messageId }}\",\n  \"correlationId\": \"{{ $('A3-01 Start with typed input').item.json.correlationId }}\",\n  \"assistantReply\": {{ JSON.stringify($('A3-03 Execute AI').item.json.data?.content || $('A3-03 Execute AI').item.json.content || '') }},\n  \"aiResult\": {{ JSON.stringify($('A3-03 Execute AI').item.json.data || $('A3-03 Execute AI').item.json) }}\n}",
+        "jsonBody": "={\n  \"runId\": \"{{ $('A3-01 Start with typed input').item.json.runId }}\",\n  \"status\": \"completed\",\n  \"assistantMessage\": {{ JSON.stringify($('A3-03 Execute AI').item.json.data?.content || $('A3-03 Execute AI').item.json.content || '') }},\n  \"correlationId\": \"{{ $('A3-01 Start with typed input').item.json.correlationId }}\",\n  \"createDraftFromAi\": true\n}",
         "options": {
           "timeout": 60000
         }
@@ -129,7 +141,10 @@
       "name": "A3-05 Record result",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1040, 0]
+      "position": [
+        1040,
+        0
+      ]
     }
   ],
   "connections": {

@@ -84,4 +84,15 @@ describe("assertAiPolicy", () => {
       }),
     ).toEqual({ mode: "managed", allowed: true });
   });
+
+  it("allows managed fixture path when allowance is exhausted", () => {
+    expect(
+      assertAiPolicy({
+        mode: "managed",
+        connectionStatus: null,
+        managedRemaining: 0,
+        fixtureMode: true,
+      }),
+    ).toEqual({ mode: "managed", allowed: true });
+  });
 });

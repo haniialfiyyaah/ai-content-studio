@@ -1,90 +1,63 @@
-import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
+import { createServer } from "node:http";
+import { renderShortForm } from "./render.js";
 
-const PORT = Number(process.env.PORT ?? 8787);
-
-interface RenderBody {
-  jobId?: string;
-}
+const port = Number(process.env.PORT ?? 3100);
+const token = process.env.RENDER_WORKER_TOKEN ?? "local-render-worker-token";
 
 /**
- * Minimal Remotion render-worker stub.
- * Accepts POST /render with { jobId } and acknowledges fixture mode.
+ * Remotion render worker HTTP surface.
+ * Default path is explicit fixture; live Remotion requires ACS_REMOTION_LIVE=true
+ * plus remotion/@remotion/renderer installed (not present on disk-constrained hosts).
  */
-const server = createServer((req, res) => {
-  void handleRequest(req, res);
+const server = createServer(async (req, res) => {
+  if (req.method === "GET" && req.url === "/health") {
+    const live = process.env.ACS_REMOTION_LIVE === "true";
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(
+      JSON.stringify({
+        ok: true,
+        remotionLiveFlag: live,
+        fixtureCapable: true,
+      }),
+    );
+    return;
+  }
+
+  if (req.method === "POST" && req.url === "/render") {
+    const auth = req.headers["x-render-token"];
+    if (auth !== token) {
+      res.writeHead(401, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "UNAUTHORIZED" }));
+      return;
+    }
+
+    const chunks: Buffer[] = [];
+    for await (const chunk of req) chunks.push(Buffer.from(chunk));
+    let body: {
+      jobId?: string;
+      attemptId?: string;
+      title?: string;
+      scenes?: Array<{ narration?: string; caption?: string }>;
+    } = {};
+    try {
+      body = JSON.parse(Buffer.concat(chunks).toString("utf8") || "{}");
+    } catch {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "VALIDATION_ERROR" }));
+      return;
+    }
+
+    const result = await renderShortForm(body);
+    const statusCode =
+      result.status === "failed" ? 501 : result.status === "accepted" ? 202 : 200;
+    res.writeHead(statusCode, { "Content-Type": "application/json" });
+    res.end(JSON.stringify(result));
+    return;
+  }
+
+  res.writeHead(404).end();
 });
 
-async function handleRequest(
-  req: IncomingMessage,
-  res: ServerResponse,
-): Promise<void> {
-  const url = new URL(req.url ?? "/", `http://${req.headers.host ?? "localhost"}`);
-
-  if (req.method === "GET" && url.pathname === "/health") {
-    sendJson(res, 200, { status: "ok", fixture: true });
-    return;
-  }
-
-  if (req.method === "POST" && url.pathname === "/render") {
-    try {
-      const body = (await readJson(req)) as RenderBody;
-      if (!body.jobId || typeof body.jobId !== "string") {
-        sendJson(res, 400, {
-          status: "error",
-          error: { message: "jobId is required" },
-        });
-        return;
-      }
-
-      console.info("[render-worker] accepted fixture render", {
-        jobId: body.jobId,
-      });
-
-      sendJson(res, 202, { status: "accepted", fixture: true, jobId: body.jobId });
-    } catch (error) {
-      console.error("[render-worker] failed to parse body", error);
-      sendJson(res, 400, {
-        status: "error",
-        error: { message: "Invalid JSON body" },
-      });
-    }
-    return;
-  }
-
-  sendJson(res, 404, { status: "error", error: { message: "Not found" } });
-}
-
-function readJson(req: IncomingMessage): Promise<unknown> {
-  return new Promise((resolve, reject) => {
-    const chunks: Buffer[] = [];
-    req.on("data", (chunk: Buffer) => {
-      chunks.push(chunk);
-    });
-    req.on("end", () => {
-      try {
-        const raw = Buffer.concat(chunks).toString("utf8");
-        resolve(raw ? JSON.parse(raw) : {});
-      } catch (error) {
-        reject(error);
-      }
-    });
-    req.on("error", reject);
-  });
-}
-
-function sendJson(
-  res: ServerResponse,
-  statusCode: number,
-  payload: Record<string, unknown>,
-): void {
-  const body = JSON.stringify(payload);
-  res.writeHead(statusCode, {
-    "Content-Type": "application/json",
-    "Content-Length": Buffer.byteLength(body),
-  });
-  res.end(body);
-}
-
-server.listen(PORT, () => {
-  console.info(`[render-worker] listening on http://localhost:${PORT}`);
+server.listen(port, () => {
+  console.info(`[render-worker] listening on :${port}`);
 });

@@ -7,43 +7,45 @@ Last updated: 2026-11-19
 | Milestone | Status | Notes |
 |---|---|---|
 | M1 Foundation | **done** | Monorepo, schema+RLS, auth, studio shell, Overview |
-| M2 Shared Agent | **partial** | Fixture sync path **Verified**; live Agent→n8n→gateway next |
+| M2 Shared Agent | **partial** | Sync gateway path **Verified** (fixture); n8n WF-A1/A3 JSON carries `ownerId`; live webhook E2E needs import + `N8N_WEBHOOK_BASE_URL` |
 | M3 Projects / Content / Activation | **done** | Lifecycle, Creative Kit, Content Detail, launch gates |
-| M4 Video production | **fixture** | Job pipeline **Verified**; Remotion/fal/ElevenLabs not live |
+| M4 Video production | **fixture** | Job pipeline **Verified**; Remotion composition scaffold + honest fixture worker (live encode blocked by disk / packages) |
 | M5 Automation / Publishing / Telegram | **partial** | UI + APIs + n8n JSON; live OAuth/Telegram blocked |
-| M6 Docs / hardening | **in progress** | Specs + architecture + traceability landed; Playwright pending |
+| M6 Docs / hardening | **partial** | Specs + architecture + traceability landed; Playwright scaffold present (`ACS_E2E=1`) |
 
-## Documentation (this pass)
+## Documentation
 
-- `docs/specifications/{PRD,TDD,N8N_WORKFLOWS,UX_SPECIFICATION}.md` — full copies of latest Master Package specs
-- `docs/design/` — v2.7 prototype, screenshots, history prototypes
+- `docs/specifications/{PRD,TDD,N8N_WORKFLOWS,UX_SPECIFICATION}.md` — full Master Package copies
+- `docs/design/` — v2.7 prototype, screenshots, history
 - `docs/ARCHITECTURE.md`, `docs/TRACEABILITY.md`, portfolio `README.md`
 
 ## Verified locally (API smoke)
 
 1. Signup / login / Overview
-2. Agent message → Draft Project (fixture)
+2. Agent message → Draft Project via **AI Provider Gateway** sync path (fixture)
 3. Concept approve + initial-launch + activate
 4. Render blocked without grant → grant → job → claim/complete → video approve
-5. BYOK mode without key → `BYOK_KEY_INVALID`
+5. BYOK store → fixture verify → mode switch → `/api/internal/ai/execute` returns `mode:"byok"` after in-process decrypt (fixture completion; no silent managed fallback)
+6. Managed fixture execute after allowance exhaustion (fixtureMode skips spend gate)
 
-Unit tests: 18 passed (`@acs/domain` 14 + `@acs/integrations` 4).
+Unit tests: 19 passed (`@acs/domain` 15 + `@acs/integrations` 4).
 
 ## Next implementation priorities
 
-1. Real Web Agent → n8n WF-A1/A3 → AI Provider Gateway (disable sync-only fixture when webhook configured)
-2. Secure BYOK decrypt inside `/api/internal/ai/execute`
-3. Real Remotion rendering beyond stub
-4. Import/test n8n workflows end-to-end
-5. Playwright + remaining providers
+1. Import/activate WF-A1/A3 in n8n; set `N8N_WEBHOOK_BASE_URL`; E2E Agent→n8n→gateway
+2. Live OpenAI when `OPENAI_API_KEY` / real BYOK key available (`ACS_AI_FIXTURE_MODE=false`)
+3. Remotion live encode once disk + `remotion`/`@remotion/renderer` + Chromium available
+4. Playwright with `ACS_E2E=1` against running stack
+5. Remaining providers (fal, ElevenLabs, Telegram, YouTube OAuth)
 
 ## Blockers
 
 | Item | Notes |
 |---|---|
-| Provider keys | OpenAI/fal/ElevenLabs/Telegram/YouTube not supplied for live |
-| Docker/Supabase | Prefer `supabase start --ignore-health-check -x logflare,vector` |
-| n8n compose | Use `docker-compose` (Homebrew may lack `docker compose` plugin) |
+| Provider keys | Live OpenAI/fal/ElevenLabs/Telegram/YouTube not supplied |
+| Disk space | ~2GB free — cannot install Remotion/Chromium here |
+| n8n API import | Needs `N8N_API_KEY` or UI import; CLI: `docker exec … n8n import:workflow` |
+| Docker compose | Use `docker-compose`; Supabase: `--ignore-health-check -x logflare,vector` |
 
 ## Decisions
 

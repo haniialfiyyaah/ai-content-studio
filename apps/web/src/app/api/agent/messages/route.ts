@@ -8,9 +8,10 @@ import {
   createKitVersion,
   detectActionableIntent,
   getLatestKit,
+  prepareOpenAiExecution,
   startPlanningRun,
 } from "@acs/domain";
-import { fixtureAiCompletion } from "@acs/integrations";
+import { executeOpenAi } from "@acs/integrations";
 import { PostAgentMessageSchema } from "@acs/schemas";
 import { jsonAccepted, jsonError, jsonOk } from "@/lib/api/response";
 import { createClient } from "@/lib/supabase/server";
@@ -115,6 +116,7 @@ export async function POST(request: Request) {
             conversationId,
             messageId: message.id,
             correlationId,
+            ownerId: user.id,
           }),
         }).catch(() => {
           // Swallow network errors; outbox remains for retry workers.
@@ -132,14 +134,25 @@ export async function POST(request: Request) {
         );
       }
 
-      // Synchronous fixture planning when n8n is not wired.
-      const completion = fixtureAiCompletion({
-        ownerId: user.id,
-        purpose: "ideation",
-        messages: [{ role: "user", content: body.content }],
-        responseFormat: "json",
-        correlationId,
-      });
+      // Synchronous gateway planning when n8n webhook is not configured.
+      // Uses the same AI Provider Gateway path (managed/BYOK/fixture).
+      const prepared = await prepareOpenAiExecution(supabase, user.id);
+      const completion = await executeOpenAi(
+        {
+          ownerId: user.id,
+          purpose: "ideation",
+          messages: [{ role: "user", content: body.content }],
+          responseFormat: "json",
+          correlationId,
+          workflowRunId: run.id,
+        },
+        {
+          fixtureMode: prepared.fixtureMode,
+          managedApiKey: prepared.managedApiKey,
+          byokApiKey: prepared.byokApiKey,
+          mode: prepared.mode,
+        },
+      );
 
       let proposedName = "Untitled Project";
       let proposedObjective = body.content.slice(0, 500);
@@ -231,7 +244,11 @@ export async function POST(request: Request) {
         role: "assistant",
         content: assistantReply,
         sourceSurface: "system",
-        modelMetadata: { fixture: true, model: completion.model },
+        modelMetadata: {
+          fixture: completion.fixture,
+          model: completion.model,
+          mode: completion.mode,
+        },
       });
 
       await supabase
@@ -249,7 +266,9 @@ export async function POST(request: Request) {
         sequence: 1,
         stage: "completed",
         state: "completed",
-        message: "Fixture planning completed",
+        message: completion.fixture
+          ? "Gateway planning completed (fixture)"
+          : "Gateway planning completed",
       });
 
       return jsonOk(

@@ -17,8 +17,9 @@ Status vocabulary:
 | Requirement | Status | Evidence |
 |---|---|---|
 | Sign-in → Overview | **Verified** | API smoke 2026-11-19; `/login`, `/` |
-| First actionable message → Draft Project | **Verified** (fixture AI) | `POST /api/agent/messages` created project |
-| Agent → n8n → gateway live LLM | **Partial / Fixture** | Dispatch if webhook set; sync path uses fixture; gateway live needs `OPENAI_API_KEY` + `ACS_AI_FIXTURE_MODE=false` |
+| First actionable message → Draft Project | **Verified** (fixture AI via gateway) | `POST /api/agent/messages` → `prepareOpenAiExecution` + `executeOpenAi` |
+| Agent → n8n → gateway live LLM | **Partial / Fixture** | Sync gateway **Verified**; WF-A1/A3 JSON pass `ownerId`; live n8n E2E **Partial** (import + webhook URL) |
+| Secure BYOK execute (decrypt in-process) | **Verified** (fixture) | Store → test → mode byok → `/api/internal/ai/execute` `mode:"byok"`; never accepts plaintext BYOK from n8n |
 | Unified Project Detail by status | **Implemented** | `/projects/[id]` tabs + lifecycle actions |
 | Concept Approve / Edit (immutable versions) | **Verified** | Approve API + revision create |
 | Initial launch ≠ approval; activation gate | **Verified** | `INITIAL_LAUNCH_NOT_READY` then activate OK |
@@ -26,7 +27,7 @@ Status vocabulary:
 | Video Remotion / fal / Hybrid | **Fixture** | Job pipeline verified; Remotion worker stub; fal fixture |
 | Video Approve / Regenerate | **Verified** (approve); regenerate **Implemented** | Smoke approved attempt |
 | Publishing calendar + schedule form | **Implemented** | UI + `publishing_jobs` API; live OAuth **Blocked** |
-| BYOK no silent managed fallback | **Verified** (policy) | Unit + mode switch → `BYOK_KEY_INVALID`; live BYOK execute decrypt **Partial** |
+| BYOK no silent managed fallback | **Verified** | Unit policy + fixture BYOK execute decrypt; invalid/missing key → `BYOK_KEY_INVALID` |
 | Telegram continuity | **Partial** | WF-A2 JSON + resolve-actor stub; bot **Blocked** |
 | n8n all 11 workflows | **Implemented** (JSON) | `n8n/workflows/*.json`; live import/run **Partial** |
 
@@ -47,7 +48,7 @@ Status vocabulary:
 | FR-17–18 | Publishing / OAuth | **Partial** / **Blocked** |
 | FR-19 | Telegram | **Blocked** |
 | FR-24 | Monitoring / cost / notifications | **Partial** |
-| FR-25 | Managed OpenAI + BYOK | **Partial** (policy verified; live paths incomplete) |
+| FR-25 | Managed OpenAI + BYOK | **Partial** (fixture BYOK execute **Verified**; live provider calls need real keys) |
 
 ## n8n workflows
 
@@ -69,10 +70,10 @@ Status vocabulary:
 
 | Suite | Status |
 |---|---|
-| Domain unit (`@acs/domain`) | **Verified** — 14 tests |
+| Domain unit (`@acs/domain`) | **Verified** — 15 tests |
 | Integrations unit (`@acs/integrations`) | **Verified** — 4 tests |
-| Playwright E2E | **Not started** |
-| n8n contract/import CI | **Not started** |
+| Playwright E2E | **Partial** — `tests/e2e/smoke.spec.ts` (skipped unless `ACS_E2E=1`) |
+| n8n import helper | **Implemented** — `scripts/import-n8n-workflows.mjs` / `pnpm n8n:import` (needs API key) |
 
 ## Spec documents in-repo
 

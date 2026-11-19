@@ -32,6 +32,11 @@ export interface AiPolicyCheckInput {
   connectionStatus: AiProviderConnectionStatus | null | undefined;
   /** Remaining managed allowance in currency units (allowance − used). */
   managedRemaining: number;
+  /**
+   * When true, managed allowance is not enforced because no provider spend occurs.
+   * Fixture mode must never open a silent path from BYOK → managed.
+   */
+  fixtureMode?: boolean;
 }
 
 export interface AiPolicyCheckResult {
@@ -59,7 +64,7 @@ export function assertAiPolicy(
     return { mode: "byok", allowed: true };
   }
 
-  if (input.managedRemaining <= 0) {
+  if (!input.fixtureMode && input.managedRemaining <= 0) {
     throw new AppError(
       ErrorCodes.MANAGED_ALLOWANCE_EXHAUSTED,
       "Managed OpenAI allowance is exhausted for this period",

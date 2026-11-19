@@ -12,3 +12,4 @@ export * from "./services/ai-provider";
 export * from "./services/publishing";
 export * from "./services/grants";
 export * from "./services/creative-kit";
+export * from "./services/ai-execution";

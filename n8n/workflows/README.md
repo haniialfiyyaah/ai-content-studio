@@ -5,12 +5,15 @@ Importable workflow JSON for local Docker n8n (`pnpm n8n:up`). Spec baseline: n8
 ## Import
 
 1. Ensure env is set for the n8n container: `ACS_API_BASE_URL`, `ACS_INTERNAL_SERVICE_TOKEN` (see repo `.env.example` / `n8n/credentials.example.md`).
-2. Open n8n UI (default `http://localhost:5678`).
-3. **Workflows → Import from File** and select each JSON under this folder (or drag-drop).
-4. Activate workflows after credentials/env are ready. Set **WF-04 Error Handling** as the Error Workflow on other workflows when configuring recovery.
-5. After import, re-link **Execute Sub-workflow** nodes if n8n remapped IDs (workflows are matched by name in these exports).
+2. Import options:
+   - **UI:** Open n8n (`http://localhost:5678`) → **Workflows → Import from File** (or drag-drop JSON).
+   - **CLI (mounted volume):** `docker exec <n8n-container> n8n import:workflow --separate --input=/workflows`
+   - **API helper:** create an n8n API key, then `N8N_API_KEY=… pnpm n8n:import` (skips files that look like secret leaks).
+3. Activate workflows after credentials/env are ready. Set **WF-04 Error Handling** as the Error Workflow on other workflows when configuring recovery.
+4. After import, re-link **Execute Sub-workflow** nodes if n8n remapped IDs (workflows are matched by name in these exports).
+5. For Web Agent live dispatch, set `N8N_WEBHOOK_BASE_URL=http://localhost:5678/webhook` in `apps/web/.env.local` and activate **WF-A1**.
 
-All domain HTTP nodes call `{{$env.ACS_API_BASE_URL}}/api/internal/...` with header `x-acs-service-token={{$env.ACS_INTERNAL_SERVICE_TOKEN}}`. Provider secrets stay in Next.js / workers, not in n8n.
+All domain HTTP nodes call `{{$env.ACS_API_BASE_URL}}/api/internal/...` with header `x-acs-service-token={{$env.ACS_INTERNAL_SERVICE_TOKEN}}`. Provider secrets stay in Next.js / workers, not in n8n. WF-A1 merges `ownerId` from resolve-context before launching WF-A3.
 
 ## Phase map
 

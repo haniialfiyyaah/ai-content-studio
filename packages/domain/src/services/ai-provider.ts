@@ -328,11 +328,29 @@ export async function testConnection(
   const row = connection as ConnectionRow;
   const fixtureMode = process.env.ACS_AI_FIXTURE_MODE === "true";
 
+  let apiKey: string;
   try {
-    const apiKey = decryptSecret(row.secret_reference);
-    let modelSample = "fixture-openai";
+    apiKey = decryptSecret(row.secret_reference);
+  } catch {
+    await supabase
+      .from("ai_provider_connections")
+      .update({
+        status: "invalid",
+        last_error_code: ErrorCodes.BYOK_KEY_INVALID,
+      })
+      .eq("id", row.id);
+    throw new AppError(
+      ErrorCodes.BYOK_KEY_INVALID,
+      "Stored OpenAI key could not be decrypted",
+      400,
+    );
+  }
 
-    if (!fixtureMode) {
+  let modelSample = "fixture-openai";
+  let usedFixture = fixtureMode;
+
+  if (!fixtureMode) {
+    try {
       const response = await fetch("https://api.openai.com/v1/models", {
         method: "GET",
         headers: { Authorization: `Bearer ${apiKey}` },
@@ -364,50 +382,47 @@ export async function testConnection(
         data?: Array<{ id?: string }>;
       };
       modelSample = body.data?.[0]?.id ?? "unknown";
-    }
-
-    const now = new Date().toISOString();
-    const { data: updated, error: updateError } = await supabase
-      .from("ai_provider_connections")
-      .update({
-        status: "connected",
-        verified_at: now,
-        last_error_code: null,
-      })
-      .eq("id", row.id)
-      .select(
-        "id, owner_id, provider, secret_reference, key_fingerprint, last4, status, verified_at, last_error_code, rotated_at",
-      )
-      .single();
-
-    if (updateError || !updated) {
+    } catch (err) {
+      if (err instanceof AppError) throw err;
+      // Network failures during local verification — do not mark connected.
       throw new AppError(
-        ErrorCodes.INTERNAL_ERROR,
-        "Failed to update connection after test",
-        500,
+        ErrorCodes.PROVIDER_UNAVAILABLE,
+        "OpenAI verification request failed",
+        502,
       );
     }
+  }
 
-    return {
-      connection: mapConnectionPublic(updated as ConnectionRow),
-      fixture: fixtureMode,
-      modelSample,
-    };
-  } catch (err) {
-    if (err instanceof AppError) throw err;
-    await supabase
-      .from("ai_provider_connections")
-      .update({
-        status: "invalid",
-        last_error_code: ErrorCodes.BYOK_KEY_INVALID,
-      })
-      .eq("id", row.id);
+  // Avoid unused-key lint while keeping decrypt proof in fixture path.
+  void apiKey;
+
+  const now = new Date().toISOString();
+  const { data: updated, error: updateError } = await supabase
+    .from("ai_provider_connections")
+    .update({
+      status: "connected",
+      verified_at: now,
+      last_error_code: null,
+    })
+    .eq("id", row.id)
+    .select(
+      "id, owner_id, provider, secret_reference, key_fingerprint, last4, status, verified_at, last_error_code, rotated_at",
+    )
+    .single();
+
+  if (updateError || !updated) {
     throw new AppError(
-      ErrorCodes.BYOK_KEY_INVALID,
-      "OpenAI key could not be verified",
-      400,
+      ErrorCodes.INTERNAL_ERROR,
+      "Failed to update connection after test",
+      500,
     );
   }
+
+  return {
+    connection: mapConnectionPublic(updated as ConnectionRow),
+    fixture: usedFixture,
+    modelSample,
+  };
 }
 
 /** Disconnects BYOK OpenAI — clears ciphertext and marks disconnected. */

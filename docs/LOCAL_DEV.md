@@ -47,8 +47,10 @@ Import workflows from `n8n/workflows/` (see `n8n/workflows/README.md`).
 
 | Condition | Behavior |
 |---|---|
-| `N8N_WEBHOOK_BASE_URL` empty | Sync fixture planning inside Next.js (**verified**) |
-| `N8N_WEBHOOK_BASE_URL` set | Dispatch to n8n WF-A1 webhook |
+| `N8N_WEBHOOK_BASE_URL` empty | Sync gateway planning inside Next.js (**verified**, fixture when no live key) |
+| `N8N_WEBHOOK_BASE_URL` set | Dispatch to n8n WF-A1 webhook (import + activate WF-A1/A3 first) |
+| BYOK | Settings → store key → Test → switch mode → gateway decrypts in-process (**verified** fixture) |
+| Remotion | Default worker returns explicit fixture; `ACS_REMOTION_LIVE=true` requires Remotion packages |
 
 ## Useful commands
 

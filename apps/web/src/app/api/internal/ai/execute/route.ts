@@ -1,22 +1,33 @@
-import { AppError, ErrorCodes } from "@acs/domain";
-import { executeOpenAi } from "@acs/integrations";
 import {
-  AiExecuteRequestSchema,
-  OpenAiModeSchema,
-} from "@acs/schemas";
+  AppError,
+  ErrorCodes,
+  prepareOpenAiExecution,
+} from "@acs/domain";
+import { executeOpenAi } from "@acs/integrations";
+import { AiExecuteRequestSchema } from "@acs/schemas";
 import { z } from "zod";
 import { jsonError, jsonOk } from "@/lib/api/response";
 import { assertInternalServiceAuth } from "@/lib/internal-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-const ExecuteBodySchema = AiExecuteRequestSchema.extend({
-  mode: OpenAiModeSchema.optional(),
-  byokApiKey: z.string().min(1).optional(),
+const ExecuteBodySchema = AiExecuteRequestSchema.omit({ messages: true }).extend(
+  {
+    messages: AiExecuteRequestSchema.shape.messages.optional(),
+    messageId: z.string().uuid().optional(),
+    runId: z.string().uuid().optional(),
+    conversationId: z.string().uuid().optional(),
+  },
+).refine((v) => Boolean(v.ownerId), {
+  message: "ownerId is required",
+}).refine((v) => Boolean(v.messages?.length) || Boolean(v.messageId), {
+  message: "messages or messageId is required",
 });
 
 /**
  * POST /api/internal/ai/execute
- * Trusted gateway for n8n — resolves mode, never mixes BYOK with managed keys.
+ * Trusted AI Provider Gateway for n8n and server orchestration.
+ * Decrypts BYOK only in-process — never returns secrets; never accepts
+ * plaintext BYOK from the caller (avoids n8n execution-data leakage).
  */
 export async function POST(request: Request) {
   const correlationId = crypto.randomUUID();
@@ -26,58 +37,100 @@ export async function POST(request: Request) {
     const body = ExecuteBodySchema.parse(await request.json());
     const supabase = createAdminClient();
 
-    const { data: prefs } = await supabase
-      .from("ai_provider_preferences")
-      .select("openai_mode")
-      .eq("owner_id", body.ownerId)
-      .maybeSingle();
+    const prepared = await prepareOpenAiExecution(supabase, body.ownerId);
 
-    const mode = body.mode ?? prefs?.openai_mode ?? "managed";
-
-    // BYOK ciphertext stays server-side; callers may pass a decrypted key once.
-    let byokApiKey = body.byokApiKey ?? null;
-    if (mode === "byok" && !byokApiKey) {
-      // Connection presence is enough for fixture; live path needs decrypted key.
-      const { data: connection } = await supabase
-        .from("ai_provider_connections")
-        .select("status")
-        .eq("owner_id", body.ownerId)
-        .eq("provider", "openai")
+    let messages = body.messages;
+    if ((!messages || messages.length === 0) && body.messageId) {
+      const { data: message } = await supabase
+        .from("agent_messages")
+        .select("content, role, owner_id")
+        .eq("id", body.messageId)
         .maybeSingle();
 
-      if (connection?.status !== "connected") {
+      if (!message || message.owner_id !== body.ownerId) {
         throw new AppError(
-          ErrorCodes.BYOK_KEY_INVALID,
-          "Bring-your-own OpenAI key is missing or not connected",
-          400,
+          ErrorCodes.NOT_FOUND,
+          "Agent message not found for AI execution",
+          404,
         );
       }
+
+      messages = [
+        {
+          role: "user",
+          content: String(message.content ?? ""),
+        },
+      ];
     }
 
-    const fixtureMode =
-      process.env.ACS_AI_FIXTURE_MODE === "true" ||
-      (!process.env.OPENAI_API_KEY && mode === "managed");
+    if (!messages?.length) {
+      throw new AppError(
+        ErrorCodes.VALIDATION_ERROR,
+        "messages or messageId is required",
+        400,
+      );
+    }
 
     const result = await executeOpenAi(
       {
         ownerId: body.ownerId,
         purpose: body.purpose,
         model: body.model,
-        messages: body.messages,
+        messages,
         responseFormat: body.responseFormat,
         projectId: body.projectId,
-        workflowRunId: body.workflowRunId,
+        workflowRunId: body.workflowRunId ?? body.runId,
         correlationId: body.correlationId ?? correlationId,
       },
       {
-        fixtureMode,
-        managedApiKey: process.env.OPENAI_API_KEY ?? null,
-        byokApiKey,
-        mode,
+        fixtureMode: prepared.fixtureMode,
+        managedApiKey: prepared.managedApiKey,
+        byokApiKey: prepared.byokApiKey,
+        mode: prepared.mode,
       },
     );
 
-    return jsonOk(result, body.correlationId ?? correlationId);
+    // Usage ledger — store tokens only, never prompts or keys.
+    await supabase.from("ai_usage_events").insert({
+      owner_id: body.ownerId,
+      project_id: body.projectId ?? null,
+      mode: prepared.mode,
+      model_id: result.model,
+      tokens_in: result.tokensIn,
+      tokens_out: result.tokensOut,
+      estimated_cost: null,
+      request_id: body.correlationId ?? correlationId,
+      workflow_run_id: body.workflowRunId ?? body.runId ?? null,
+    });
+
+    if (prepared.mode === "managed" && !result.fixture) {
+      const { data: policy } = await supabase
+        .from("ai_usage_policy")
+        .select("managed_used")
+        .eq("owner_id", body.ownerId)
+        .maybeSingle();
+
+      const used = Number(policy?.managed_used ?? 0) + 1;
+      await supabase.from("ai_usage_policy").upsert(
+        {
+          owner_id: body.ownerId,
+          managed_used: used,
+          managed_monthly_allowance: Number(
+            process.env.ACS_MANAGED_MONTHLY_ALLOWANCE ?? 500,
+          ),
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "owner_id" },
+      );
+    }
+
+    return jsonOk(
+      {
+        ...result,
+        mode: prepared.mode,
+      },
+      body.correlationId ?? correlationId,
+    );
   } catch (error) {
     return jsonError(error, correlationId);
   }

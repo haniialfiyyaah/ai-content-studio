@@ -35,3 +35,9 @@
 - **Date:** 2026-11-19
 - **Decision:** n8n workflows call `/api/internal/ai/*` over HTTP; no n8n OpenAI Chat Model credentials.
 - **Why:** BYOK isolation, single policy enforcement, no key duplication in workflow execution data.
+
+## ADR-007: BYOK decrypt only inside the gateway process
+
+- **Date:** 2026-11-19
+- **Decision:** `prepareOpenAiExecution` decrypts BYOK with `ACS_CREDENTIAL_ENCRYPTION_KEY` inside Next.js. n8n sends `ownerId` only — never plaintext keys. Fixture managed allowance exhaustion is skipped when `fixtureMode` is true (no spend).
+- **Why:** Prevents key leakage into n8n execution data; keeps consent/billing invariants enforceable in one place.

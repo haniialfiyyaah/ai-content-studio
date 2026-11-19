@@ -79,8 +79,9 @@ Browser / Telegram
 | Area | Status |
 |---|---|
 | Auth, Overview, Projects, Concepts, Activation gates | **Verified** locally |
-| Agent → Draft Project | **Verified** with **fixture** AI (sync path) |
-| AI Provider Gateway + BYOK policy (no silent fallback) | **Verified** in unit/smoke; live BYOK execute decrypt **Partial** |
+| Agent → Draft Project via AI Provider Gateway | **Verified** with **fixture** AI (sync path) |
+| BYOK store / verify / decrypt-on-execute | **Verified** (fixture); live OpenAI calls need a real key |
+| AI Provider Gateway + no silent managed fallback | **Verified** (unit + smoke) |
 | Video pipeline claim/complete/approve | **Verified** with **fixtures** |
 | Remotion real encode | **Stub** — not production-ready |
 | fal.ai / ElevenLabs live | **Fixture** until keys |

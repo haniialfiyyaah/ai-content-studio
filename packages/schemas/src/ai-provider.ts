@@ -4,12 +4,31 @@ import {
   OpenAiModeSchema,
 } from "./enums";
 
+/** Coerces Postgres timestamptz strings into ISO-8601 for zod datetime. */
+const IsoDateTimeSchema = z.preprocess((value) => {
+  if (value == null || value === "") return value;
+  if (typeof value !== "string") return value;
+  const normalized = value.includes("T") ? value : value.replace(" ", "T");
+  const asDate = new Date(normalized);
+  if (Number.isNaN(asDate.getTime())) return value;
+  return asDate.toISOString();
+}, z.string().datetime());
+
+const NullableIsoDateTimeSchema = z.preprocess((value) => {
+  if (value == null || value === "") return null;
+  if (typeof value !== "string") return value;
+  const normalized = value.includes("T") ? value : value.replace(" ", "T");
+  const asDate = new Date(normalized);
+  if (Number.isNaN(asDate.getTime())) return value;
+  return asDate.toISOString();
+}, z.string().datetime().nullable());
+
 export const AiProviderPreferencesSchema = z.object({
   ownerId: z.string().uuid(),
   openaiMode: OpenAiModeSchema,
   preferredModelId: z.string().nullable(),
   version: z.number().int().positive(),
-  updatedAt: z.string().datetime(),
+  updatedAt: IsoDateTimeSchema,
 });
 export type AiProviderPreferences = z.infer<typeof AiProviderPreferencesSchema>;
 
@@ -19,9 +38,9 @@ export const AiProviderConnectionPublicSchema = z.object({
   last4: z.string().length(4).nullable(),
   keyFingerprint: z.string().nullable(),
   status: AiProviderConnectionStatusSchema,
-  verifiedAt: z.string().datetime().nullable(),
+  verifiedAt: NullableIsoDateTimeSchema,
   lastErrorCode: z.string().nullable(),
-  rotatedAt: z.string().datetime().nullable(),
+  rotatedAt: NullableIsoDateTimeSchema,
 });
 export type AiProviderConnectionPublic = z.infer<
   typeof AiProviderConnectionPublicSchema
