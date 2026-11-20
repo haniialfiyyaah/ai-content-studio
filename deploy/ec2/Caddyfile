@@ -1,0 +1,12 @@
+{
+	email {$SSL_EMAIL}
+}
+
+{$DOMAIN_NAME} {
+	handle_path /renderer/* {
+		reverse_proxy renderer:8080
+	}
+	reverse_proxy n8n:5678 {
+		flush_interval -1
+	}
+}
