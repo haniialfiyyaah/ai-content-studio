@@ -30,6 +30,12 @@ export const OPTION_FIELD_LABELS: Record<OptionField, string> = {
 const nonEmpty = z.string().trim().min(1);
 const optionList = z.array(nonEmpty).min(1).max(5);
 
+/** Beat layouts — see .claude/skills/content-video/SKILL.md §4. */
+export const BEAT_LAYOUTS = ["hook", "statement", "points", "code", "compare", "stat", "quote", "product", "image", "cta"] as const;
+export const CONTENT_FORMATS = ["explainer", "listicle", "story", "compare", "product"] as const;
+export const BEAT_TRANSITIONS = ["cut", "slide", "zoom", "flash", "wipe"] as const;
+
+/** A scene is one "beat" of the video (≈ 2–5 s). Layout fields are optional so older content still renders. */
 export const SceneSchema = z.object({
   heading: nonEmpty,
   narration: z.string().default(""),
@@ -39,6 +45,16 @@ export const SceneSchema = z.object({
   seconds: z.coerce.number().min(1).max(60).default(5),
   /** Index into the project's reference uploads to use for this scene; -1 = none. */
   referenceIndex: z.coerce.number().int().min(-1).max(50).default(-1),
+  layout: z.enum(BEAT_LAYOUTS).catch("image").default("image"),
+  headline: z.string().max(80).default(""),
+  points: z.array(z.string().max(80)).max(5).default([]),
+  code: z.string().max(600).default(""),
+  left: z.string().max(120).default(""),
+  right: z.string().max(120).default(""),
+  stat: z.string().max(16).default(""),
+  statLabel: z.string().max(80).default(""),
+  emphasis: z.array(z.string().max(30)).max(6).default([]),
+  transition: z.enum(BEAT_TRANSITIONS).catch("cut").default("cut"),
 });
 export type Scene = z.infer<typeof SceneSchema>;
 
@@ -52,8 +68,9 @@ export const ContentOptionsSchema = z.object({
 export type ContentOptions = z.infer<typeof ContentOptionsSchema>;
 
 export const GeneratedContentSchema = z.object({
+  format: z.enum(CONTENT_FORMATS).catch("explainer").default("explainer"),
   options: ContentOptionsSchema,
-  scenes: z.array(SceneSchema).min(1).max(8),
+  scenes: z.array(SceneSchema).min(1).max(10),
   videoPrompt: nonEmpty,
 });
 export type GeneratedContent = z.infer<typeof GeneratedContentSchema>;

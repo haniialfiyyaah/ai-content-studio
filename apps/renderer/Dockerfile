@@ -12,7 +12,11 @@ COPY package.json package-lock.json ./
 RUN npm ci
 COPY . .
 RUN npx remotion browser ensure
+# Bundle the compositions at build time (no webpack at runtime).
+RUN npx remotion bundle src/remotion/index.ts --out-dir build
 
 ENV NODE_ENV=production
+# Keep the Node heap small; Chrome and ffmpeg need the rest of a 512 MB instance.
+ENV NODE_OPTIONS=--max-old-space-size=192
 EXPOSE 8080
 CMD ["node", "server.mjs"]

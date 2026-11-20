@@ -441,3 +441,7 @@ ALTER TABLE public.generation_runs
   ADD COLUMN feedback text,
   ADD COLUMN target_ids uuid[] NOT NULL DEFAULT '{}',
   ADD COLUMN channel text NOT NULL DEFAULT 'web' CHECK (channel IN ('web', 'telegram'));
+
+-- content format (see .claude/skills/content-video) — 2026-11-20, fourth pass
+ALTER TABLE public.contents ADD COLUMN format text NOT NULL DEFAULT 'explainer'
+  CHECK (format IN ('explainer', 'listicle', 'story', 'compare', 'product'));

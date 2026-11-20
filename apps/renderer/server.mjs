@@ -5,7 +5,7 @@ import { readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { bundle } from "@remotion/bundler";
+import { existsSync } from "node:fs";
 import { renderMedia, selectComposition } from "@remotion/renderer";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -22,11 +22,20 @@ if (!TOKEN) {
   process.exit(1);
 }
 
-// Bundle once at boot; every render reuses it.
-const serveUrl = bundle({ entryPoint: path.join(here, "src/remotion/index.ts") }).then((url) => {
-  console.log("[renderer] bundle ready");
-  return url;
-});
+// Pre-built at image build time (`remotion bundle` → ./build) so webpack never
+// runs in the server process — saves hundreds of MB on small instances.
+const prebuilt = path.join(here, "build");
+const serveUrl = existsSync(path.join(prebuilt, "index.html"))
+  ? Promise.resolve(prebuilt).then((dir) => {
+      console.log("[renderer] using prebuilt bundle");
+      return dir;
+    })
+  : import("@remotion/bundler")
+      .then(({ bundle }) => bundle({ entryPoint: path.join(here, "src/remotion/index.ts") }))
+      .then((url) => {
+        console.log("[renderer] bundle ready (built at boot)");
+        return url;
+      });
 
 const queue = [];
 let busy = false;

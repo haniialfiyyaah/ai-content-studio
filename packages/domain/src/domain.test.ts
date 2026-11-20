@@ -95,3 +95,24 @@ describe("GenerationCompleteSchema", () => {
     ).toThrow();
   });
 });
+
+describe("beats", () => {
+  it("defaults old scenes to image beats and coerces unknown layouts", () => {
+    const parsed = GenerationCompleteSchema.parse({
+      runId: "8f0c6f8e-6a3a-4b0e-9a7e-0d1c2b3a4f5e",
+      contents: [
+        {
+          options: { title: ["t"], hook: ["h"], script: ["s"], caption: ["c"], hashtags: ["#a"] },
+          scenes: [{ heading: "Old" }, { heading: "New", layout: "code", code: "const a = 1", transition: "zoom" }, { heading: "X", layout: "weird" }],
+          videoPrompt: "p",
+        },
+      ],
+    });
+    const [old, beat, weird] = parsed.contents[0].scenes;
+    expect(old.layout).toBe("image");
+    expect(beat.layout).toBe("code");
+    expect(beat.transition).toBe("zoom");
+    expect(weird.layout).toBe("image");
+    expect(parsed.contents[0].format).toBe("explainer");
+  });
+});

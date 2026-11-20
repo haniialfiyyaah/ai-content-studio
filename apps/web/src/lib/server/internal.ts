@@ -136,6 +136,7 @@ export async function generationComplete(raw: unknown) {
           .update({
             options: payload.contents[i].options,
             scenes: payload.contents[i].scenes,
+            format: payload.contents[i].format,
             video_prompt: payload.contents[i].videoPrompt,
             selection: {},
             status: "draft",
@@ -180,6 +181,7 @@ export async function generationComplete(raw: unknown) {
       options: c.options,
       selection: {},
       scenes: c.scenes,
+      format: c.format,
       video_prompt: c.videoPrompt,
     })),
   ).select("id");
