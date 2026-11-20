@@ -75,7 +75,7 @@ async function renderJob(job) {
       serveUrl: url,
       id: "Short",
       inputProps: job.props,
-      chromiumOptions: { enableMultiProcessOnLinux: false },
+
     });
     await renderMedia({
       composition,
@@ -86,9 +86,9 @@ async function renderJob(job) {
       concurrency: CONCURRENCY,
       imageFormat: "jpeg",
       jpegQuality: 85,
-      // Keep peak memory low: encode after frames are produced, single Chrome process.
+      // Keep peak memory low: encode after frames are produced.
       disallowParallelEncoding: process.env.RENDER_PARALLEL_ENCODING !== "true",
-      chromiumOptions: { enableMultiProcessOnLinux: false },
+
       // Compression: visually clean for Shorts, ~2-5 MB for 15-30 s (Telegram/YouTube friendly).
       crf: Number(process.env.RENDER_CRF || 25),
       x264Preset: X264_PRESET,
