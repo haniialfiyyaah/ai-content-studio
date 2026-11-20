@@ -135,7 +135,7 @@ identical across beats and videos. Users can only *regenerate* it (Assets tab)
 or replace it by uploading their own reference.
 
 **Model:** one primary model per project for consistency (OpenAI
-`gpt-image-1` family *or* fal Flux); the other is fallback only. Reference
+`gpt-image-2.6-flare` family *or* fal Flux); the other is fallback only. Reference
 uploads → image-conditioned generation (OpenAI edits / Flux Kontext).
 
 ## 6. Captions
@@ -163,7 +163,7 @@ when a layout shows a headline the captions move down to the 70 % line.
 
 - Render server: Railway, Remotion `renderMedia`, concurrency 1. 1080p needs
   ≥ 1.5 GB RAM; on 512 MB use `RENDER_SCALE=0.6667` (720p).
-- Images: 1 per beat (OpenAI `gpt-image-1` → mini → fal → reference → gradient).
+- Images: 1 per beat (OpenAI `gpt-image-2.6-flare` → `gpt-image-2` → `gpt-image-1.5` → mini → fal → reference → gradient).
   Generate in parallel; same seed/style string for consistency.
 - File: H.264, CRF ~25, AAC 128k → 3–8 MB.
 

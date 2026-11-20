@@ -56,7 +56,7 @@ OpenAI runs on n8n's OpenAI credential (currently n8n gateway credits; swap to t
 ## Video pipeline (Remotion on Railway)
 
 1. `renders/start` (claim) → one image per scene via the provider chain
-   **OpenAI images** (`gpt-image-1`, edits for reference-guided) → **fal** (Flux / Kontext) →
+   **OpenAI images** (`gpt-image-2.6-flare` → `gpt-image-2` → `gpt-image-1.5` → mini; edits for reference-guided) → **fal** (Flux / Kontext) →
    **user's reference** → **gradient**. `visual_mode=references` uses uploads directly. Narration via
    ElevenLabs with word timings → captions (even timing when no voice).
 2. `renders/poll` advances images (one fallback to Flux Schnell; a scene that still fails becomes a gradient).

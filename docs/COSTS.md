@@ -21,8 +21,8 @@ Typical: **3–5 AI images per video**.
 
 | Item | Provider / model | Unit price (approx.) | Per video |
 |---|---|---|---|
-| Scene images (primary) | OpenAI `gpt-image-1`, medium, 1024×1536 | ~$0.04–0.06 / image | $0.12–0.30 |
-| Scene images (actual on this account: auto-fallback) | OpenAI `gpt-image-1-mini`, medium | ~$0.015 / image | **$0.05–0.08** |
+| Scene images (primary) | OpenAI `gpt-image-2.6-flare`, medium, 1024×1536 | check OpenAI pricing (not yet measured) | — |
+| Scene images (cheapest fallback) | OpenAI `gpt-image-1-mini`, medium | ~$0.015 / image | $0.05–0.08 |
 | Scene images (backup only) | fal Flux dev / Flux Kontext (references) | ~$0.025 / ~$0.04 per image | only on fallback |
 | Narration | ElevenLabs `eleven_multilingual_v2` | plan credits; ~300–450 characters per video | free tier ≈ 25–30 videos/month, then plan |
 | Composition | Remotion on Railway | included in Railway usage (≈ 1–3 CPU-min) | ≈ $0.00–0.01 |
@@ -87,7 +87,7 @@ against your n8n plan's execution limit; widen the intervals if needed.
 | Vercel / Supabase / Google / Telegram | $0 |
 | **Total (excl. ElevenLabs plan & n8n plan)** | **≈ $7** |
 
-With `gpt-image-1` (non-mini) images instead: + ≈ $4–6.
+With the full image models (`gpt-image-2.6-flare` / `gpt-image-2`): measure after the first renders and update this table.
 
 ## Where to check current prices
 

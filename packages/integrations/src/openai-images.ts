@@ -2,11 +2,18 @@ import { AppError, ErrorCodes } from "@acs/domain";
 
 /**
  * OpenAI image generation for scene images (primary provider).
- * Model: OPENAI_IMAGE_MODEL (default gpt-image-1), falling back to
- * gpt-image-1-mini if the configured model is rejected/unavailable.
+ * Model: OPENAI_IMAGE_MODEL if set, then the newest available models in order,
+ * so an image is always made even when a model is unavailable to the account.
  */
-export const OPENAI_IMAGE_MODEL = "gpt-image-1";
+export const OPENAI_IMAGE_MODEL = "gpt-image-2.6-flare";
+export const OPENAI_IMAGE_FALLBACK_MODELS = ["gpt-image-2", "gpt-image-1.5", "gpt-image-1-mini"] as const;
+/** @deprecated kept for older imports; the last resort of the chain. */
 export const OPENAI_IMAGE_FALLBACK_MODEL = "gpt-image-1-mini";
+
+export function imageModelChain(): string[] {
+  const configured = process.env.OPENAI_IMAGE_MODEL?.trim();
+  return [...new Set([configured, OPENAI_IMAGE_MODEL, ...OPENAI_IMAGE_FALLBACK_MODELS].filter(Boolean) as string[])];
+}
 
 export function openAiImagesConfigured(): boolean {
   return Boolean(process.env.OPENAI_API_KEY?.trim());
@@ -56,13 +63,17 @@ function isModelError(e: unknown) {
 }
 
 async function withModelFallback(run: (model: string) => Promise<Uint8Array>) {
-  const primary = process.env.OPENAI_IMAGE_MODEL?.trim() || OPENAI_IMAGE_MODEL;
-  try {
-    return { bytes: await run(primary), model: primary };
-  } catch (e) {
-    if (!isModelError(e) || primary === OPENAI_IMAGE_FALLBACK_MODEL) throw e;
-    return { bytes: await run(OPENAI_IMAGE_FALLBACK_MODEL), model: OPENAI_IMAGE_FALLBACK_MODEL };
+  const chain = imageModelChain();
+  let last: unknown;
+  for (const model of chain) {
+    try {
+      return { bytes: await run(model), model };
+    } catch (e) {
+      last = e;
+      if (!isModelError(e)) throw e; // auth/quota/content errors: no point trying other models
+    }
   }
+  throw last;
 }
 
 /** Text → vertical PNG (1024×1536). */
