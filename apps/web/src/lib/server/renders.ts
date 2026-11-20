@@ -58,6 +58,12 @@ export function rendererConfigured() {
   return Boolean(process.env.RENDERER_URL?.trim() && process.env.RENDERER_TOKEN?.trim());
 }
 
+/** RENDERER_URL with scheme (accepts "host.up.railway.app" or a full URL). */
+function rendererBase(): string {
+  const raw = (process.env.RENDERER_URL ?? "").trim().replace(/\/+$/, "");
+  return /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+}
+
 /**
  * Claim (queued → rendering, CAS) then prepare assets: one image per scene
  * (reference upload, fal generation, or reference-guided generation) and the
@@ -231,7 +237,14 @@ export async function pollRender(renderId: string) {
     return { status: "rendering", phase: "assets", done: settled.filter((s) => s.status === "completed").length, total: settled.length };
   }
 
-  await dispatchToRenderer({ ...render, steps: settled });
+  try {
+    await dispatchToRenderer({ ...render, steps: settled });
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e);
+    console.error("[render] dispatch to renderer failed", message);
+    await failRender(render.id, `Could not reach the video renderer: ${message}`.slice(0, 300));
+    return { status: "failed", phase: "assets" };
+  }
   return { status: "rendering", phase: "compose" };
 }
 
@@ -276,7 +289,7 @@ async function dispatchToRenderer(render: LoadedRender) {
   const { data: upload, error } = await db.storage.from(BUCKET).createSignedUploadUrl(path, { upsert: true });
   if (error || !upload) throw new AppError(ErrorCodes.INTERNAL_ERROR, "Could not prepare video upload", 500);
 
-  const res = await fetch(`${process.env.RENDERER_URL!.replace(/\/$/, "")}/render`, {
+  const res = await fetch(`${rendererBase()}/render`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${process.env.RENDERER_TOKEN}` },
     body: JSON.stringify({
