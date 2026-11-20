@@ -9,4 +9,4 @@ Remotion service that turns scene images + narration into the final 1080×1920 S
 - `GET /health`
 
 Railway: root directory `apps/renderer`, builder Dockerfile, variables `RENDERER_TOKEN`
-(same value as Vercel), optional `RENDER_CONCURRENCY` (default 2). Preview locally with `npm run studio`.
+(same value as Vercel), optional `RENDER_CONCURRENCY` (default 1; use 2+ only with ≥2 GB RAM) and `RENDER_PARALLEL_ENCODING=true` on large instances. Preview locally with `npm run studio`.

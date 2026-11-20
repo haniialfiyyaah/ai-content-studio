@@ -11,7 +11,8 @@ import { renderMedia, selectComposition } from "@remotion/renderer";
 const here = path.dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PORT || 8080);
 const TOKEN = process.env.RENDERER_TOKEN || "";
-const CONCURRENCY = Number(process.env.RENDER_CONCURRENCY || 2);
+// Memory-safe defaults for small instances; raise RENDER_CONCURRENCY on bigger plans.
+const CONCURRENCY = Number(process.env.RENDER_CONCURRENCY || 1);
 
 if (!TOKEN) {
   console.error("RENDERER_TOKEN is required");
@@ -58,7 +59,12 @@ async function renderJob(job) {
   const started = Date.now();
   try {
     const url = await serveUrl;
-    const composition = await selectComposition({ serveUrl: url, id: "Short", inputProps: job.props });
+    const composition = await selectComposition({
+      serveUrl: url,
+      id: "Short",
+      inputProps: job.props,
+      chromiumOptions: { enableMultiProcessOnLinux: false },
+    });
     await renderMedia({
       composition,
       serveUrl: url,
@@ -67,7 +73,10 @@ async function renderJob(job) {
       inputProps: job.props,
       concurrency: CONCURRENCY,
       imageFormat: "jpeg",
-      jpegQuality: 88,
+      jpegQuality: 85,
+      // Keep peak memory low: encode after frames are produced, single Chrome process.
+      disallowParallelEncoding: process.env.RENDER_PARALLEL_ENCODING !== "true",
+      chromiumOptions: { enableMultiProcessOnLinux: false },
       // Compression: visually clean for Shorts, ~2-5 MB for 15-30 s (Telegram/YouTube friendly).
       crf: Number(process.env.RENDER_CRF || 26),
       x264Preset: "medium",
