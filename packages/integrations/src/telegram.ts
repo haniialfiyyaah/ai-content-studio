@@ -1,4 +1,8 @@
-import { AppError, ErrorCodes } from "@acs/domain";
+/**
+ * Telegram message builders. The app never calls Telegram itself: it returns
+ * these Bot API calls and n8n ("SUB Telegram Send") posts them with the bot
+ * token it holds. Keeps the token and all outbound sending inside n8n.
+ */
 
 /** Inline keyboard button: callback `data` (≤64 bytes) or an `url`. */
 export interface TgButton {
@@ -7,28 +11,10 @@ export interface TgButton {
   url?: string;
 }
 
-function token() {
-  const t = process.env.TELEGRAM_BOT_TOKEN?.trim();
-  if (!t) throw new AppError(ErrorCodes.NOT_CONFIGURED, "TELEGRAM_BOT_TOKEN is not configured", 503);
-  return t;
-}
-
-export function telegramConfigured() {
-  return Boolean(process.env.TELEGRAM_BOT_TOKEN?.trim());
-}
-
-async function call<T = unknown>(method: string, body: Record<string, unknown>): Promise<T> {
-  const res = await fetch(`https://api.telegram.org/bot${token()}/${method}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-    signal: AbortSignal.timeout(60_000),
-  });
-  const json = (await res.json().catch(() => ({}))) as { ok?: boolean; result?: T; description?: string };
-  if (!json.ok) {
-    throw new AppError(ErrorCodes.PROVIDER_ERROR, `Telegram ${method} failed: ${json.description ?? res.status}`, 502);
-  }
-  return json.result as T;
+/** One Bot API request for n8n to send: POST /bot<token>/<method> with `body`. */
+export interface TgCall {
+  method: "sendMessage" | "sendVideo" | "answerCallbackQuery" | "sendChatAction";
+  body: Record<string, unknown>;
 }
 
 const keyboard = (rows?: TgButton[][]) =>
@@ -45,35 +31,26 @@ const keyboard = (rows?: TgButton[][]) =>
 /** Escape user/AI text for parse_mode=HTML. */
 export const tgEscape = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
-export function tgSendMessage(chatId: string | number, html: string, rows?: TgButton[][]) {
-  return call("sendMessage", {
-    chat_id: chatId,
-    text: html.slice(0, 4000),
-    parse_mode: "HTML",
-    link_preview_options: { is_disabled: true },
-    ...keyboard(rows),
-  });
-}
+export const tgMessage = (chatId: string | number, html: string, rows?: TgButton[][]): TgCall => ({
+  method: "sendMessage",
+  body: { chat_id: chatId, text: html.slice(0, 4000), parse_mode: "HTML", link_preview_options: { is_disabled: true }, ...keyboard(rows) },
+});
 
-/** Sends an MP4 by URL (Telegram fetches it; ≤20 MB) as a playable video. */
-export function tgSendVideo(chatId: string | number, videoUrl: string, captionHtml: string, rows?: TgButton[][]) {
-  return call("sendVideo", {
-    chat_id: chatId,
-    video: videoUrl,
-    caption: captionHtml.slice(0, 1000),
-    parse_mode: "HTML",
-    supports_streaming: true,
-    ...keyboard(rows),
-  });
-}
+/** MP4 by URL (Telegram fetches it; ≤20 MB) as a playable video. */
+export const tgVideo = (chatId: string | number, videoUrl: string, captionHtml: string, rows?: TgButton[][]): TgCall => ({
+  method: "sendVideo",
+  body: { chat_id: chatId, video: videoUrl, caption: captionHtml.slice(0, 1000), parse_mode: "HTML", supports_streaming: true, ...keyboard(rows) },
+});
 
-export function tgAnswerCallback(callbackId: string, text?: string) {
-  return call("answerCallbackQuery", { callback_query_id: callbackId, ...(text ? { text: text.slice(0, 190) } : {}) }).catch(() => undefined);
-}
+export const tgAnswer = (callbackId: string, text?: string): TgCall => ({
+  method: "answerCallbackQuery",
+  body: { callback_query_id: callbackId, ...(text ? { text: text.slice(0, 190) } : {}) },
+});
 
-export function tgSendChatAction(chatId: string | number, action: "typing" | "upload_video" = "typing") {
-  return call("sendChatAction", { chat_id: chatId, action }).catch(() => undefined);
-}
+export const tgAction = (chatId: string | number, action: "typing" | "upload_video" = "typing"): TgCall => ({
+  method: "sendChatAction",
+  body: { chat_id: chatId, action },
+});
 
 /** Splits long HTML text into ≤3900-char chunks on blank lines. */
 export function chunkMessages(blocks: string[], max = 3900): string[] {

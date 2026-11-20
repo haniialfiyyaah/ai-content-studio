@@ -1,13 +1,15 @@
 import "server-only";
+import { AsyncLocalStorage } from "node:async_hooks";
 import { AppError, ScheduleSchema, describeSchedule, resolveContent, type Schedule } from "@acs/domain";
 import {
   chunkMessages,
-  tgAnswerCallback,
+  tgAction,
+  tgAnswer,
   tgEscape as esc,
-  tgSendChatAction,
-  tgSendMessage,
-  tgSendVideo,
+  tgMessage,
+  tgVideo,
   type TgButton,
+  type TgCall,
 } from "@acs/integrations";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
@@ -24,8 +26,9 @@ import type { ContentRow, ProjectRow } from "./rows";
 import { appUrl } from "./session";
 
 /**
- * Telegram bot brain. n8n (WF-A2) forwards raw updates here; replies go out
- * through the Bot API. Callback data codes (≤64 bytes):
+ * Telegram bot brain. n8n (WF-A2) forwards raw updates here and this module
+ * returns the Bot API calls to make; n8n ("SUB Telegram Send") sends them.
+ * The app never holds the bot token. Callback data codes (≤64 bytes):
  *   pv:<project>  project cards       aa:<project> approve all + render
  *   rc:<project>  request changes     sc:<project>:<preset> schedule preset
  *   nd:<project>  download only        id:<project>:on|off recurring ideas
@@ -34,6 +37,23 @@ import { appUrl } from "./session";
  *   ra:<project>  render all approved
  */
 const admin = () => createAdminClient();
+
+/**
+ * Per-request outbox (AsyncLocalStorage keeps concurrent requests apart).
+ * Everything the bot "says" is collected here and returned to n8n.
+ */
+const outbox = new AsyncLocalStorage<TgCall[]>();
+const push = (c: TgCall) => outbox.getStore()?.push(c);
+const say = (...a: Parameters<typeof tgMessage>) => push(tgMessage(...a));
+const sayVideo = (...a: Parameters<typeof tgVideo>) => push(tgVideo(...a));
+const act = (...a: Parameters<typeof tgAction>) => push(tgAction(...a));
+const answer = (...a: Parameters<typeof tgAnswer>) => push(tgAnswer(...a));
+
+async function collect<T>(fn: () => Promise<T>): Promise<T & { calls: TgCall[] }> {
+  const calls: TgCall[] = [];
+  const result = await outbox.run(calls, fn);
+  return { ...(result as object), calls } as T & { calls: TgCall[] };
+}
 
 interface Link {
   id: string;
@@ -122,10 +142,10 @@ export async function sendProjectCards(chatId: string | number, projectId: strin
     ].join("\n");
   });
 
-  for (const chunk of chunkMessages([header, ...cards])) await tgSendMessage(chatId, chunk);
+  for (const chunk of chunkMessages([header, ...cards])) say(chatId, chunk);
 
   const drafts = all.filter((c) => c.status === "draft").length;
-  await tgSendMessage(
+  say(
     chatId,
     drafts
       ? `${drafts} content waiting for approval. Approve all to start rendering, or tell me what to change (e.g. <i>“make #2 funnier”</i>).`
@@ -138,7 +158,7 @@ export async function sendProjectCards(chatId: string | number, projectId: strin
 }
 
 async function askAutomation(chatId: string | number, projectId: string) {
-  await tgSendMessage(chatId, "While the videos render — how should I publish them to YouTube?", [
+  say(chatId, "While the videos render — how should I publish them to YouTube?", [
     ...Object.entries(SCHEDULE_PRESETS).map(([k, v]) => [{ text: `📅 ${v.label}`, data: `sc:${projectId}:${k}` }]),
     [{ text: "📥 Just send me the videos", data: `nd:${projectId}` }],
   ]);
@@ -148,41 +168,46 @@ async function askAutomation(chatId: string | number, projectId: string) {
 // Notification delivery (WF-06 → /api/internal/notifications/deliver)
 // ---------------------------------------------------------------------------
 export async function deliverNotification(notificationId: string) {
-  const db = admin();
-  const { data: n } = await db.from("notifications").select("*").eq("id", notificationId).maybeSingle();
-  if (!n || n.delivery_state === "delivered") return { delivered: true, skipped: true };
-  const pl = (n.payload ?? {}) as {
-    chatId?: string;
-    text?: string;
-    url?: string | null;
-    cards?: { contentIds?: string[] } | null;
-    renderId?: string | null;
-    buttons?: TgButton[][] | null;
-  };
-  try {
-    if (!pl.chatId) throw new Error("No chat id");
+  return collect(async () => {
+    const db = admin();
+    const { data: n } = await db.from("notifications").select("*").eq("id", notificationId).maybeSingle();
+    if (!n || n.delivery_state === "delivered") return { skip: true };
+    const pl = (n.payload ?? {}) as {
+      chatId?: string;
+      text?: string;
+      url?: string | null;
+      cards?: { contentIds?: string[] } | null;
+      renderId?: string | null;
+      buttons?: TgButton[][] | null;
+    };
+    if (!pl.chatId) return { skip: true, reason: "no chat id" };
     if (pl.renderId) {
-      const { data: r } = await db.from("video_renders").select("id, content_id, storage_path, project_id").eq("id", pl.renderId).single();
+      const { data: r } = await db.from("video_renders").select("id, content_id, storage_path").eq("id", pl.renderId).single();
       const url = await signedVideoUrl(r?.storage_path ?? null, 3600);
-      if (!url) throw new Error("Video missing");
-      await tgSendChatAction(pl.chatId, "upload_video");
-      await tgSendVideo(pl.chatId, url, esc(pl.text ?? "Your video is ready"), [
-        [{ text: "👍 Looks good", data: `ok:${r!.id}` }, { text: "🔁 Re-render", data: `rr:${r!.content_id}` }],
-        [{ text: "⬇️ Download", url: `${appUrl()}/api/renders/${r!.id}/download` }],
+      if (!url || !r) return { skip: true, reason: "video missing" };
+      act(pl.chatId, "upload_video");
+      sayVideo(pl.chatId, url, esc(pl.text ?? "Your video is ready"), [
+        [{ text: "👍 Looks good", data: `ok:${r.id}` }, { text: "🔁 Re-render", data: `rr:${r.content_id}` }],
+        [{ text: "⬇️ Download", url: `${appUrl()}/api/renders/${r.id}/download` }],
       ]);
     } else if (pl.cards && n.project_id) {
       await sendProjectCards(pl.chatId, n.project_id, pl.cards.contentIds, pl.text);
     } else {
       const rows: TgButton[][] = [...(pl.buttons ?? [])];
       if (pl.url) rows.push([{ text: "🔗 Open in Studio", url: pl.url }]);
-      await tgSendMessage(pl.chatId, esc(pl.text ?? ""), rows);
+      say(pl.chatId, esc(pl.text ?? ""), rows);
     }
-    await db.from("notifications").update({ delivery_state: "delivered", delivered_at: new Date().toISOString() }).eq("id", n.id);
-    return { delivered: true };
-  } catch (e) {
-    await db.from("notifications").update({ delivery_state: "failed" }).eq("id", n.id);
-    return { delivered: false, error: e instanceof Error ? e.message : "send failed" };
-  }
+    return { skip: false };
+  });
+}
+
+/** n8n reports whether every Telegram call for a notification succeeded. */
+export async function completeNotification(notificationId: string, delivered: boolean) {
+  await admin()
+    .from("notifications")
+    .update({ delivery_state: delivered ? "delivered" : "failed", delivered_at: delivered ? new Date().toISOString() : null })
+    .eq("id", notificationId);
+  return { ok: true };
 }
 
 // ---------------------------------------------------------------------------
@@ -204,7 +229,11 @@ const HELP = [
   "/help — this message",
 ].join("\n");
 
-export async function handleTelegramUpdate(update: TgUpdate) {
+export function handleTelegramUpdate(update: TgUpdate) {
+  return collect(() => handleUpdateInner(update));
+}
+
+async function handleUpdateInner(update: TgUpdate) {
   const cb = update.callback_query;
   const msg = update.message;
   const chat = cb?.message?.chat ?? msg?.chat;
@@ -214,8 +243,8 @@ export async function handleTelegramUpdate(update: TgUpdate) {
 
   const link = await linkFor(fromId);
   if (!link) {
-    if (cb) await tgAnswerCallback(cb.id);
-    await tgSendMessage(
+    if (cb) answer(cb.id);
+    say(
       chatId,
       `Your Telegram isn't linked yet. In Studio open <b>Settings → Telegram</b> and enter your user ID <code>${fromId}</code>, then message me again.`,
       [[{ text: "🔗 Open Settings", url: `${appUrl()}/settings?section=telegram` }]],
@@ -231,8 +260,8 @@ export async function handleTelegramUpdate(update: TgUpdate) {
     return await onText(link, chatId, (msg?.text ?? "").trim());
   } catch (e) {
     const message = e instanceof AppError ? e.message : "Something went wrong — please try again.";
-    if (cb) await tgAnswerCallback(cb.id, message);
-    await tgSendMessage(chatId, `⚠️ ${esc(message)}`);
+    if (cb) answer(cb.id, message);
+    say(chatId, `⚠️ ${esc(message)}`);
     if (!(e instanceof AppError)) console.error("[telegram] update failed", e);
     return { ok: false };
   }
@@ -259,7 +288,7 @@ async function onText(link: Link, chatId: number, text: string) {
   const arg = rest.join(" ").trim();
 
   if (!text || cmd === "/start" || cmd === "/help") {
-    await tgSendMessage(chatId, HELP);
+    say(chatId, HELP);
     return { ok: true };
   }
 
@@ -271,10 +300,10 @@ async function onText(link: Link, chatId: number, text: string) {
       .order("updated_at", { ascending: false })
       .limit(8);
     if (!data?.length) {
-      await tgSendMessage(chatId, "No projects yet — send me an idea to start one.");
+      say(chatId, "No projects yet — send me an idea to start one.");
       return { ok: true };
     }
-    await tgSendMessage(
+    say(
       chatId,
       "<b>Your projects</b>\n" + data.map((p) => `${STATUS_EMOJI[p.status] ?? "•"} ${esc(p.title)} — ${p.status}`).join("\n"),
       data.map((p) => [{ text: `${p.cover_emoji ?? "📁"} ${p.title}`.slice(0, 60), data: `pv:${p.id}` }]),
@@ -284,7 +313,7 @@ async function onText(link: Link, chatId: number, text: string) {
 
   if (cmd === "/new") {
     if (!arg) {
-      await tgSendMessage(chatId, "Tell me the idea, e.g. <i>/new weekly cat stories for kids</i>");
+      say(chatId, "Tell me the idea, e.g. <i>/new weekly cat stories for kids</i>");
       return { ok: true };
     }
     return startFromTelegram(link, chatId, arg);
@@ -293,7 +322,7 @@ async function onText(link: Link, chatId: number, text: string) {
   if (cmd === "/render" || cmd === "/schedule" || cmd === "/edit") {
     const p = await currentProject(link);
     if (!p) {
-      await tgSendMessage(chatId, "No project yet — send me an idea first.");
+      say(chatId, "No project yet — send me an idea first.");
       return { ok: true };
     }
     await setState(link, { currentProjectId: p.id });
@@ -304,7 +333,7 @@ async function onText(link: Link, chatId: number, text: string) {
     if (cmd === "/edit") {
       if (arg) return revise(link, chatId, p.id, arg);
       await setState(link, { awaiting: "revise" });
-      await tgSendMessage(chatId, `What should I change in <b>${esc(p.title)}</b>? Mention content numbers like <i>#2</i>, or describe it for all.`);
+      say(chatId, `What should I change in <b>${esc(p.title)}</b>? Mention content numbers like <i>#2</i>, or describe it for all.`);
       return { ok: true };
     }
     return renderMenu(chatId, p.id);
@@ -322,10 +351,10 @@ async function onText(link: Link, chatId: number, text: string) {
 }
 
 async function startFromTelegram(link: Link, chatId: number, idea: string) {
-  await tgSendChatAction(chatId, "typing");
+  act(chatId, "typing");
   const { projectId } = await startProject({ ownerId: link.owner_id, prompt: idea, channel: "telegram" });
   await setState(link, { currentProjectId: projectId, awaiting: null });
-  await tgSendMessage(chatId, "On it — creating your project. I'll send the content here for review in about a minute.", [
+  say(chatId, "On it — creating your project. I'll send the content here for review in about a minute.", [
     [open(`/projects/${projectId}`)],
   ]);
   return { ok: true, projectId };
@@ -333,7 +362,7 @@ async function startFromTelegram(link: Link, chatId: number, idea: string) {
 
 async function revise(link: Link, chatId: number, projectId: string, feedback: string) {
   const res = await reviseContents(link.owner_id, projectId, feedback, "telegram");
-  await tgSendMessage(chatId, `✏️ Revising ${res.positions.map((n) => `#${n}`).join(", ")} — I'll send the new versions shortly.`);
+  say(chatId, `✏️ Revising ${res.positions.map((n) => `#${n}`).join(", ")} — I'll send the new versions shortly.`);
   return { ok: true };
 }
 
@@ -341,10 +370,10 @@ async function renderMenu(chatId: number, projectId: string) {
   const contents = await listContents(projectId);
   const approved = contents.filter((c) => c.status === "approved");
   if (!approved.length) {
-    await tgSendMessage(chatId, "Nothing approved yet — approve the content first.", [[{ text: "📋 Show content", data: `pv:${projectId}` }]]);
+    say(chatId, "Nothing approved yet — approve the content first.", [[{ text: "📋 Show content", data: `pv:${projectId}` }]]);
     return { ok: true };
   }
-  await tgSendMessage(
+  say(
     chatId,
     "Which videos should I render?",
     [
@@ -379,33 +408,33 @@ async function onCallback(link: Link, chatId: number, callbackId: string, data: 
     const { data: c } = await admin().from("contents").select("project_id").eq("id", id).eq("owner_id", owner).maybeSingle();
     if (!c) throw new AppError("NOT_FOUND", "Content not found", 404);
     const r = await requestRender(owner, id);
-    await tgAnswerCallback(callbackId, r.alreadyRunning ? "Already rendering" : "Rendering…");
-    if (!r.alreadyRunning) await tgSendMessage(chatId, "🎬 Rendering — I'll send the video here when it's ready (about 1–3 minutes).");
+    answer(callbackId, r.alreadyRunning ? "Already rendering" : "Rendering…");
+    if (!r.alreadyRunning) say(chatId, "🎬 Rendering — I'll send the video here when it's ready (about 1–3 minutes).");
     return { ok: true };
   }
   if (code === "ok") {
-    await tgAnswerCallback(callbackId, "👍 Noted");
+    answer(callbackId, "👍 Noted");
     return { ok: true };
   }
 
   const project = await ownedProject(owner, id);
   if (!project) {
-    await tgAnswerCallback(callbackId, "Project not found");
+    answer(callbackId, "Project not found");
     return { ok: false };
   }
   await setState(link, { currentProjectId: project.id });
 
   switch (code) {
     case "pv":
-      await tgAnswerCallback(callbackId);
+      answer(callbackId);
       await sendProjectCards(chatId, project.id);
       return { ok: true };
 
     case "aa": {
       const { approved } = await approveAll(owner, project.id);
-      await tgAnswerCallback(callbackId, approved ? `Approved ${approved}` : "Already approved");
+      answer(callbackId, approved ? `Approved ${approved}` : "Already approved");
       const rendering = await renderAll(owner, project.id);
-      await tgSendMessage(
+      say(
         chatId,
         rendering
           ? `✅ Approved. Rendering ${rendering} video${rendering > 1 ? "s" : ""} now — each one arrives here when ready.`
@@ -417,8 +446,8 @@ async function onCallback(link: Link, chatId: number, callbackId: string, data: 
 
     case "rc":
       await setState(link, { awaiting: "revise" });
-      await tgAnswerCallback(callbackId);
-      await tgSendMessage(
+      answer(callbackId);
+      say(
         chatId,
         "Tell me what to change. Mention numbers like <i>#2</i> for specific content, e.g. <i>“make #2 funnier and #3 shorter”</i>.",
       );
@@ -426,8 +455,8 @@ async function onCallback(link: Link, chatId: number, callbackId: string, data: 
 
     case "ra": {
       const n = await renderAll(owner, project.id);
-      await tgAnswerCallback(callbackId, n ? `Rendering ${n}` : "Nothing new to render");
-      if (n) await tgSendMessage(chatId, `🎬 Rendering ${n} video${n > 1 ? "s" : ""} — they'll arrive here one by one.`);
+      answer(callbackId, n ? `Rendering ${n}` : "Nothing new to render");
+      if (n) say(chatId, `🎬 Rendering ${n} video${n > 1 ? "s" : ""} — they'll arrive here one by one.`);
       return { ok: true };
     }
 
@@ -437,21 +466,21 @@ async function onCallback(link: Link, chatId: number, callbackId: string, data: 
       const { data: profile } = await admin().from("profiles").select("timezone").eq("id", owner).maybeSingle();
       const tz = profile?.timezone ?? "Asia/Jakarta";
       await saveSchedule(owner, project.id, { timezone: tz, days: preset.days, time: preset.time, startDate: todayIn(tz) });
-      await tgAnswerCallback(callbackId, "Schedule saved");
+      answer(callbackId, "Schedule saved");
       return offerActivation(owner, chatId, project.id, `📅 Publishing ${describeSchedule({ days: preset.days, time: preset.time })} (${tz}).`);
     }
 
     case "nd":
-      await tgAnswerCallback(callbackId, "No publishing");
-      await tgSendMessage(chatId, "📥 Got it — no publishing. Videos arrive here as they finish; you can schedule later with /schedule.", [
+      answer(callbackId, "No publishing");
+      say(chatId, "📥 Got it — no publishing. Videos arrive here as they finish; you can schedule later with /schedule.", [
         [{ text: "💡 Suggest new ideas weekly", data: `id:${project.id}:on` }],
       ]);
       return { ok: true };
 
     case "id":
       await updateAutomation(owner, project.id, { ideationEnabled: extra === "on", everyDays: 7 });
-      await tgAnswerCallback(callbackId, extra === "on" ? "Weekly ideas on" : "Ideas off");
-      await tgSendMessage(chatId, extra === "on" ? "💡 I'll draft 3 new ideas every week for your approval." : "Recurring ideas are off.");
+      answer(callbackId, extra === "on" ? "Weekly ideas on" : "Ideas off");
+      say(chatId, extra === "on" ? "💡 I'll draft 3 new ideas every week for your approval." : "Recurring ideas are off.");
       return { ok: true };
 
     case "ac": {
@@ -460,8 +489,8 @@ async function onCallback(link: Link, chatId: number, callbackId: string, data: 
       } catch (e) {
         if (e instanceof AppError && e.code === "NOT_READY") {
           const missing = ((e.details as { missing?: string[] })?.missing ?? []).join(", ");
-          await tgAnswerCallback(callbackId, "Not ready yet");
-          await tgSendMessage(chatId, `Almost there — still needed: ${esc(missing)}.`, [
+          answer(callbackId, "Not ready yet");
+          say(chatId, `Almost there — still needed: ${esc(missing)}.`, [
             [{ text: "🔗 Connect YouTube", url: `${appUrl()}/settings?section=connections` }],
             [{ text: "🚀 Try again", data: `ac:${project.id}` }],
           ]);
@@ -469,15 +498,15 @@ async function onCallback(link: Link, chatId: number, callbackId: string, data: 
         }
         throw e;
       }
-      await tgAnswerCallback(callbackId, "Activated");
-      await tgSendMessage(chatId, `🚀 <b>${esc(project.title)}</b> is active. Videos upload to YouTube at each scheduled time — I'll send the links.`, [
+      answer(callbackId, "Activated");
+      say(chatId, `🚀 <b>${esc(project.title)}</b> is active. Videos upload to YouTube at each scheduled time — I'll send the links.`, [
         [{ text: "💡 Weekly new ideas", data: `id:${project.id}:on` }],
         [open(`/publishing`)],
       ]);
       return { ok: true };
     }
   }
-  await tgAnswerCallback(callbackId);
+  answer(callbackId);
   return { ok: false, unknown: code };
 }
 
@@ -489,7 +518,7 @@ async function offerActivation(owner: string, chatId: number, projectId: string,
     .eq("platform", "youtube")
     .eq("status", "connected")
     .maybeSingle();
-  await tgSendMessage(
+  say(
     chatId,
     `${esc(intro)}\n${yt ? "Activate to start publishing on that schedule." : "Connect YouTube in Studio, then activate."}`,
     [

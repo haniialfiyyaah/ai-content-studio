@@ -47,8 +47,9 @@ so webhook + scheduler can race safely. Stuck work is failed server-side
 | WF-06 Notifications | `ZMoSD2okLc7psv3z` | every 1 min |
 | WF-A1 Project Agent Chat | `1FOlfsXAnFVbqDzw` | webhook `acs-agent-chat` |
 | WF-A2 Telegram Gateway | `EAETpN89kJ1GVTC4` | Telegram trigger |
+| SUB Telegram Send | `NNXNhlVKtnu5OKUg` | sub-workflow (all outbound Telegram) |
 
-n8n variables: `ACS_API_BASE_URL`, `ACS_INTERNAL_SERVICE_TOKEN`.
+n8n variables: `ACS_API_BASE_URL`, `ACS_INTERNAL_SERVICE_TOKEN`, `TELEGRAM_BOT_TOKEN`.
 OpenAI runs on n8n's OpenAI credential (currently n8n gateway credits; swap to the Studio key in the
 `OpenAI (plan|content|agent)` nodes for production volume).
 
@@ -68,8 +69,11 @@ OpenAI runs on n8n's OpenAI credential (currently n8n gateway credits; swap to t
 ## Telegram flow
 
 WF-A2 forwards every update (messages + button taps) to `/api/internal/telegram/update`; the app's
-bot (`lib/server/telegram.ts`) replies through the Bot API (`TELEGRAM_BOT_TOKEN`). WF-06 delivers queued
-notifications through `/api/internal/notifications/deliver` (text, content cards with buttons, or the MP4).
+bot (`lib/server/telegram.ts`) decides and **returns** the Bot API calls (each with the user's own
+`chat_id`). **SUB Telegram Send** (`NNXNhlVKtnu5OKUg`) posts them using the n8n variable
+`TELEGRAM_BOT_TOKEN` — the app never holds the token. WF-06 (every minute) asks
+`/api/internal/notifications/deliver` for a notification's calls (text, content cards, or the MP4),
+sends them via SUB, and records delivered/failed via `/notifications/complete`.
 
 Loop: idea → project cards (#n, hook, script) → ✅ Approve all (starts rendering) or ✏️ edit in plain
 language (`generation_runs.kind = revision`, AI rewrites only the referenced `#n`) → schedule presets /
