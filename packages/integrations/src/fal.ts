@@ -154,7 +154,16 @@ export async function synthesizeNarration(text: string): Promise<{ audio: Uint8A
     headers: { "xi-api-key": key, "Content-Type": "application/json" },
     body: JSON.stringify({ text: text.slice(0, 2500), model_id: "eleven_multilingual_v2" }),
   });
-  if (!res.ok) throw new AppError(ErrorCodes.PROVIDER_ERROR, `ElevenLabs failed (${res.status})`, 502);
+  if (!res.ok) {
+    // Surface ElevenLabs' own reason (e.g. free tier blocked from cloud IPs, quota, bad voice id).
+    const body = await res.text().catch(() => "");
+    let reason = body.slice(0, 200);
+    try {
+      const j = JSON.parse(body) as { detail?: { message?: string; status?: string } | string };
+      reason = typeof j.detail === "string" ? j.detail : j.detail?.message ?? j.detail?.status ?? reason;
+    } catch {}
+    throw new AppError(ErrorCodes.PROVIDER_ERROR, `ElevenLabs ${res.status}: ${reason}`.slice(0, 280), 502);
+  }
   const json = (await res.json()) as {
     audio_base64: string;
     alignment?: { characters: string[]; character_start_times_seconds: number[]; character_end_times_seconds: number[] };

@@ -13,6 +13,7 @@ import {
   openAiImagesConfigured,
   referenceImageInput,
   sceneImagePrompt,
+  narrationConfigured,
   synthesizeNarration,
   textToImageInput,
   type CaptionWord,
@@ -195,6 +196,7 @@ export async function startRender(renderId: string) {
     let narrationPath: string | null = null;
     let captions: CaptionWord[] = evenCaptions(picked.script);
     try {
+      if (!narrationConfigured()) throw new Error("ELEVENLABS_API_KEY is not set on the server");
       const voice = await synthesizeNarration(picked.script);
       if (voice) {
         narrationPath = `${render.owner_id}/${render.id}/narration.mp3`;
@@ -202,7 +204,14 @@ export async function startRender(renderId: string) {
         if (voice.words.length) captions = voice.words;
       }
     } catch (e) {
-      console.warn("[render] narration skipped", e);
+      const reason = e instanceof Error ? e.message : String(e);
+      console.warn("[render] narration skipped", reason);
+      await logActivity(db, {
+        ownerId: render.owner_id,
+        projectId: render.project_id,
+        kind: "render.narration_skipped",
+        message: `Narration skipped (captions only): ${reason}`.slice(0, 300),
+      });
     }
 
     await db
