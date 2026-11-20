@@ -8,8 +8,8 @@ import { api } from "@/lib/client/api";
 import { ACCEPT, uploadReference } from "@/lib/client/upload";
 
 const MODE_HELP: Record<VisualMode, string> = {
-  ai: "Every scene image is generated in the Creative Kit's art style (needs fal.ai; otherwise your references or a styled background are used).",
-  ai_with_references: "Scenes are generated from your references — keeps products and characters consistent (needs fal.ai).",
+  ai: "Every scene image is generated in the Creative Kit's art style (OpenAI images, fal as backup; otherwise your references or a styled background).",
+  ai_with_references: "Scenes are generated from your references — keeps products and characters consistent.",
   references: "Your uploads are used directly as the scene images, animated with zoom, captions and transitions. No AI image cost.",
 };
 

@@ -88,7 +88,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
                 <Sparkles size={18} color="var(--accent)" />
                 <div>
                   <div className="small semibold">Studio AI (managed)</div>
-                  <div className="xs muted line">OpenAI plans projects, content options and scenes. Scene images come from your uploads or, optionally, fal.ai; the Studio renderer animates them with captions; ElevenLabs voices narration when enabled. Usage is covered by Studio.</div>
+                  <div className="xs muted line">OpenAI plans projects, content options and scenes. Scene images are generated with OpenAI (fal as backup) or taken from your uploads; the Studio renderer animates them with captions; ElevenLabs voices narration when enabled. Usage is covered by Studio.</div>
                 </div>
               </div>
             </>

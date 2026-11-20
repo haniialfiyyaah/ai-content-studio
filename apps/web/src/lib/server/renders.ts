@@ -8,6 +8,9 @@ import {
   falPoll,
   falReferenceModel,
   falSubmit,
+  editOpenAiImage,
+  generateOpenAiImage,
+  openAiImagesConfigured,
   referenceImageInput,
   sceneImagePrompt,
   synthesizeNarration,
@@ -26,16 +29,18 @@ const ACCENTS = ["#e8735a", "#7056d9", "#3b3550", "#2a886b"];
 
 /**
  * Scene step: `source` says where the image comes from.
+ *  - openai: generated synchronously by OpenAI images, stored at `imagePath` (primary)
+ *  - fal: queued fal job (`requestId` on `model`), may fall back once (secondary)
  *  - reference: the user's upload is the scene image (no generation)
- *  - fal: a generated image (`requestId` on `model`), may fall back once
  *  - none: gradient fallback rendered by Remotion
  */
 export interface SceneStep {
   scene: number;
-  source: "reference" | "fal" | "none";
+  source: "openai" | "reference" | "fal" | "none";
   model?: string;
   requestId?: string;
   referencePath?: string;
+  imagePath?: string;
   status: "queued" | "in_progress" | "completed" | "failed";
   url: string | null;
   retried?: boolean;
@@ -82,44 +87,74 @@ export async function startRender(renderId: string) {
     const p = project as ProjectRow & { visual_mode: "ai" | "ai_with_references" | "references" };
     const picked = resolveContent(c.options, c.selection);
     const scenes: Scene[] = (c.scenes?.length ? c.scenes : [{ heading: picked.title } as Scene]).slice(0, 6);
-    // fal is optional: without a key (or when fal rejects us: no credit) scenes
-    // use the user's references if any, else Remotion's branded gradient.
-    let falAvailable = Boolean(process.env.FAL_KEY?.trim()) && p.visual_mode !== "references";
+    // Provider chain per scene: OpenAI images → fal → user's reference → gradient.
     const refs = await listAssets(p.id, 6 * 3600);
-    const useRefs = p.visual_mode !== "ai" || !falAvailable;
+    const refFor = (s: Scene, i: number) =>
+      refs.length ? refs[s.referenceIndex >= 0 && s.referenceIndex < refs.length ? s.referenceIndex : i % refs.length] : null;
+    const generate = p.visual_mode !== "references";
+    let openAiAvailable = generate && openAiImagesConfigured();
+    let falAvailable = generate && Boolean(process.env.FAL_KEY?.trim());
+
+    // Reference bytes for OpenAI edits (only in "AI + my references").
+    const refBytes = new Map<string, { bytes: ArrayBuffer; mimeType: string; name: string }>();
+    if (openAiAvailable && p.visual_mode === "ai_with_references") {
+      for (const r of refs.slice(0, 8)) {
+        const { data } = await db.storage.from("assets").download(r.storage_path);
+        if (data) refBytes.set(r.id, { bytes: await data.arrayBuffer(), mimeType: data.type || "image/png", name: r.storage_path.split("/").pop()! });
+      }
+    }
+
+    const prompts = scenes.map((s) =>
+      sceneImagePrompt({ visual: s.visual, heading: s.heading, visualStyle: p.creative_kit?.visualStyle, fallback: c.video_prompt || picked.title }),
+    );
+
+    // 1) OpenAI, all scenes in parallel (synchronous API → stored immediately)
+    const openAiResults = openAiAvailable
+      ? await Promise.all(
+          scenes.map(async (s, i): Promise<SceneStep | null> => {
+            const ref = refFor(s, i);
+            const guided = p.visual_mode === "ai_with_references" && ref ? refBytes.get(ref.id) : undefined;
+            try {
+              const img = guided ? await editOpenAiImage(prompts[i], [guided]) : await generateOpenAiImage(prompts[i]);
+              const imagePath = `${render.owner_id}/${render.id}/scene-${i}.png`;
+              await db.storage.from(BUCKET).upload(imagePath, img.bytes, { contentType: "image/png", upsert: true });
+              return { scene: i, source: "openai", model: img.model, imagePath, status: "completed", url: null };
+            } catch (e) {
+              console.warn(`[render] OpenAI image failed for scene ${i}:`, e instanceof Error ? e.message : e);
+              if (e instanceof AppError && e.code === ErrorCodes.NOT_CONFIGURED) openAiAvailable = false;
+              return null;
+            }
+          }),
+        )
+      : scenes.map(() => null);
 
     const steps: SceneStep[] = [];
     for (const [i, s] of scenes.entries()) {
-      const ref =
-        useRefs && refs.length
-          ? refs[s.referenceIndex >= 0 && s.referenceIndex < refs.length ? s.referenceIndex : i % refs.length]
-          : null;
+      if (openAiResults[i]) {
+        steps.push(openAiResults[i]!);
+        continue;
+      }
+      const ref = refFor(s, i);
       const asReference = (): SceneStep =>
         ref
           ? { scene: i, source: "reference", referencePath: ref.storage_path, status: "completed", url: ref.url }
           : { scene: i, source: "none", status: "completed", url: null };
 
-      if (!falAvailable) {
-        steps.push(asReference());
-        continue;
+      // 2) fal (async queue; polled in pollRender)
+      if (falAvailable) {
+        const guided = p.visual_mode === "ai_with_references" && ref?.url;
+        const model = guided ? falReferenceModel() : falImageModel();
+        const input = guided ? referenceImageInput(prompts[i], ref!.url!) : textToImageInput(prompts[i]);
+        try {
+          steps.push({ scene: i, source: "fal", model, requestId: await falSubmit(model, input), status: "queued", url: null });
+          continue;
+        } catch (e) {
+          console.warn(`[render] fal failed for scene ${i}:`, e instanceof Error ? e.message : e);
+          if (e instanceof AppError && e.code === ErrorCodes.NOT_CONFIGURED) falAvailable = false;
+        }
       }
-      const prompt = sceneImagePrompt({
-        visual: s.visual,
-        heading: s.heading,
-        visualStyle: p.creative_kit?.visualStyle,
-        fallback: c.video_prompt || picked.title,
-      });
-      const guided = p.visual_mode === "ai_with_references" && ref?.url;
-      const model = guided ? falReferenceModel() : falImageModel();
-      const input = guided ? referenceImageInput(prompt, ref!.url!) : textToImageInput(prompt);
-      try {
-        steps.push({ scene: i, source: "fal", model, requestId: await falSubmit(model, input), status: "queued", url: null });
-      } catch (e) {
-        if (!(e instanceof AppError) || e.code !== ErrorCodes.NOT_CONFIGURED) throw e;
-        console.warn("[render] fal unavailable, falling back for remaining scenes:", e.message);
-        falAvailable = false;
-        steps.push(asReference());
-      }
+      // 3) reference or gradient
+      steps.push(asReference());
     }
 
     // Narration with word timings; captions fall back to even timing.
@@ -142,7 +177,7 @@ export async function startRender(renderId: string) {
         steps,
         captions,
         narration_path: narrationPath,
-        provider: "fal+remotion",
+        provider: [...new Set(steps.map((st) => st.source))].join("+") + "+remotion",
         model: [...new Set(steps.map((s) => s.model ?? s.source))].join(", "),
         prompt: c.video_prompt,
         attempts: render.attempts + 1,
@@ -224,7 +259,12 @@ async function dispatchToRenderer(render: LoadedRender) {
   const sceneProps = await Promise.all(
     scenes.map(async (s, i) => {
       const step = render.steps[i];
-      const imageUrl = step?.source === "reference" ? await signedRef(step.referencePath) : step?.url ?? null;
+      const imageUrl =
+        step?.source === "reference"
+          ? await signedRef(step.referencePath)
+          : step?.source === "openai" && step.imagePath
+            ? (await db.storage.from(BUCKET).createSignedUrl(step.imagePath, 6 * 3600)).data?.signedUrl ?? null
+            : step?.url ?? null;
       return { imageUrl, seconds: Number(durations[i].toFixed(2)), onScreenText: s.onScreenText || "", motion: s.motion || "" };
     }),
   );
