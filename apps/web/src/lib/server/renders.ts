@@ -82,13 +82,25 @@ export async function startRender(renderId: string) {
     const p = project as ProjectRow & { visual_mode: "ai" | "ai_with_references" | "references" };
     const picked = resolveContent(c.options, c.selection);
     const scenes: Scene[] = (c.scenes?.length ? c.scenes : [{ heading: picked.title } as Scene]).slice(0, 6);
-    const refs = p.visual_mode === "ai" ? [] : await listAssets(p.id, 6 * 3600);
+    // fal is optional: without a key (or when fal rejects us: no credit) scenes
+    // use the user's references if any, else Remotion's branded gradient.
+    let falAvailable = Boolean(process.env.FAL_KEY?.trim()) && p.visual_mode !== "references";
+    const refs = await listAssets(p.id, 6 * 3600);
+    const useRefs = p.visual_mode !== "ai" || !falAvailable;
 
     const steps: SceneStep[] = [];
     for (const [i, s] of scenes.entries()) {
-      const ref = refs.length ? refs[s.referenceIndex >= 0 && s.referenceIndex < refs.length ? s.referenceIndex : i % refs.length] : null;
-      if (ref && p.visual_mode === "references") {
-        steps.push({ scene: i, source: "reference", referencePath: ref.storage_path, status: "completed", url: ref.url });
+      const ref =
+        useRefs && refs.length
+          ? refs[s.referenceIndex >= 0 && s.referenceIndex < refs.length ? s.referenceIndex : i % refs.length]
+          : null;
+      const asReference = (): SceneStep =>
+        ref
+          ? { scene: i, source: "reference", referencePath: ref.storage_path, status: "completed", url: ref.url }
+          : { scene: i, source: "none", status: "completed", url: null };
+
+      if (!falAvailable) {
+        steps.push(asReference());
         continue;
       }
       const prompt = sceneImagePrompt({
@@ -97,9 +109,17 @@ export async function startRender(renderId: string) {
         visualStyle: p.creative_kit?.visualStyle,
         fallback: c.video_prompt || picked.title,
       });
-      const model = ref?.url ? falReferenceModel() : falImageModel();
-      const input = ref?.url ? referenceImageInput(prompt, ref.url) : textToImageInput(prompt);
-      steps.push({ scene: i, source: "fal", model, requestId: await falSubmit(model, input), status: "queued", url: null });
+      const guided = p.visual_mode === "ai_with_references" && ref?.url;
+      const model = guided ? falReferenceModel() : falImageModel();
+      const input = guided ? referenceImageInput(prompt, ref!.url!) : textToImageInput(prompt);
+      try {
+        steps.push({ scene: i, source: "fal", model, requestId: await falSubmit(model, input), status: "queued", url: null });
+      } catch (e) {
+        if (!(e instanceof AppError) || e.code !== ErrorCodes.NOT_CONFIGURED) throw e;
+        console.warn("[render] fal unavailable, falling back for remaining scenes:", e.message);
+        falAvailable = false;
+        steps.push(asReference());
+      }
     }
 
     // Narration with word timings; captions fall back to even timing.
