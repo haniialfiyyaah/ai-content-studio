@@ -10,7 +10,7 @@ import {
 import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logActivity, notifyTelegram, postAssistantMessage } from "./events";
-import { generateMore } from "./projects";
+import { generateMore, reviseContents } from "./projects";
 import type { ContentRow, ProjectRow, RunRow } from "./rows";
 
 const admin = () => createAdminClient();
@@ -385,7 +385,11 @@ export const AgentReplySchema = z.object({
   conversationId: z.string().uuid(),
   reply: z.string().min(1).max(4000),
   action: z
-    .object({ type: z.enum(["none", "generate_more"]), count: z.coerce.number().int().min(1).max(8).optional() })
+    .object({
+      type: z.enum(["none", "generate_more", "revise"]),
+      count: z.coerce.number().int().min(0).max(8).optional(),
+      feedback: z.string().max(1500).optional(),
+    })
     .optional(),
 });
 
@@ -400,12 +404,15 @@ export async function agentReply(raw: unknown) {
     role: "assistant",
     content: input.reply,
   });
-  if (input.action?.type === "generate_more") {
-    try {
-      await generateMore(convo.owner_id, convo.project_id, input.action.count ?? 3);
-    } catch (e) {
-      if (!(e instanceof AppError)) throw e;
+  try {
+    if (input.action?.type === "generate_more") {
+      await generateMore(convo.owner_id, convo.project_id, Math.max(1, input.action.count ?? 3));
+    } else if (input.action?.type === "revise" && input.action.feedback?.trim()) {
+      await reviseContents(convo.owner_id, convo.project_id, input.action.feedback);
     }
+  } catch (e) {
+    if (!(e instanceof AppError)) throw e;
+    await db.from("messages").insert({ conversation_id: input.conversationId, owner_id: convo.owner_id, role: "assistant", content: `⚠️ ${e.message}` });
   }
   return { ok: true };
 }

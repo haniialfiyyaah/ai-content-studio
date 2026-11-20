@@ -224,17 +224,59 @@ export async function selectOption(ownerId: string, contentId: string, field: Op
   if (!OPTION_FIELDS.includes(field) || !isValidSelection(content.options, field, index)) {
     throw new AppError(ErrorCodes.VALIDATION_ERROR, "Not one of the generated options", 400);
   }
-  // Changing a pick on approved content sends it back to review.
+  // Approved content is locked; the user must unlock (which drops approval) first.
+  if (content.status !== "draft") throw conflict("This content is approved — unlock it to change options");
   const { data: updated } = await db
     .from("contents")
-    .update({
-      selection: { ...content.selection, [field]: index },
-      ...(content.status === "approved" ? { status: "draft", approved_at: null } : {}),
-    })
+    .update({ selection: { ...content.selection, [field]: index } })
     .eq("id", contentId)
+    .eq("status", "draft")
     .select("id, selection, status")
     .single();
+  // The old video no longer matches these picks: retire it so it can't be published.
+  if ((content.selection?.[field] ?? 0) !== index) {
+    await db.from("video_renders").update({ status: "cancelled" }).eq("content_id", contentId).in("status", ["queued", "ready"]);
+  }
   return updated;
+}
+
+/** Approve one content (review-one-by-one flow). */
+export async function approveContent(ownerId: string, contentId: string) {
+  const db = admin();
+  const { data } = await db.from("contents").select("id, project_id, status").eq("id", contentId).eq("owner_id", ownerId).maybeSingle();
+  if (!data) throw notFound("Content");
+  const project = await loadOwnedProject(ownerId, data.project_id);
+  if (data.status === "draft") {
+    await db.from("contents").update({ status: "approved", approved_at: new Date().toISOString() }).eq("id", contentId).eq("status", "draft");
+    await logActivity(db, { ownerId, projectId: data.project_id, kind: "content.approved", message: "Approved 1 content" });
+    if (project.status === "active") await scheduleAndQueue(project);
+  }
+  const { data: next } = await db
+    .from("contents")
+    .select("id")
+    .eq("project_id", data.project_id)
+    .eq("status", "draft")
+    .order("position")
+    .limit(1)
+    .maybeSingle();
+  return { approved: contentId, nextId: (next?.id as string | undefined) ?? null };
+}
+
+/**
+ * Unlock approved content so its options can change again. Published content
+ * (or content currently uploading) can never be unlocked.
+ */
+export async function unlockContent(ownerId: string, contentId: string) {
+  const db = admin();
+  const { data } = await db.from("contents").select("id, project_id, status").eq("id", contentId).eq("owner_id", ownerId).maybeSingle();
+  if (!data) throw notFound("Content");
+  const { data: job } = await db.from("publish_jobs").select("status").eq("content_id", contentId).in("status", ["published", "publishing"]).maybeSingle();
+  if (job) throw conflict("Published content can't be changed");
+  await db.from("contents").update({ status: "draft", approved_at: null }).eq("id", contentId);
+  // A scheduled upload must not publish an unapproved version.
+  await db.from("publish_jobs").delete().eq("content_id", contentId).eq("status", "scheduled");
+  await logActivity(db, { ownerId, projectId: data.project_id, kind: "content.unlocked", message: "Content unlocked for changes" });
+  return { unlocked: contentId };
 }
 
 export async function approveAll(ownerId: string, projectId: string) {
@@ -498,4 +540,20 @@ export async function sendProjectMessage(ownerId: string, projectId: string, con
     .single();
   dispatchToN8n("agent-chat", { conversationId: convo.id, messageId: msg?.id });
   return { conversationId: convo.id, messageId: msg?.id };
+}
+
+/** Render every approved content that has no queued/rendering/ready video yet. */
+export async function renderAllApproved(ownerId: string, projectId: string) {
+  await loadOwnedProject(ownerId, projectId);
+  const db = admin();
+  const { data: approved } = await db.from("contents").select("id").eq("project_id", projectId).eq("status", "approved").order("position");
+  const { data: have } = await db
+    .from("video_renders")
+    .select("content_id")
+    .eq("project_id", projectId)
+    .in("status", ["queued", "rendering", "ready"]);
+  const done = new Set((have ?? []).map((r) => r.content_id));
+  const todo = (approved ?? []).filter((c) => !done.has(c.id));
+  for (const c of todo) await requestRender(ownerId, c.id);
+  return { rendering: todo.length };
 }

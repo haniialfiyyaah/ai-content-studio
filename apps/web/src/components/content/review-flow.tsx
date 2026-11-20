@@ -1,0 +1,143 @@
+"use client";
+
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useState, useTransition } from "react";
+import { ArrowRight, Check, SkipForward } from "lucide-react";
+import { OPTION_FIELDS, type ContentOptions, type Selection } from "@acs/domain";
+import { OptionPicker } from "@/components/content/option-picker";
+import { Spinner } from "@/components/ui/spinner";
+import { api } from "@/lib/client/api";
+
+export interface ReviewItem {
+  id: string;
+  n: number;
+  status: "draft" | "approved" | "archived";
+  options: Partial<ContentOptions>;
+  selection: Selection;
+  scenes: { heading: string; onScreenText?: string }[];
+}
+
+/**
+ * One-by-one review: shows the current pending content with every option,
+ * "Approve & next" jumps straight to the next pending one.
+ */
+export function ReviewFlow({ projectId, items, currentId }: { projectId: string; items: ReviewItem[]; currentId?: string }) {
+  const router = useRouter();
+  const pending = items.filter((i) => i.status === "draft");
+  const current = items.find((i) => i.id === currentId && i.status === "draft") ?? pending[0];
+  const [busy, start] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+  const reviewed = items.length - pending.length;
+
+  const go = (id: string | null) =>
+    router.replace(`/projects/${projectId}?tab=content${id ? `&review=${id}` : ""}`, { scroll: false });
+
+  function approveNext() {
+    if (!current) return;
+    setError(null);
+    start(async () => {
+      try {
+        const { nextId } = await api<{ nextId: string | null }>(`/api/contents/${current.id}/approve`, "POST");
+        go(nextId);
+        router.refresh();
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Could not approve");
+      }
+    });
+  }
+
+  function approveAll() {
+    setError(null);
+    start(async () => {
+      try {
+        await api(`/api/projects/${projectId}/approve-all`, "POST");
+        go(null);
+        router.refresh();
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Could not approve");
+      }
+    });
+  }
+
+  if (!current) {
+    return (
+      <div className="card pad" style={{ textAlign: "center" }}>
+        <div className="iconTile green" style={{ margin: "0 auto 10px" }}><Check size={17} /></div>
+        <h2 style={{ fontSize: 18 }}>All {items.length} content approved 🎉</h2>
+        <p className="small muted" style={{ margin: "8px auto 16px", maxWidth: 440 }}>Render the videos now, or set a schedule and activate to publish automatically.</p>
+        <div className="actions" style={{ justifyContent: "center" }}>
+          <Link className="btn soft" href={`/projects/${projectId}?tab=videos`}>🎬 Videos</Link>
+          <Link className="btn primary" href={`/projects/${projectId}?tab=schedule`}>📅 Schedule</Link>
+        </div>
+      </div>
+    );
+  }
+
+  const nextPending = pending[pending.indexOf(current) + 1] ?? pending.find((p) => p.id !== current.id) ?? null;
+
+  return (
+    <div className="stack">
+      <div className="card pad">
+        <div className="row between" style={{ flexWrap: "wrap", gap: 10 }}>
+          <div>
+            <div className="eyebrow" style={{ margin: 0 }}>REVIEW · {reviewed} OF {items.length} APPROVED</div>
+            <div className="progressbar" style={{ width: 220, marginTop: 8 }}><span style={{ width: `${(reviewed / items.length) * 100}%` }} /></div>
+          </div>
+          <div className="actions">
+            {items.map((i) => (
+              <button
+                key={i.id}
+                className={`daychip ${i.id === current.id ? "on" : ""}`}
+                style={{ padding: "6px 10px" }}
+                title={i.status === "approved" ? "Approved" : "Pending"}
+                onClick={() => i.status === "draft" && go(i.id)}
+                disabled={i.status !== "draft"}
+              >
+                #{i.n}{i.status === "approved" ? " ✓" : ""}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="card pad">
+        <div className="section">
+          <div>
+            <div className="eyebrow">CONTENT #{current.n} · {current.scenes.length} SCENES</div>
+            <h2>{current.options.title?.[current.selection.title ?? 0]}</h2>
+          </div>
+          <Link href={`/projects/${projectId}/content/${current.id}?tab=storyboard`} className="btn small">Storyboard →</Link>
+        </div>
+        <div className="grid g2" style={{ gap: "0 24px" }}>
+          {OPTION_FIELDS.map((f) => (
+            <OptionPicker
+              key={`${current.id}-${f}`}
+              contentId={current.id}
+              field={f}
+              options={current.options[f] ?? []}
+              selected={current.selection[f] ?? 0}
+              preview={f === "script" || f === "hook"}
+            />
+          ))}
+        </div>
+        <div className="tagrow">{current.scenes.map((s, i) => <span key={i} className="tag">{i + 1}. {s.onScreenText || s.heading}</span>)}</div>
+        <div className="divider" />
+        <div className="row between" style={{ flexWrap: "wrap", gap: 10 }}>
+          <div className="actions">
+            {nextPending && (
+              <button className="btn ghost" disabled={busy} onClick={() => go(nextPending.id)}><SkipForward size={14} /> Skip</button>
+            )}
+            {pending.length > 1 && (
+              <button className="btn soft" disabled={busy} onClick={approveAll}>{busy ? <Spinner /> : <Check size={14} />} Approve all ({pending.length})</button>
+            )}
+          </div>
+          <button className="btn primary" disabled={busy} onClick={approveNext}>
+            {busy ? <Spinner /> : <Check size={14} />} {pending.length > 1 ? "Approve & next" : "Approve"} {pending.length > 1 && <ArrowRight size={14} />}
+          </button>
+        </div>
+        {error && <div className="err">{error}</div>}
+      </div>
+    </div>
+  );
+}

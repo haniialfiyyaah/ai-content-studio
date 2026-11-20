@@ -63,12 +63,19 @@ export default async function ContentDetail({
             <span className="badge-outline">{c.scheduled_for ? fmtDateTime(c.scheduled_for, p.schedule.timezone) : "Not scheduled"}</span>
           </div>
         </div>
-        {c.status === "draft" && editable && (
-          <ActionButton path={`/api/projects/${p.id}/approve-all`} className="btn primary"><Check size={14} /> Approve all content</ActionButton>
-        )}
+        <div className="actions">
+          {c.status === "draft" && editable && (
+            <ActionButton path={`/api/contents/${c.id}/approve`} className="btn primary"><Check size={14} /> Approve</ActionButton>
+          )}
+          {c.status === "approved" && editable && job?.status !== "published" && (
+            <ActionButton path={`/api/contents/${c.id}/unlock`} className="btn" confirm="Unlock this content? It goes back to review, its video is replaced after you change options, and any scheduled upload is removed until you approve again.">🔓 Unlock to change</ActionButton>
+          )}
+        </div>
       </div>
       <div className="note" style={{ margin: "20px 0" }}>
-        Every field below was generated with alternatives — choose with the dropdowns. Approval makes this content eligible for automatic rendering and publishing once the project is active.
+        {c.status === "approved"
+          ? "Approved and locked — options can't change unless you unlock it."
+          : "Every field below was generated with alternatives — choose with the dropdowns, then approve."}
       </div>
       <nav className="tabs">
         {TABS.map(([k, l]) => <Link key={k} href={`${base}?tab=${k}`} scroll={false} className={`tab ${tab === k ? "active" : ""}`}>{l}</Link>)}
@@ -79,7 +86,7 @@ export default async function ContentDetail({
           <div className="card pad">
             <div className="section"><h2>Choose your options</h2></div>
             {OPTION_FIELDS.filter((f) => f !== "script").map((f) => (
-              <OptionPicker key={f} contentId={c.id} field={f} options={c.options[f] ?? []} selected={c.selection[f] ?? 0} disabled={!editable} preview />
+              <OptionPicker key={f} contentId={c.id} field={f} options={c.options[f] ?? []} selected={c.selection[f] ?? 0} disabled={!editable || c.status !== "draft"} preview />
             ))}
           </div>
           <div className="card pad">
@@ -97,7 +104,7 @@ export default async function ContentDetail({
 
       {tab === "script" && (
         <div className="card pad">
-          <OptionPicker contentId={c.id} field="script" options={c.options.script ?? []} selected={c.selection.script ?? 0} disabled={!editable} preview />
+          <OptionPicker contentId={c.id} field="script" options={c.options.script ?? []} selected={c.selection.script ?? 0} disabled={!editable || c.status !== "draft"} preview />
           <div className="divider" />
           <div className="section"><h2>Scene narration</h2></div>
           {c.scenes.map((s, i) => (
@@ -134,9 +141,9 @@ export default async function ContentDetail({
       {tab === "publishing" && (
         <div className="card pad">
           <div className="section"><div><h2>Publishing pack</h2><p>What gets uploaded to YouTube.</p></div></div>
-          <OptionPicker contentId={c.id} field="title" options={c.options.title ?? []} selected={c.selection.title ?? 0} disabled={!editable} preview />
-          <OptionPicker contentId={c.id} field="caption" options={c.options.caption ?? []} selected={c.selection.caption ?? 0} disabled={!editable} preview />
-          <OptionPicker contentId={c.id} field="hashtags" options={c.options.hashtags ?? []} selected={c.selection.hashtags ?? 0} disabled={!editable} preview />
+          <OptionPicker contentId={c.id} field="title" options={c.options.title ?? []} selected={c.selection.title ?? 0} disabled={!editable || c.status !== "draft"} preview />
+          <OptionPicker contentId={c.id} field="caption" options={c.options.caption ?? []} selected={c.selection.caption ?? 0} disabled={!editable || c.status !== "draft"} preview />
+          <OptionPicker contentId={c.id} field="hashtags" options={c.options.hashtags ?? []} selected={c.selection.hashtags ?? 0} disabled={!editable || c.status !== "draft"} preview />
         </div>
       )}
 

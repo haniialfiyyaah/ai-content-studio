@@ -11,11 +11,13 @@ export function AgentPanel({
   projectTitle,
   messages,
   onClose,
+  actions,
 }: {
   projectId: string;
   projectTitle: string;
   messages: MessageRow[];
   onClose?: () => void;
+  actions?: React.ReactNode;
 }) {
   const [draft, setDraft] = useState("");
   const [pendingText, setPendingText] = useState<string | null>(null);
@@ -63,6 +65,7 @@ export function AgentPanel({
         {showPending && <div className="bubble user" style={{ opacity: 0.7 }}>{showPending}</div>}
         {(busy || showPending || lastIsUser) && <div className="bubble agent pulse">Thinking…</div>}
       </div>
+      {actions}
       <div className="chatfoot">
         <div className="chatinput">
           <textarea
@@ -74,7 +77,7 @@ export function AgentPanel({
                 send();
               }
             }}
-            placeholder="Ask about this Project, or say “make 3 more ideas”…"
+            placeholder="Ask anything, or say “make #2 funnier”…"
           />
           <div className="row between">
             <span className="tiny faint">Project-linked conversation</span>

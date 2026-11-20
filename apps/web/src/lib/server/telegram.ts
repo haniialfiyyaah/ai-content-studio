@@ -16,6 +16,7 @@ import {
   activateProject,
   approveAll,
   requestRender,
+  renderAllApproved,
   reviseContents,
   saveSchedule,
   startProject,
@@ -387,16 +388,7 @@ async function renderMenu(chatId: number, projectId: string) {
 }
 
 async function renderAll(ownerId: string, projectId: string) {
-  const approved = (await listContents(projectId)).filter((c) => c.status === "approved");
-  const { data: done } = await admin()
-    .from("video_renders")
-    .select("content_id")
-    .eq("project_id", projectId)
-    .in("status", ["queued", "rendering", "ready"]);
-  const have = new Set((done ?? []).map((r) => r.content_id));
-  const todo = approved.filter((c) => !have.has(c.id));
-  for (const c of todo) await requestRender(ownerId, c.id);
-  return todo.length;
+  return (await renderAllApproved(ownerId, projectId)).rendering;
 }
 
 async function onCallback(link: Link, chatId: number, callbackId: string, data: string) {

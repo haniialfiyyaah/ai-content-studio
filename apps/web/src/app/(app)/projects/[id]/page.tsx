@@ -5,6 +5,8 @@ import { OptionPicker } from "@/components/content/option-picker";
 import { RenderControls } from "@/components/content/render-controls";
 import { AssetsPanel } from "@/components/project/assets-panel";
 import { AgentPanel } from "@/components/project/agent-panel";
+import { AgentActions } from "@/components/project/agent-actions";
+import { ReviewFlow } from "@/components/content/review-flow";
 import { AutomationForm } from "@/components/project/automation-form";
 import { GeneratingView } from "@/components/project/generating-view";
 import { ScheduleForm } from "@/components/project/schedule-form";
@@ -32,9 +34,9 @@ export default async function ProjectPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ tab?: string }>;
+  searchParams: Promise<{ tab?: string; review?: string; view?: string }>;
 }) {
-  const [{ id }, { tab: rawTab }] = await Promise.all([params, searchParams]);
+  const [{ id }, { tab: rawTab, review, view }] = await Promise.all([params, searchParams]);
   const { supabase, user } = await requireUser();
   const ws = await loadWorkspace(supabase, user.id, id);
   const { project: p, contents, run, readiness } = ws;
@@ -72,7 +74,25 @@ export default async function ProjectPage({
   return (
     <>
       {live}
-      <WorkspaceFrame agent={<AgentPanel projectId={p.id} projectTitle={p.title} messages={ws.messages} />}>
+      <WorkspaceFrame
+        agent={
+          <AgentPanel
+            projectId={p.id}
+            projectTitle={p.title}
+            messages={ws.messages}
+            actions={
+              <AgentActions
+                projectId={p.id}
+                status={p.status}
+                drafts={drafts}
+                firstPendingId={contents.find((c) => c.status === "draft")?.id ?? null}
+                hasSchedule={Boolean(p.schedule?.days?.length)}
+                approvedWithoutVideo={contents.filter((c) => c.status === "approved" && !["queued", "rendering", "ready"].includes(ws.renders.get(c.id)?.status ?? "")).length}
+              />
+            }
+          />
+        }
+      >
         <main className="page">
           <div className="project-hero">
             <div>
@@ -201,7 +221,28 @@ export default async function ProjectPage({
             </div>
           )}
 
-          {tab === "content" && (
+          {tab === "content" && view !== "list" && drafts > 0 && (
+            <div className="stack">
+              <div className="row between">
+                <span className="xs muted">Pick the best option for each field, then approve. Locked once approved.</span>
+                <Link className="btn small ghost" href={`/projects/${p.id}?tab=content&view=list`}>All content →</Link>
+              </div>
+              <ReviewFlow
+                projectId={p.id}
+                currentId={review}
+                items={contents.map((c, i) => ({
+                  id: c.id,
+                  n: i + 1,
+                  status: c.status,
+                  options: c.options,
+                  selection: c.selection,
+                  scenes: c.scenes.map((sc) => ({ heading: sc.heading, onScreenText: sc.onScreenText })),
+                }))}
+              />
+            </div>
+          )}
+
+          {tab === "content" && (view === "list" || !drafts) && (
             <div className="stack">
               <div className="card pad row between" style={{ flexWrap: "wrap" }}>
                 <div>
@@ -220,6 +261,9 @@ export default async function ProjectPage({
                 </div>
               </div>
               {ideating && <div className="note pulse">The agent is drafting new ideas — they appear here automatically.</div>}
+              {drafts > 0 && (
+                <div className="row"><Link className="btn small soft" href={`/projects/${p.id}?tab=content`}>▶️ Review one by one</Link></div>
+              )}
               {contents.map((c, i) => {
                 const picked = resolveContent(c.options, c.selection);
                 return (
@@ -232,6 +276,9 @@ export default async function ProjectPage({
                       <div className="row">
                         <span className={pillClass(c.status)}>{c.status === "approved" ? "Approved" : "Pending"}</span>
                         <RenderControls contentId={c.id} approved={c.status === "approved"} render={ws.renders.get(c.id)} />
+                        {c.status === "approved" && editable && ws.jobs.get(c.id)?.status !== "published" && (
+                          <ActionButton path={`/api/contents/${c.id}/unlock`} className="btn small ghost" title="Unlock to change options (removes approval)">🔓 Unlock</ActionButton>
+                        )}
                         <Link href={`/projects/${p.id}/content/${c.id}`} className="btn small">Details →</Link>
                       </div>
                     </div>
@@ -243,7 +290,7 @@ export default async function ProjectPage({
                           field={f}
                           options={c.options[f] ?? []}
                           selected={c.selection[f] ?? 0}
-                          disabled={!editable}
+                          disabled={!editable || c.status !== "draft"}
                         />
                       ))}
                     </div>
