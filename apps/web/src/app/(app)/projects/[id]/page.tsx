@@ -16,6 +16,7 @@ import { LiveRefresh } from "@/components/ui/live-refresh";
 import { VideoBox } from "@/components/ui/video-player";
 import { fmtDateTime, pillClass, statusLabel, timeAgo } from "@/lib/format";
 import { loadWorkspace } from "@/lib/server/queries";
+import { storyboardImageUrls, usableStoryboard, type StoryboardFrame } from "@/lib/server/storyboard";
 import { requireUser } from "@/lib/server/session";
 
 const TABS = [
@@ -47,6 +48,7 @@ export default async function ProjectPage({
     p.status === "generating" ||
     (run && (run.status === "queued" || run.status === "running")) ||
     ws.messages.at(-1)?.role === "user" ||
+    contents.some((c) => (c as { storyboard_status?: string }).storyboard_status === "generating") ||
     [...ws.renders.values()].some((r) => r.status === "queued" || r.status === "rendering");
   const live = (
     <LiveRefresh
@@ -71,6 +73,21 @@ export default async function ProjectPage({
       </>
     );
   }
+
+  const { data: rejectedRows } = await supabase
+    .from("contents")
+    .select("id, options, selection")
+    .eq("project_id", p.id)
+    .eq("status", "archived")
+    .order("position");
+  const rejected = rejectedRows ?? [];
+
+  // Storyboard images for the content under review (slides in the Content tab).
+  const reviewing = contents.find((c) => c.id === review && c.status === "draft") ?? contents.find((c) => c.status === "draft");
+  const reviewRow = reviewing as (typeof contents)[number] & { storyboard?: StoryboardFrame[] | null; storyboard_status?: string; storyboard_key?: string | null } | undefined;
+  const reviewFrames = reviewRow ? await usableStoryboard(reviewRow, p as Parameters<typeof usableStoryboard>[1]) : null;
+  const reviewImages = reviewFrames ? await storyboardImageUrls(reviewFrames) : [];
+  const reviewDrawing = reviewRow?.storyboard_status === "generating";
 
   const approved = contents.filter((c) => c.status === "approved").length;
   const drafts = contents.length - approved;
@@ -237,6 +254,7 @@ export default async function ProjectPage({
               <ReviewFlow
                 projectId={p.id}
                 currentId={review}
+                images={reviewRow ? { id: reviewRow.id, urls: reviewImages, drawing: reviewDrawing } : undefined}
                 items={contents.map((c, i) => ({
                   id: c.id,
                   n: i + 1,
@@ -271,6 +289,17 @@ export default async function ProjectPage({
               {drafts > 0 && (
                 <div className="row"><Link className="btn small soft" href={`/projects/${p.id}?tab=content`}>▶️ Review one by one</Link></div>
               )}
+              {rejected.length > 0 && (
+                <div className="card pad">
+                  <div className="section"><div><h2 style={{ fontSize: 15 }}>Rejected ideas · {rejected.length}</h2><p className="xs muted">Set aside — not drawn, rendered or published.</p></div></div>
+                  {rejected.map((c) => (
+                    <div key={c.id} className="listrow">
+                      <span className="small">{resolveContent(c.options, c.selection).title}</span>
+                      {editable && <ActionButton path={`/api/contents/${c.id}/restore`} className="btn small ghost">↩️ Restore</ActionButton>}
+                    </div>
+                  ))}
+                </div>
+              )}
               {contents.map((c, i) => {
                 const picked = resolveContent(c.options, c.selection);
                 return (
@@ -283,6 +312,9 @@ export default async function ProjectPage({
                       <div className="row">
                         <span className={pillClass(c.status)}>{c.status === "approved" ? "Approved" : "Pending"}</span>
                         <RenderControls contentId={c.id} approved={c.status === "approved"} render={ws.renders.get(c.id)} />
+                        {editable && ws.jobs.get(c.id)?.status !== "published" && (
+                          <ActionButton path={`/api/contents/${c.id}/reject`} className="btn small ghost" title="Set aside — not drawn, rendered or published">✕ Reject</ActionButton>
+                        )}
                         {c.status === "approved" && editable && ws.jobs.get(c.id)?.status !== "published" && (
                           <ActionButton path={`/api/contents/${c.id}/unlock`} className="btn small ghost" title="Unlock to change options (removes approval)">🔓 Unlock</ActionButton>
                         )}

@@ -13,6 +13,7 @@ import {
   type Schedule, inferContentCount } from "@acs/domain";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { dispatchToN8n } from "./dispatch";
+import { queueStoryboards } from "./storyboard";
 import { logActivity, notifyTelegram, postAssistantMessage } from "./events";
 import type { ContentRow, ProjectRow } from "./rows";
 
@@ -248,6 +249,7 @@ export async function approveContent(ownerId: string, contentId: string) {
   if (data.status === "draft") {
     await db.from("contents").update({ status: "approved", approved_at: new Date().toISOString() }).eq("id", contentId).eq("status", "draft");
     await logActivity(db, { ownerId, projectId: data.project_id, kind: "content.approved", message: "Approved 1 content" });
+    queueStoryboards([contentId]);
     if (project.status === "active") await scheduleAndQueue(project);
   }
   const { data: next } = await db
@@ -259,6 +261,34 @@ export async function approveContent(ownerId: string, contentId: string) {
     .limit(1)
     .maybeSingle();
   return { approved: contentId, nextId: (next?.id as string | undefined) ?? null };
+}
+
+/**
+ * Reject: the idea is set aside (status archived) — no images, render, slot or
+ * upload. Published content can't be rejected. Restore brings it back as a draft.
+ */
+export async function rejectContent(ownerId: string, contentId: string) {
+  const db = admin();
+  const { data } = await db.from("contents").select("id, project_id, status").eq("id", contentId).eq("owner_id", ownerId).maybeSingle();
+  if (!data) throw notFound("Content");
+  const { data: job } = await db.from("publish_jobs").select("status").eq("content_id", contentId).in("status", ["published", "publishing"]).maybeSingle();
+  if (job) throw conflict("Published content can't be rejected");
+  await db.from("contents").update({ status: "archived", approved_at: null, scheduled_for: null }).eq("id", contentId);
+  await db.from("publish_jobs").delete().eq("content_id", contentId).eq("status", "scheduled");
+  await db.from("video_renders").update({ status: "cancelled" }).eq("content_id", contentId).eq("status", "queued");
+  await logActivity(db, { ownerId, projectId: data.project_id, kind: "content.rejected", message: "Rejected 1 content idea" });
+  const { data: next } = await db.from("contents").select("id").eq("project_id", data.project_id).eq("status", "draft").order("position").limit(1).maybeSingle();
+  return { rejected: contentId, nextId: (next?.id as string | undefined) ?? null };
+}
+
+export async function restoreContent(ownerId: string, contentId: string) {
+  const db = admin();
+  const { data } = await db.from("contents").select("id, project_id, status").eq("id", contentId).eq("owner_id", ownerId).maybeSingle();
+  if (!data) throw notFound("Content");
+  if (data.status !== "archived") return { restored: contentId };
+  await db.from("contents").update({ status: "draft" }).eq("id", contentId);
+  await logActivity(db, { ownerId, projectId: data.project_id, kind: "content.restored", message: "Restored a rejected idea" });
+  return { restored: contentId };
 }
 
 /**
@@ -291,6 +321,7 @@ export async function approveAll(ownerId: string, projectId: string) {
   const count = data?.length ?? 0;
   if (count) {
     await logActivity(db, { ownerId, projectId, kind: "content.approved", message: `Approved ${count} content` });
+    queueStoryboards((data ?? []).map((r) => r.id as string));
   }
   // Active project: newly approved ideas join the schedule immediately.
   if (project.status === "active" && count) await scheduleAndQueue(project);

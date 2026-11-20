@@ -35,7 +35,12 @@ skill decides *what* the video should be.
 
 ## 3. Beat schema (what WF-01 must generate)
 
-A content has `format` and 5–9 **beats** (≈ 2–5 s each). Every beat:
+A content has `format` and 7–11 **beats** (≈ 2–4 s each; the render keeps up to 12). Arc: hook → promise →
+value beats → **payoff** (second-to-last beat delivers what the hook promised) → **CTA** (specific, loops back to
+the hook). About 3 of 4 beats use `background: "ai"`; `design` only for code / compare / stat, never twice in a row.
+Narration is written in the Creative Kit narrator voice (persona, style, signature phrases); WF-01 runs an
+**editor pass** that checks hook, payoff, CTA, voice and consistency before saving. Scene images are drawn when
+content is approved (storyboard) and the render reuses them. Every beat:
 
 ```jsonc
 {

@@ -456,3 +456,10 @@ ALTER TABLE public.projects ADD COLUMN voice_id text, ADD COLUMN voice_name text
 
 -- Per-project image engine for scene images (the other one is the fallback).
 alter table public.projects add column if not exists image_engine text not null default 'openai' check (image_engine in ('openai','fal'));
+
+-- Storyboard images are drawn when content is approved (or on demand) and reused by the render.
+alter table public.contents
+  add column if not exists storyboard jsonb,
+  add column if not exists storyboard_status text not null default 'none' check (storyboard_status in ('none','generating','ready','failed')),
+  add column if not exists storyboard_key text,
+  add column if not exists storyboard_started_at timestamptz;

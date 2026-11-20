@@ -143,6 +143,9 @@ export async function generationComplete(raw: unknown) {
             selection: {},
             status: "draft",
             approved_at: null,
+            storyboard: null,
+            storyboard_status: "none",
+            storyboard_key: null,
           })
           .eq("id", id)
           .eq("project_id", p.id),

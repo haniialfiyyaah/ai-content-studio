@@ -15,7 +15,7 @@ each provider's pricing page before budgeting.** Amounts in USD.
 
 ## 1. Per video (render)
 
-A video has 5–9 beats. Only beats with `background: "ai"` cost an image
+A video has 7–11 beats (about 3 of 4 use an AI image). Only beats with `background: "ai"` cost an image
 (content-video skill §5); `design` beats are drawn by the template for free.
 Typical: **3–5 AI images per video**.
 
@@ -37,7 +37,7 @@ Re-rendering a video re-generates its AI images (another $0.05–0.30).
 | Item | Model | Approx. |
 |---|---|---|
 | Plan: Creative Kit, research angles, title | OpenAI `gpt-5-mini` (n8n) | < $0.01 |
-| Contents: N items × 3 options × 5–9 beats | OpenAI `gpt-5-mini` (n8n) | ≈ $0.01–0.04 for 4 items |
+| Contents: N items × 3 options × 7–11 beats + editor pass | OpenAI `gpt-5-mini` (n8n) | ≈ $0.02–0.08 for 4 items |
 | Character reference sheet (only if the idea has a recurring subject) | OpenAI image (same model as scenes) | ≈ $0.015–0.06, **once per project** |
 | "Generate 3 more", revisions, weekly ideation | `gpt-5-mini` | ≈ $0.01 each |
 | Agent chat reply | `gpt-5-mini` | ≈ $0.001 each |

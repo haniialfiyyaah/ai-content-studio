@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { ArrowRight, Check, SkipForward } from "lucide-react";
+import { ArrowRight, Check, SkipForward, X } from "lucide-react";
 import { OPTION_FIELDS, type ContentOptions, type Selection } from "@acs/domain";
 import { OptionPicker } from "@/components/content/option-picker";
 import { Spinner } from "@/components/ui/spinner";
@@ -22,7 +22,18 @@ export interface ReviewItem {
  * One-by-one review: shows the current pending content with every option,
  * "Approve & next" jumps straight to the next pending one.
  */
-export function ReviewFlow({ projectId, items, currentId }: { projectId: string; items: ReviewItem[]; currentId?: string }) {
+export function ReviewFlow({
+  projectId,
+  items,
+  currentId,
+  images,
+}: {
+  projectId: string;
+  items: ReviewItem[];
+  currentId?: string;
+  /** Storyboard images of the content under review (index = beat). */
+  images?: { id: string; urls: (string | null)[]; drawing: boolean };
+}) {
   const router = useRouter();
   const pending = items.filter((i) => i.status === "draft");
   const current = items.find((i) => i.id === currentId && i.status === "draft") ?? pending[0];
@@ -44,6 +55,20 @@ export function ReviewFlow({ projectId, items, currentId }: { projectId: string;
         router.refresh();
       } catch (e) {
         setError(e instanceof Error ? e.message : "Could not approve");
+      }
+    });
+  }
+
+  function reject() {
+    if (!current) return;
+    setError(null);
+    start(async () => {
+      try {
+        const { nextId } = await api<{ nextId: string | null }>(`/api/contents/${current.id}/reject`, "POST");
+        go(nextId);
+        router.refresh();
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Could not reject");
       }
     });
   }
@@ -73,6 +98,19 @@ export function ReviewFlow({ projectId, items, currentId }: { projectId: string;
         </div>
       </div>
     );
+  }
+
+  const imgs = images?.id === current.id ? images : undefined;
+  function drawImages() {
+    setError(null);
+    start(async () => {
+      try {
+        await api(`/api/contents/${current!.id}/storyboard`, "POST");
+        router.refresh();
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Could not draw images");
+      }
+    });
   }
 
   const nextPending = pending[pending.indexOf(current) + 1] ?? pending.find((p) => p.id !== current.id) ?? null;
@@ -113,14 +151,25 @@ export function ReviewFlow({ projectId, items, currentId }: { projectId: string;
         {board && (
           <div className="storystrip">
             {current.scenes.map((s, i) => (
-              <div key={i} className={`storyslide ${s.background === "design" ? "dark" : ["", "blue", "peach"][i % 3]}`}>
+              <div
+                key={i}
+                className={`storyslide ${s.background === "design" ? "dark" : ["", "blue", "peach"][i % 3]} ${imgs?.urls[i] ? "hasimg" : ""}`}
+                style={imgs?.urls[i] ? { backgroundImage: `linear-gradient(180deg,#0000 35%,#000a), url(${imgs.urls[i]})` } : undefined}
+              >
                 <div className="row between"><span className="tiny semibold">BEAT {i + 1}</span><span className="tiny">{s.seconds ?? 3}s · {s.layout ?? "image"}</span></div>
                 <div className="storyhead">{s.headline || s.onScreenText || s.heading}</div>
                 <div className="storynarr">“{s.narration}”</div>
                 <div className="tiny storyfoot">{s.background === "design" ? "🎨 Code-drawn background" : `🖼️ ${s.visual ?? "AI image"}`}</div>
               </div>
             ))}
-            <Link href={`/projects/${projectId}/content/${current.id}?tab=storyboard`} className="storyslide more">Full storyboard →</Link>
+            <div className="storyslide more" style={{ display: "flex", flexDirection: "column", gap: 10, justifyContent: "center" }}>
+              {imgs?.drawing ? (
+                <span className="pulse">✏️ Drawing images…</span>
+              ) : !imgs?.urls.some(Boolean) ? (
+                <button className="btn small soft" disabled={busy} onClick={drawImages}>{busy ? <Spinner size={12} /> : "🎨"} Preview images</button>
+              ) : null}
+              <Link href={`/projects/${projectId}/content/${current.id}?tab=storyboard`}>Full storyboard →</Link>
+            </div>
           </div>
         )}
         <div className="grid g2" style={{ gap: "0 24px" }}>
@@ -139,6 +188,7 @@ export function ReviewFlow({ projectId, items, currentId }: { projectId: string;
         <div className="divider" />
         <div className="row between" style={{ flexWrap: "wrap", gap: 10 }}>
           <div className="actions">
+            <button className="btn ghost" disabled={busy} onClick={reject} title="Set this idea aside — it won't be drawn, rendered or published (you can restore it)"><X size={14} /> Reject</button>
             {nextPending && (
               <button className="btn ghost" disabled={busy} onClick={() => go(nextPending.id)}><SkipForward size={14} /> Skip</button>
             )}

@@ -21,8 +21,7 @@ import {
   reviseContents,
   saveSchedule,
   startProject,
-  updateAutomation,
-} from "./projects";
+  updateAutomation, rejectContent } from "./projects";
 import { after } from "next/server";
 import { publishNow, runPublishJob } from "./publishing";
 import { signedVideoUrl } from "./renders";
@@ -39,7 +38,7 @@ import { appUrl } from "./session";
  *   ac:<project>  activate             rn:<content> render one
  *   rr:<content>  re-render            ok:<render>  looks good
  *   ra:<project>  render all approved   sp:<project>  schedule presets
- *   pn:<content>  publish this video to YouTube now
+ *   pn:<content>  publish this video to YouTube now   rj:<content>  reject an idea
  */
 const admin = () => createAdminClient();
 
@@ -157,6 +156,17 @@ export async function sendProjectCards(chatId: string | number, projectId: strin
       : "All content is approved.",
     [
       ...(drafts ? [[{ text: `✅ Approve all (${drafts})`, data: `aa:${projectId}` }, { text: "✏️ Request changes", data: `rc:${projectId}` }]] : []),
+      // One reject button per pending idea (max 6), in rows of 3.
+      ...(() => {
+        const btns = all
+          .map((c, i) => ({ c, n: i + 1 }))
+          .filter(({ c }) => c.status === "draft")
+          .slice(0, 6)
+          .map(({ c, n }) => ({ text: `❌ Reject #${n}`, data: `rj:${c.id}` }));
+        const rows: TgButton[][] = [];
+        for (let i = 0; i < btns.length; i += 3) rows.push(btns.slice(i, i + 3));
+        return rows;
+      })(),
       [open(`/projects/${projectId}?tab=content`)],
     ],
   );
@@ -453,6 +463,13 @@ async function onCallback(link: Link, chatId: number, callbackId: string, data: 
     const r = await requestRender(owner, id);
     answer(callbackId, r.alreadyRunning ? "Already rendering" : "Rendering…");
     if (!r.alreadyRunning) say(chatId, "🎬 Rendering — I'll send the video here when it's ready (about 1–3 minutes).");
+    return { ok: true };
+  }
+  if (code === "rj") {
+    const res = await rejectContent(owner, id);
+    answer(callbackId, "Rejected");
+    const { data: c } = await admin().from("contents").select("project_id").eq("id", res.rejected).single();
+    if (c) await sendProjectCards(chatId, c.project_id as string, undefined, "❌ Rejected — it won't be rendered or published.");
     return { ok: true };
   }
   if (code === "pn") {

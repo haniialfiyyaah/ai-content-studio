@@ -9,6 +9,7 @@ import { LiveRefresh } from "@/components/ui/live-refresh";
 import { VideoBox } from "@/components/ui/video-player";
 import { fmtDateTime, pillClass } from "@/lib/format";
 import { latestRenders, sceneImageUrls } from "@/lib/server/queries";
+import { storyboardImageUrls, usableStoryboard, type StoryboardFrame } from "@/lib/server/storyboard";
 import type { ContentRow, ProjectRow } from "@/lib/server/rows";
 import { requireUser } from "@/lib/server/session";
 
@@ -40,14 +41,18 @@ export default async function ContentDetail({
   const c = content as ContentRow;
   const picked = resolveContent(c.options, c.selection);
   const render = (await latestRenders(supabase, [c.id])).get(c.id);
-  const sceneImages = await sceneImageUrls(render?.steps);
+  const sb = c as ContentRow & { storyboard?: StoryboardFrame[] | null; storyboard_status?: string; storyboard_key?: string | null };
+  const frames = await usableStoryboard(sb, p as Parameters<typeof usableStoryboard>[1]);
+  // Storyboard images first (drawn on approve); older content falls back to its latest render's images.
+  const sceneImages = frames ? await storyboardImageUrls(frames) : await sceneImageUrls(render?.steps);
+  const drawing = sb.storyboard_status === "generating";
   const editable = p.status !== "stopped";
   const base = `/projects/${p.id}/content/${c.id}`;
   const total = c.scenes.reduce((s, x) => s + (x.seconds || 5), 0);
 
   return (
     <main className="page">
-      <LiveRefresh pollMs={render?.status === "queued" || render?.status === "rendering" ? 5000 : undefined} sources={[{ table: "contents", filter: `id=eq.${c.id}` }, { table: "video_renders", filter: `content_id=eq.${c.id}` }]} />
+      <LiveRefresh pollMs={render?.status === "queued" || render?.status === "rendering" || drawing ? 5000 : undefined} sources={[{ table: "contents", filter: `id=eq.${c.id}` }, { table: "video_renders", filter: `content_id=eq.${c.id}` }]} />
       <div className="row xs muted" style={{ marginBottom: 18 }}>
         <Link href={`/projects/${p.id}?tab=content`} className="row semibold" style={{ color: "var(--text)", textDecoration: "none" }}><ArrowLeft size={15} /> {p.title}</Link>
         <span>/ Content / {picked.title}</span>
@@ -126,9 +131,29 @@ export default async function ContentDetail({
           <div className="section">
             <div>
               <h2>Storyboard</h2>
-              <p>{render ? "Images from the latest render. Design beats are drawn by the template." : "Images are generated when the video renders — each beat shows what will be drawn."}</p>
+              <p>
+                {drawing
+                  ? "Drawing the scene images… they appear here as soon as they're ready (about a minute)."
+                  : frames
+                    ? "Scene images for this content — the video reuses them. Design beats are drawn by the template."
+                    : c.status === "approved"
+                      ? "Images are drawn after approval — or draw them now."
+                      : "Images are drawn when you approve this content — or preview them now."}
+              </p>
             </div>
-            <span className="badge-outline">9:16 · {total} seconds · {c.scenes.length} beats</span>
+            <div className="actions">
+              <span className="badge-outline">9:16 · {total} seconds · {c.scenes.length} beats</span>
+              {editable && (
+                <ActionButton
+                  path={`/api/contents/${c.id}/storyboard`}
+                  className="btn small soft"
+                  disabled={drawing}
+                  confirm={frames ? "Redraw every scene image? This uses image credits again." : undefined}
+                >
+                  {drawing ? "Drawing…" : frames ? "🔁 Redraw images" : "🎨 Draw images"}
+                </ActionButton>
+              )}
+            </div>
           </div>
           {c.scenes.map((s, i) => {
             const from = c.scenes.slice(0, i).reduce((a, x) => a + (x.seconds || 5), 0);
@@ -141,11 +166,11 @@ export default async function ContentDetail({
                   ) : (
                     <>
                       <span className="ring" />
-                      <span className="bigemoji">{s.background === "design" ? "🎨" : render ? "🖼️" : "⏳"}</span>
+                      <span className={`bigemoji ${drawing && s.background !== "design" ? "pulse" : ""}`}>{s.background === "design" ? "🎨" : drawing ? "✏️" : "🖼️"}</span>
                     </>
                   )}
                   <span className="labelstrip">
-                    {s.background === "design" ? "Design background" : sceneImages[i] ? s.layout ?? "image" : render ? "Image not generated" : "Generated at render"}
+                    {s.background === "design" ? "Design background" : sceneImages[i] ? s.layout ?? "image" : drawing ? "Drawing…" : "Not drawn yet"}
                   </span>
                 </div>
                 <div className="scene-body">
