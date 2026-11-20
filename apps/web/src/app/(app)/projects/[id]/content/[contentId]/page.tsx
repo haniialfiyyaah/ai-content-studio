@@ -47,7 +47,7 @@ export default async function ContentDetail({
 
   return (
     <main className="page">
-      <LiveRefresh sources={[{ table: "contents", filter: `id=eq.${c.id}` }, { table: "video_renders", filter: `content_id=eq.${c.id}` }]} />
+      <LiveRefresh pollMs={render?.status === "queued" || render?.status === "rendering" ? 5000 : undefined} sources={[{ table: "contents", filter: `id=eq.${c.id}` }, { table: "video_renders", filter: `content_id=eq.${c.id}` }]} />
       <div className="row xs muted" style={{ marginBottom: 18 }}>
         <Link href={`/projects/${p.id}?tab=content`} className="row semibold" style={{ color: "var(--text)", textDecoration: "none" }}><ArrowLeft size={15} /> {p.title}</Link>
         <span>/ Content / {picked.title}</span>
@@ -61,7 +61,14 @@ export default async function ContentDetail({
             <span className="badge-outline">{p.title}</span>
             <span className="badge-outline">{c.scenes.length} scenes</span>
             <span className="badge-outline">{p.creative_kit?.language ?? "English"}</span>
-            <span className="badge-outline">{c.scheduled_for ? fmtDateTime(c.scheduled_for, p.schedule.timezone) : "Not scheduled"}</span>
+            <span className={job?.status === "published" ? "pill approved" : job ? "pill blue" : "badge-outline"}>
+              {job?.status === "published"
+                ? "✅ Published"
+                : job?.scheduled_for || c.scheduled_for
+                  ? `📅 ${fmtDateTime(job?.scheduled_for ?? c.scheduled_for, p.schedule.timezone)}`
+                  : "Not scheduled"}
+            </span>
+            {job?.external_url && <a className="badge-outline" href={job.external_url} target="_blank" rel="noreferrer">▶️ YouTube</a>}
           </div>
         </div>
         <div className="actions">

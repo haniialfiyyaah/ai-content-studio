@@ -5,6 +5,7 @@ import {
   computeSlots,
   describeSchedule,
   isValidSelection,
+  inferContentCount,
   readiness,
   zonedToUtc,
 } from "./index";
@@ -62,7 +63,9 @@ describe("readiness", () => {
 
   it("allows activation only when every step is done", () => {
     expect(readiness(base).canActivate).toBe(true);
-    expect(readiness({ ...base, approvedCount: 3 }).canActivate).toBe(false);
+    // Skipped (pending) content doesn't block activation; zero approved does.
+    expect(readiness({ ...base, approvedCount: 3 }).canActivate).toBe(true);
+    expect(readiness({ ...base, approvedCount: 0 }).canActivate).toBe(false);
     expect(readiness({ ...base, hasSchedule: false }).canActivate).toBe(false);
     expect(readiness({ ...base, youtubeConnected: false }).canActivate).toBe(false);
     expect(readiness({ ...base, status: "active" }).canActivate).toBe(false);
@@ -114,5 +117,14 @@ describe("beats", () => {
     expect(beat.transition).toBe("zoom");
     expect(weird.layout).toBe("image");
     expect(parsed.contents[0].format).toBe("explainer");
+  });
+});
+
+describe("inferContentCount", () => {
+  it("reads the number of ideas from the prompt", () => {
+    expect(inferContentCount("make 1 video about cats")).toBe(1);
+    expect(inferContentCount("three short ideas for coding tips")).toBe(3);
+    expect(inferContentCount("buat 5 konten tentang kopi")).toBe(5);
+    expect(inferContentCount("weekly cat stories for kids")).toBeNull();
   });
 });

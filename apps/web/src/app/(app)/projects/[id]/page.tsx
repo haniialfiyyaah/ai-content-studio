@@ -42,8 +42,15 @@ export default async function ProjectPage({
   const { project: p, contents, run, readiness } = ws;
   const tab: Tab = (TABS.find(([k]) => k === rawTab)?.[0] ?? "overview") as Tab;
 
+  // Something is in flight → poll as a safety net behind realtime.
+  const inFlight =
+    p.status === "generating" ||
+    (run && (run.status === "queued" || run.status === "running")) ||
+    ws.messages.at(-1)?.role === "user" ||
+    [...ws.renders.values()].some((r) => r.status === "queued" || r.status === "rendering");
   const live = (
     <LiveRefresh
+      pollMs={inFlight ? 4000 : undefined}
       sources={[
         { table: "projects", filter: `id=eq.${p.id}` },
         { table: "generation_runs", filter: `project_id=eq.${p.id}` },
@@ -236,7 +243,7 @@ export default async function ProjectPage({
                   status: c.status,
                   options: c.options,
                   selection: c.selection,
-                  scenes: c.scenes.map((sc) => ({ heading: sc.heading, onScreenText: sc.onScreenText })),
+                  scenes: c.scenes.map((sc) => ({ heading: sc.heading, onScreenText: sc.onScreenText, layout: sc.layout, narration: sc.narration, headline: sc.headline, background: sc.background, seconds: sc.seconds, visual: sc.visual })),
                 }))}
               />
             </div>
@@ -389,6 +396,15 @@ export default async function ProjectPage({
                         {j?.external_url && <> · <a className="linklike" href={j.external_url} target="_blank" rel="noreferrer">YouTube →</a></>}
                       </div>
                       <RenderControls contentId={c.id} approved render={r} />
+                      {r?.status === "ready" && j?.status !== "published" && j?.status !== "publishing" && (
+                        <ActionButton
+                          path={`/api/contents/${c.id}/publish`}
+                          className="btn small soft"
+                          confirm="Upload this video to YouTube now?"
+                        >
+                          🚀 Publish now
+                        </ActionButton>
+                      )}
                       {r?.status === "failed" && r.error && <span className="err">{r.error}</span>}
                     </div>
                   );

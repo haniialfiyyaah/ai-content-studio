@@ -69,6 +69,7 @@ export function AgentPanel({
       <div className="chatfoot">
         <div className="chatinput">
           <textarea
+            id="agent-input"
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             onKeyDown={(e) => {

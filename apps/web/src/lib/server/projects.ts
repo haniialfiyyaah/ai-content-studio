@@ -10,8 +10,7 @@ import {
   notFound,
   readiness,
   type OptionField,
-  type Schedule,
-} from "@acs/domain";
+  type Schedule, inferContentCount } from "@acs/domain";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { dispatchToN8n } from "./dispatch";
 import { logActivity, notifyTelegram, postAssistantMessage } from "./events";
@@ -82,7 +81,7 @@ export async function startProject(input: {
     ]);
   }
 
-  const run = await queueGeneration(input.ownerId, project.id, "project_setup", input.contentCount ?? 4, !input.deferGeneration, {
+  const run = await queueGeneration(input.ownerId, project.id, "project_setup", input.contentCount || inferContentCount(prompt) || 3, !input.deferGeneration, {
     channel: input.channel ?? "web",
   });
   await logActivity(db, {
@@ -326,7 +325,9 @@ async function assignSlots(projectId: string, schedule: Schedule, syncJobs: bool
     .eq("project_id", projectId)
     .in("status", ["published", "publishing"]);
   const done = new Set((published ?? []).map((p) => p.content_id));
-  const pending = (rows ?? []).filter((r) => !done.has(r.id));
+  // Approved content takes the earliest slots; pending (skipped) ones queue after them.
+  const open = (rows ?? []).filter((r) => !done.has(r.id));
+  const pending = [...open.filter((r) => r.status === "approved"), ...open.filter((r) => r.status !== "approved")];
   const slots = computeSlots(schedule, pending.length);
 
   await Promise.all(

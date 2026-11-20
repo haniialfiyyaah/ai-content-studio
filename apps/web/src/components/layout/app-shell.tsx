@@ -60,13 +60,13 @@ function Sidebar({
   );
   return (
     <aside className={`sidebar ${className}`} onMouseLeave={onMouseLeave}>
-      <div className="brand">
+      <Link href="/" onClick={onNavigate} className="brand" style={{ textDecoration: "none", color: "inherit" }} aria-label="Home">
         <div className="brandmark"><Sparkles size={18} /></div>
         <div>
           <strong>AI Content Studio</strong>
           <small>YOUR CREATIVE WORKSPACE</small>
         </div>
-      </div>
+      </Link>
       <Link href="/#create" onClick={onNavigate} className="newbtn"><Sparkles size={15} /> <span>Create with AI</span></Link>
       <div className="navtitle">WORKSPACE</div>
       {WORKSPACE.map(item)}
@@ -141,10 +141,25 @@ export function AppShell({ name, children }: { name: string; children: React.Rea
             >
               <Menu size={17} />
             </button>
-            <div className="crumb">Studio / <strong>{section}</strong></div>
+            <Link href="/" className="brandmark small" aria-label="Home" title="Home"><Sparkles size={14} /></Link>
+            <div className="crumb"><Link href="/" style={{ color: "inherit", textDecoration: "none" }}>Studio</Link> / <strong>{section}</strong></div>
           </div>
           <div className="topR">
-            <Link href="/#create" className="btn soft small"><Sparkles size={14} /> Agent</Link>
+            <Link
+              href="/#create"
+              className="btn soft small"
+              onClick={(e) => {
+                // In a project the agent chat is on screen: jump into its text box instead of leaving.
+                const box = document.getElementById("agent-input") as HTMLTextAreaElement | null;
+                if (box) {
+                  e.preventDefault();
+                  box.scrollIntoView({ block: "center", behavior: "smooth" });
+                  box.focus();
+                }
+              }}
+            >
+              <Sparkles size={14} /> Agent
+            </Link>
             <Link href="/automation" className="icbtn" aria-label="Activity"><Bell size={16} /></Link>
             <button className="icbtn" onClick={logout} aria-label="Sign out" title="Sign out"><LogOut size={16} /></button>
             <span className="avatar">{initials(name)}</span>

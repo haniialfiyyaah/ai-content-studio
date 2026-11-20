@@ -15,7 +15,7 @@ export interface ReviewItem {
   status: "draft" | "approved" | "archived";
   options: Partial<ContentOptions>;
   selection: Selection;
-  scenes: { heading: string; onScreenText?: string }[];
+  scenes: { heading: string; onScreenText?: string; layout?: string; narration?: string; headline?: string; background?: string; seconds?: number; visual?: string }[];
 }
 
 /**
@@ -28,6 +28,7 @@ export function ReviewFlow({ projectId, items, currentId }: { projectId: string;
   const current = items.find((i) => i.id === currentId && i.status === "draft") ?? pending[0];
   const [busy, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [board, setBoard] = useState(false);
   const reviewed = items.length - pending.length;
 
   const go = (id: string | null) =>
@@ -107,8 +108,21 @@ export function ReviewFlow({ projectId, items, currentId }: { projectId: string;
             <div className="eyebrow">CONTENT #{current.n} · {current.scenes.length} SCENES</div>
             <h2>{current.options.title?.[current.selection.title ?? 0]}</h2>
           </div>
-          <Link href={`/projects/${projectId}/content/${current.id}?tab=storyboard`} className="btn small">Storyboard →</Link>
+          <button className={`btn small ${board ? "soft" : ""}`} onClick={() => setBoard((b) => !b)}>{board ? "Hide storyboard" : "🎞️ Storyboard"}</button>
         </div>
+        {board && (
+          <div className="storystrip">
+            {current.scenes.map((s, i) => (
+              <div key={i} className={`storyslide ${s.background === "design" ? "dark" : ["", "blue", "peach"][i % 3]}`}>
+                <div className="row between"><span className="tiny semibold">BEAT {i + 1}</span><span className="tiny">{s.seconds ?? 3}s · {s.layout ?? "image"}</span></div>
+                <div className="storyhead">{s.headline || s.onScreenText || s.heading}</div>
+                <div className="storynarr">“{s.narration}”</div>
+                <div className="tiny storyfoot">{s.background === "design" ? "🎨 Code-drawn background" : `🖼️ ${s.visual ?? "AI image"}`}</div>
+              </div>
+            ))}
+            <Link href={`/projects/${projectId}/content/${current.id}?tab=storyboard`} className="storyslide more">Full storyboard →</Link>
+          </div>
+        )}
         <div className="grid g2" style={{ gap: "0 24px" }}>
           {OPTION_FIELDS.map((f) => (
             <OptionPicker

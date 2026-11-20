@@ -35,8 +35,14 @@ export async function notifyTelegram(
     renderId?: string;
     /** Extra inline keyboard rows (callback data). */
     buttons?: { text: string; data?: string; url?: string }[][];
+    /** Mirror into the project's agent chat (default true; false when the caller already posted there). */
+    chat?: boolean;
   },
 ) {
+  // Every alert also lands in the project chat, so the dashboard and Telegram tell the same story.
+  if (n.projectId && n.chat !== false) {
+    await postAssistantMessage(admin, n.ownerId, n.projectId, n.text).catch(() => undefined);
+  }
   const { data: link } = await admin
     .from("telegram_links")
     .select("telegram_chat_id, notifications_enabled")

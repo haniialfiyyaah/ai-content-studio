@@ -51,8 +51,11 @@ export function readiness(input: ReadinessInput): { steps: ReadinessStep[]; canA
     {
       key: "approved",
       label: allApproved ? "All content approved" : `${input.approvedCount} of ${input.contentCount} content approved`,
-      detail: "Pick the best options, then approve everything at once.",
-      done: allApproved,
+      detail: allApproved || !input.approvedCount
+        ? "Pick the best options, then approve. Skipped content stays as a draft and isn't published."
+        : "Ready — skipped content stays as a draft and isn't published.",
+      // At least one approved is enough; skipped (pending) content is simply not scheduled.
+      done: input.approvedCount > 0,
     },
     {
       key: "scheduled",
@@ -68,4 +71,22 @@ export function readiness(input: ReadinessInput): { steps: ReadinessStep[]; canA
     },
   ];
   return { steps, canActivate: input.status === "draft" && steps.every((s) => s.done) };
+}
+
+const NUMBER_WORDS: Record<string, number> = {
+  one: 1, a: 1, an: 1, single: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10,
+  satu: 1, sebuah: 1, dua: 2, tiga: 3, empat: 4, lima: 5, enam: 6, tujuh: 7, delapan: 8, sembilan: 9, sepuluh: 10,
+};
+
+/**
+ * How many content ideas the creator asked for ("1 idea", "three videos",
+ * "5 konten"), or null when the prompt doesn't say.
+ */
+export function inferContentCount(prompt: string): number | null {
+  const m = prompt
+    .toLowerCase()
+    .match(/\b(\d{1,2}|one|an?|single|two|three|four|five|six|seven|eight|nine|ten|satu|sebuah|dua|tiga|empat|lima|enam|tujuh|delapan|sembilan|sepuluh)\s+(?:\w+\s+)?(ideas?|videos?|shorts?|contents?|konten|ide|posts?|episodes?)\b/);
+  if (!m) return null;
+  const n = /^\d+$/.test(m[1]) ? Number(m[1]) : NUMBER_WORDS[m[1]];
+  return n ? Math.min(Math.max(n, 1), 12) : null;
 }

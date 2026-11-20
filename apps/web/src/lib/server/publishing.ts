@@ -195,3 +195,50 @@ export async function captureAnalytics(jobId: string) {
 }
 
 export { appUrl };
+
+// ---------------------------------------------------------------------------
+// Publish now: upload one video immediately, with or without a schedule.
+// ---------------------------------------------------------------------------
+export async function publishNow(ownerId: string, contentId: string) {
+  const db = admin();
+  const { data: content } = await db.from("contents").select("id, project_id, status").eq("id", contentId).eq("owner_id", ownerId).maybeSingle();
+  if (!content) throw notFound("Content");
+  if (content.status !== "approved") throw new AppError(ErrorCodes.CONFLICT, "Approve this content before publishing", 409);
+  const { data: account } = await db
+    .from("connected_accounts")
+    .select("id")
+    .eq("owner_id", ownerId)
+    .eq("platform", "youtube")
+    .eq("status", "connected")
+    .maybeSingle();
+  if (!account) throw new AppError(ErrorCodes.NOT_READY, "Connect YouTube in Settings first", 409);
+  const { data: ready } = await db
+    .from("video_renders")
+    .select("id")
+    .eq("content_id", contentId)
+    .eq("status", "ready")
+    .limit(1)
+    .maybeSingle();
+  if (!ready) throw new AppError(ErrorCodes.CONFLICT, "The video isn't rendered yet", 409);
+
+  const now = new Date().toISOString();
+  const { data: existing } = await db.from("publish_jobs").select("id, status").eq("content_id", contentId).eq("platform", "youtube").maybeSingle();
+  if (existing?.status === "published" || existing?.status === "publishing") {
+    throw new AppError(ErrorCodes.CONFLICT, existing.status === "published" ? "Already published" : "Already uploading", 409);
+  }
+  let jobId = existing?.id as string | undefined;
+  if (jobId) {
+    await db.from("publish_jobs").update({ status: "scheduled", scheduled_for: now, attempts: 0, error: null }).eq("id", jobId);
+  } else {
+    const { data: created, error } = await db
+      .from("publish_jobs")
+      .insert({ owner_id: ownerId, project_id: content.project_id, content_id: contentId, platform: "youtube", scheduled_for: now })
+      .select("id")
+      .single();
+    if (error || !created) throw new AppError(ErrorCodes.INTERNAL_ERROR, "Could not create the upload", 500);
+    jobId = created.id as string;
+  }
+  await db.from("contents").update({ scheduled_for: now }).eq("id", contentId);
+  await logActivity(db, { ownerId, projectId: content.project_id, kind: "publish.now", message: "Publishing now (manual)" });
+  return { jobId };
+}

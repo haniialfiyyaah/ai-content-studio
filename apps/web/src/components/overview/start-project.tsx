@@ -16,7 +16,7 @@ const QUICK = [
 export function StartProject() {
   const router = useRouter();
   const [prompt, setPrompt] = useState("");
-  const [count, setCount] = useState(4);
+  const [count, setCount] = useState(0); // 0 = from the prompt (default 3)
   const [error, setError] = useState<string | null>(null);
   const [files, setFiles] = useState<File[]>([]);
   const [status, setStatus] = useState<string | null>(null);
@@ -30,7 +30,7 @@ export function StartProject() {
       try {
         const { projectId } = await api<{ projectId: string }>("/api/projects/start", "POST", {
           prompt,
-          contentCount: count,
+          contentCount: count || undefined,
           deferGeneration: files.length > 0,
         });
         if (files.length) {
@@ -76,8 +76,9 @@ export function StartProject() {
           <button type="button" className="btn ghost small" onClick={() => picker.current?.click()}><ImagePlus size={14} /> Add reference</button>
           <label className="row xs muted" style={{ gap: 6 }}>
             <Plus size={14} /> Content ideas
-            <select className="option-select" style={{ width: 70, padding: "6px 26px 6px 10px" }} value={count} onChange={(e) => setCount(Number(e.target.value))}>
-              {[2, 3, 4, 5, 6, 8].map((n) => <option key={n} value={n}>{n}</option>)}
+            <select className="option-select" style={{ width: 82, padding: "6px 26px 6px 10px" }} title="Auto = the number you mention in your idea (e.g. “1 video”), otherwise 3" value={count} onChange={(e) => setCount(Number(e.target.value))}>
+              <option value={0}>Auto</option>
+              {[1, 2, 3, 4, 5, 6, 8].map((n) => <option key={n} value={n}>{n}</option>)}
             </select>
           </label>
           <button className="btn primary" disabled={pending || !prompt.trim()} onClick={submit}>

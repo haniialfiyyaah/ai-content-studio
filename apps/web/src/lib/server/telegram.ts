@@ -23,6 +23,8 @@ import {
   startProject,
   updateAutomation,
 } from "./projects";
+import { after } from "next/server";
+import { publishNow, runPublishJob } from "./publishing";
 import { signedVideoUrl } from "./renders";
 import type { ContentRow, ProjectRow } from "./rows";
 import { appUrl } from "./session";
@@ -37,6 +39,7 @@ import { appUrl } from "./session";
  *   ac:<project>  activate             rn:<content> render one
  *   rr:<content>  re-render            ok:<render>  looks good
  *   ra:<project>  render all approved   sp:<project>  schedule presets
+ *   pn:<content>  publish this video to YouTube now
  */
 const admin = () => createAdminClient();
 
@@ -206,9 +209,11 @@ export async function deliverNotification(notificationId: string) {
           : job?.status === "scheduled" || job?.status === "publishing"
             ? { text: `📅 Uploads ${when(job.scheduled_for)}`, data: `ok:${r.id}` }
             : { text: "📅 Schedule publishing", data: `sp:${r.project_id}` };
+      const canPublish = !job || job.status === "scheduled" || job.status === "failed";
       sayVideo(pl.chatId, url, esc(pl.text ?? "Your video is ready"), [
-        [publishBtn, { text: "🔁 Re-render", data: `rr:${r.content_id}` }],
-        [{ text: "⬇️ Download MP4", url: direct ?? url }, { text: "🔗 Details", url: `${appUrl()}/videos/${r.id}` }],
+        canPublish ? [{ text: "🚀 Publish now", data: `pn:${r.content_id}` }, publishBtn] : [publishBtn],
+        [{ text: "⬇️ Download MP4", url: direct ?? url }, { text: "🔁 Re-render", data: `rr:${r.content_id}` }],
+        [{ text: "🔗 Details", url: `${appUrl()}/videos/${r.id}` }],
       ]);
     } else if (pl.cards && n.project_id) {
       await sendProjectCards(pl.chatId, n.project_id, pl.cards.contentIds, pl.text);
@@ -448,6 +453,13 @@ async function onCallback(link: Link, chatId: number, callbackId: string, data: 
     const r = await requestRender(owner, id);
     answer(callbackId, r.alreadyRunning ? "Already rendering" : "Rendering…");
     if (!r.alreadyRunning) say(chatId, "🎬 Rendering — I'll send the video here when it's ready (about 1–3 minutes).");
+    return { ok: true };
+  }
+  if (code === "pn") {
+    const { jobId } = await publishNow(owner, id);
+    answer(callbackId, "Uploading to YouTube…");
+    say(chatId, "🚀 Uploading to YouTube now — I'll send the link when it's live (about a minute).");
+    after(() => runPublishJob(jobId).then(() => undefined));
     return { ok: true };
   }
   if (code === "ok") {
