@@ -11,6 +11,7 @@ import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logActivity, notifyTelegram, postAssistantMessage } from "./events";
 import { generateMore, reviseContents } from "./projects";
+import { failRender } from "./renders";
 import type { ContentRow, ProjectRow, RunRow } from "./rows";
 
 const admin = () => createAdminClient();
@@ -304,12 +305,22 @@ export async function claimDue(raw: unknown) {
       .gte("updated_at", ago(86_400_000))
       .order("updated_at")
       .limit(limit);
-    // renders stuck "rendering" > 45 min: fail them (retry is user-driven)
-    await db
+    // Watchdogs so nothing spins forever (retry is user-driven, with a notification):
+    // - composing > 12 min: the renderer lost the job (e.g. it restarted)
+    // - anything rendering > 45 min
+    const { data: lost } = await db
       .from("video_renders")
-      .update({ status: "failed", error: "Render timed out" })
+      .select("id")
+      .eq("status", "rendering")
+      .eq("phase", "compose")
+      .lte("updated_at", ago(12 * 60_000));
+    for (const r of lost ?? []) await failRender(r.id, "The renderer didn't finish this video (it may have restarted) — please retry");
+    const { data: stale } = await db
+      .from("video_renders")
+      .select("id")
       .eq("status", "rendering")
       .lte("updated_at", ago(45 * 60_000));
+    for (const r of stale ?? []) await failRender(r.id, "Render timed out");
     return { kind, jobs: (data ?? []).map((r) => ({ renderId: r.id })) };
   }
 
