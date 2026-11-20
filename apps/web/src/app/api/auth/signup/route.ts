@@ -1,7 +1,13 @@
-import { SignupRequestSchema } from "@acs/schemas";
+import { z } from "zod";
 import { AppError, ErrorCodes } from "@acs/domain";
 import { createClient } from "@/lib/supabase/server";
 import { jsonError, jsonOk } from "@/lib/api/response";
+
+const SignupRequestSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(8, "Use at least 8 characters"),
+  displayName: z.string().trim().max(80).optional(),
+});
 
 export async function POST(request: Request) {
   try {

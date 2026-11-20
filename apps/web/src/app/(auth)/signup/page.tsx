@@ -1,112 +1,54 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { type FormEvent, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { AuthCard } from "../auth-card";
 
 export default function SignupPage() {
-  const [displayName, setDisplayName] = useState("");
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [info, setInfo] = useState<string | null>(null);
+  const [checkEmail, setCheckEmail] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  async function onSubmit(event: FormEvent) {
-    event.preventDefault();
+  async function onSubmit(e: FormEvent) {
+    e.preventDefault();
+    if (password.length < 8) return setError("Use at least 8 characters");
     setLoading(true);
     setError(null);
-    setInfo(null);
-
-    try {
-      const supabase = createClient();
-      const { data, error: signUpError } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: { display_name: displayName || undefined },
-        },
-      });
-
-      if (signUpError) {
-        setError(signUpError.message || "Unable to create account");
-        setLoading(false);
-        return;
-      }
-
-      if (!data.session) {
-        setInfo("Check your email (Mailtrap) to confirm, then sign in.");
-        setLoading(false);
-        return;
-      }
-
-      window.location.assign("/");
-    } catch {
-      setError("Network error. Try again.");
+    const { data, error: err } = await createClient().auth.signUp({
+      email,
+      password,
+      options: { data: { display_name: name } },
+    });
+    if (err) {
+      setError(err.message);
+      setLoading(false);
+      return;
+    }
+    if (data.session) window.location.assign("/");
+    else {
+      setCheckEmail(true);
       setLoading(false);
     }
   }
 
   return (
-    <div className="auth-shell">
-      <div className="studio-panel auth-card">
-        <p className="auth-brand">AI Content Studio</p>
-        <h1 className="auth-title">Create account</h1>
-        <p className="auth-copy">
-          Start from Overview and let the agent open your first Draft Project.
-        </p>
-        <form onSubmit={onSubmit} className="auth-form">
-          <div className="auth-field">
-            <label htmlFor="displayName">Display name</label>
-            <Input
-              id="displayName"
-              value={displayName}
-              onChange={(e) => setDisplayName(e.target.value)}
-            />
-          </div>
-          <div className="auth-field">
-            <label htmlFor="email">Email</label>
-            <Input
-              id="email"
-              type="email"
-              required
-              autoComplete="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
-          </div>
-          <div className="auth-field">
-            <label htmlFor="password">Password</label>
-            <Input
-              id="password"
-              type="password"
-              required
-              minLength={8}
-              autoComplete="new-password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
-          </div>
-          {error && (
-            <p className="auth-alert" role="alert">
-              {error}
-            </p>
-          )}
-          {info && (
-            <p className="auth-alert" role="status" style={{ background: "var(--accent-soft)", color: "var(--accent)" }}>
-              {info}
-            </p>
-          )}
-          <Button type="submit" size="lg" disabled={loading} className="studio-button">
-            {loading ? "Creating…" : "Create account"}
-          </Button>
+    <AuthCard title="Create your Studio" text="One idea in, a scheduled video series out.">
+      {checkEmail ? (
+        <div className="note green">Check your inbox to confirm your email, then sign in.</div>
+      ) : (
+        <form onSubmit={onSubmit} className="stack">
+          <div className="field"><label htmlFor="name">Name</label><input id="name" value={name} onChange={(e) => setName(e.target.value)} required /></div>
+          <div className="field"><label htmlFor="email">Email</label><input id="email" type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} /></div>
+          <div className="field"><label htmlFor="password">Password</label><input id="password" type="password" autoComplete="new-password" required value={password} onChange={(e) => setPassword(e.target.value)} /></div>
+          {error && <div className="err">{error}</div>}
+          <button className="btn primary" disabled={loading} type="submit">{loading ? "Creating…" : "Create account"}</button>
         </form>
-        <p className="auth-footer">
-          Already have an account? <Link href="/login">Sign in</Link>
-        </p>
-      </div>
-    </div>
+      )}
+      <p className="xs muted" style={{ marginTop: 16 }}>Already have an account? <Link href="/login" className="linklike">Sign in</Link></p>
+    </AuthCard>
   );
 }

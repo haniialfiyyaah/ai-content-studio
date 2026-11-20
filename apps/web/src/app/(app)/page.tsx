@@ -1,95 +1,112 @@
-import { createClient } from "@/lib/supabase/server";
-import { StudioThread, type ThreadMessage } from "@/components/home/studio-thread";
-import { DecisionCard } from "@/components/home/decision-card";
-import { TodayPanel } from "@/components/home/today-panel";
-import {
-  loadDecisionQueue,
-  loadRecentRuns,
-} from "@/lib/overview/decision-queue";
+import Link from "next/link";
+import { ArrowRight, FileText, Film, Folder, Zap } from "lucide-react";
+import { describeSchedule } from "@acs/domain";
+import { StartProject } from "@/components/overview/start-project";
+import { ProjectCard } from "@/components/project/project-card";
+import { LiveRefresh } from "@/components/ui/live-refresh";
+import { fmtDateTime } from "@/lib/format";
+import type { ProjectRow } from "@/lib/server/rows";
+import { requireUser } from "@/lib/server/session";
 
-const THREAD_LIMIT = 40;
-
-/**
- * Studio home is the agent conversation. The latest persisted thread loads
- * first; the creator's pending decisions sit at its end, and a calm summary
- * column shows today's counts and Projects.
- */
-export default async function StudioHomePage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  const ownerId = user!.id;
-
-  const [queue, runs, projectsRes, conversationRes] = await Promise.all([
-    loadDecisionQueue(supabase, ownerId),
-    loadRecentRuns(supabase, ownerId),
-    supabase
-      .from("projects")
-      .select("id, name, status")
-      .eq("owner_id", ownerId)
-      .neq("status", "archived")
-      .order("updated_at", { ascending: false })
-      .limit(5),
-    supabase
-      .from("agent_conversations")
-      .select("id")
-      .eq("owner_id", ownerId)
-      .order("updated_at", { ascending: false })
-      .limit(1)
-      .maybeSingle(),
+export default async function OverviewPage() {
+  const { supabase, user } = await requireUser();
+  const [{ data: profile }, { data: projects }, { count: toReview }, { count: videosReady }, { data: nextJob }] = await Promise.all([
+    supabase.from("profiles").select("display_name").eq("id", user.id).maybeSingle(),
+    supabase.from("projects").select("*").order("updated_at", { ascending: false }).limit(12),
+    supabase.from("contents").select("id", { count: "exact", head: true }).eq("status", "draft"),
+    supabase.from("video_renders").select("id", { count: "exact", head: true }).eq("status", "ready"),
+    supabase.from("publish_jobs").select("scheduled_for").eq("status", "scheduled").order("scheduled_for").limit(1).maybeSingle(),
   ]);
-
-  const conversationId = conversationRes.data?.id ?? null;
-  let messages: ThreadMessage[] = [];
-  if (conversationId) {
-    const { data } = await supabase
-      .from("agent_messages")
-      .select("id, role, content, created_at")
-      .eq("conversation_id", conversationId)
-      .in("role", ["user", "assistant"])
-      .order("created_at", { ascending: false })
-      .limit(THREAD_LIMIT);
-    messages = (data ?? [])
-      .reverse()
-      .filter((row) => typeof row.content === "string" && row.content.trim())
-      .map((row) => ({
-        id: row.id as string,
-        role: row.role as ThreadMessage["role"],
-        content: row.content as string,
-        createdAt: row.created_at as string,
-      }));
-  }
-
-  const yourCall = queue.filter((row) => row.track.waitingOn === "creator");
-  const withAgent = queue.filter((row) => row.track.waitingOn === "agent");
-  const scheduled = queue.filter((row) =>
-    row.track.gates.some((gate) => gate.id === "publish" && gate.state === "working"),
-  ).length;
+  const list = (projects ?? []) as ProjectRow[];
+  const active = list.filter((p) => p.status === "active");
+  const attention = [
+    ...list.filter((p) => p.status === "generating").map((p) => ({ p, text: "Generating content…", icon: "gray" })),
+    ...list.filter((p) => p.status === "draft").map((p) => ({ p, text: "Review content, schedule and activate", icon: "" })),
+    ...list.filter((p) => p.status === "failed").map((p) => ({ p, text: "Generation failed — retry", icon: "peach" })),
+  ].slice(0, 4);
+  const hour = Number(new Intl.DateTimeFormat("en-GB", { hour: "numeric", hour12: false, timeZone: "Asia/Jakarta" }).format(new Date()));
+  const greet = hour < 11 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
 
   return (
-    <div className="home">
-      <StudioThread
-        initialMessages={messages}
-        initialConversationId={conversationId}
-        decisions={
-          <DecisionCard
-            yourCall={yourCall}
-            withAgent={withAgent}
-            hasAnyConcepts={queue.length > 0}
-          />
-        }
-      />
-      <TodayPanel
-        counts={{
-          waitingOnYou: yourCall.length,
-          withAgent: withAgent.length,
-          scheduled,
-        }}
-        latestRun={runs[0] ?? null}
-        projects={projectsRes.data ?? []}
-        orchestratedByN8n={Boolean(process.env.N8N_WEBHOOK_BASE_URL?.trim())}
-      />
-    </div>
+    <main className="page">
+      <LiveRefresh sources={[{ table: "projects" }, { table: "video_renders" }]} />
+      <div className="eyebrow">STUDIO / OVERVIEW</div>
+      <section className="hero">
+        <div>
+          <div className="eyebrow">✦ YOUR CREATIVE HOME</div>
+          <h1>
+            {greet},<br />
+            <em>{profile?.display_name || "creator"}.</em>
+          </h1>
+          <p>Start from a thought, a product or a story. Your creative agent turns it into a Project with ready-to-review content, a schedule and automatic YouTube publishing.</p>
+          <StartProject />
+        </div>
+        <div className="heroart">
+          <div className="art-card one"><span className="art-circle" /><span>✳︎</span></div>
+          <div className="art-card two"><span className="art-circle" /><span>🎬</span></div>
+          <div className="art-caption">✦ IDEA → PROJECT</div>
+        </div>
+      </section>
+
+      <div className="grid g4" style={{ margin: "20px 0" }}>
+        {[
+          { label: "Projects", value: list.length, icon: Folder },
+          { label: "Content to review", value: toReview ?? 0, icon: FileText },
+          { label: "Videos ready", value: videosReady ?? 0, icon: Film },
+          { label: "Active projects", value: active.length, icon: Zap },
+        ].map((m) => (
+          <div key={m.label} className="card metric">
+            <div className="row between"><span>{m.label}</span><span className="iconTile"><m.icon size={16} /></span></div>
+            <strong>{m.value}</strong>
+            <small>Across your Studio</small>
+          </div>
+        ))}
+      </div>
+
+      <div className="grid g2">
+        <div className="card pad">
+          <div className="section">
+            <div><div className="eyebrow">PICK UP WHERE YOU LEFT OFF</div><h2>Needs your attention</h2></div>
+            <Link href="/content" className="linklike">See content →</Link>
+          </div>
+          {attention.length ? attention.map(({ p, text, icon }) => (
+            <Link key={p.id} href={`/projects/${p.id}`} className="listrow rowclick" style={{ textDecoration: "none" }}>
+              <div className="row">
+                <span className={`iconTile ${icon}`}><Folder size={16} /></span>
+                <div><div className="small semibold">{p.title}</div><div className="xs muted">{text}</div></div>
+              </div>
+              <span className="icbtn"><ArrowRight size={15} /></span>
+            </Link>
+          )) : <p className="small muted">Nothing waiting. Start a new idea above.</p>}
+        </div>
+
+        <div className="card pad">
+          <div className="section">
+            <div><div className="eyebrow">YOUR AUTOMATION</div><h2>Automation at a glance</h2></div>
+            <Link href="/automation" className="linklike">Manage →</Link>
+          </div>
+          {active[0] ? (
+            <div className="note green" style={{ marginBottom: 12 }}>
+              <strong>{active[0].title}</strong><br />Publishing {describeSchedule(active[0].schedule)}
+            </div>
+          ) : (
+            <div className="note" style={{ marginBottom: 12 }}>No active projects yet — activate one to start publishing.</div>
+          )}
+          <div className="kv"><label>Active recurring projects</label><strong>{active.length}</strong></div>
+          <div className="kv"><label>Next upload</label><strong>{fmtDateTime(nextJob?.scheduled_for)}</strong></div>
+          <div className="kv"><label>Recurring ideation</label><strong>{active.filter((p) => p.ideation_enabled).length} projects</strong></div>
+        </div>
+      </div>
+
+      <div className="dashboard-bottom">
+        <div className="section">
+          <div><div className="eyebrow">YOUR CREATIVE WORK</div><h2>Recent Projects</h2></div>
+          <Link href="/projects" className="linklike">All Projects →</Link>
+        </div>
+        <div className="grid g3">
+          {list.slice(0, 3).map((p) => <ProjectCard key={p.id} p={p} />)}
+        </div>
+      </div>
+    </main>
   );
 }

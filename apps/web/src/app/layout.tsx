@@ -1,37 +1,20 @@
 import type { Metadata, Viewport } from "next";
-import { Archivo, Spline_Sans_Mono } from "next/font/google";
+import { Inter } from "next/font/google";
 import "./globals.css";
 
-const body = Archivo({
-  variable: "--font-body",
-  subsets: ["latin"],
-  display: "swap",
-});
-
-const mono = Spline_Sans_Mono({
-  variable: "--font-mono",
-  subsets: ["latin"],
-  display: "swap",
-});
+const inter = Inter({ variable: "--font-inter", subsets: ["latin"], display: "swap" });
 
 export const metadata: Metadata = {
   title: "AI Content Studio",
-  description:
-    "Your Idea. On-Brand Creativity. Automated Production.",
+  description: "From one idea to a scheduled, auto-published video series.",
 };
 
-export const viewport: Viewport = {
-  themeColor: "#f3f2ef",
-};
+export const viewport: Viewport = { themeColor: "#f8f7fb" };
 
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className={`${body.variable} ${mono.variable} h-full`}>
-      <body className="relative min-h-full antialiased">{children}</body>
+    <html lang="en" className={inter.variable}>
+      <body>{children}</body>
     </html>
   );
 }

@@ -1,142 +1,68 @@
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/server";
-import { StatusPill } from "@/components/projects/status-pill";
+import { describeSchedule } from "@acs/domain";
+import { PageHead } from "@/components/ui/empty";
+import { LiveRefresh } from "@/components/ui/live-refresh";
+import { fmtDateTime, pillClass, statusLabel, timeAgo } from "@/lib/format";
+import type { ActivityRow, ProjectRow } from "@/lib/server/rows";
+import { requireUser } from "@/lib/server/session";
 
-interface AutomationRuleRow {
-  id: string;
-  kind: string;
-  status: string;
-  enabled: boolean;
-  timezone: string;
-  next_due_at: string | null;
-  last_run_at: string | null;
-  strategy: string | null;
-  projects: { id: string; name: string } | null;
-}
-
-export default async function AutomationCenterPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  const { data } = await supabase
-    .from("automation_rules")
-    .select(
-      `
-      id,
-      kind,
-      status,
-      enabled,
-      timezone,
-      next_due_at,
-      last_run_at,
-      strategy,
-      projects!inner(id, name)
-    `,
-    )
-    .eq("owner_id", user!.id)
-    .order("updated_at", { ascending: false });
-
-  const rules = (data ?? []) as unknown as AutomationRuleRow[];
+export default async function AutomationPage() {
+  const { supabase } = await requireUser();
+  const [{ data: projects }, { data: activity }, { count: rendering }, { count: scheduled }, { data: runs }] = await Promise.all([
+    supabase.from("projects").select("*").in("status", ["active", "paused", "draft"]).order("updated_at", { ascending: false }),
+    supabase.from("activity_events").select("id, project_id, kind, message, created_at").order("created_at", { ascending: false }).limit(25),
+    supabase.from("video_renders").select("id", { count: "exact", head: true }).in("status", ["queued", "rendering"]),
+    supabase.from("publish_jobs").select("id", { count: "exact", head: true }).eq("status", "scheduled"),
+    supabase.from("generation_runs").select("id, kind, status, stage, created_at, projects(title)").order("created_at", { ascending: false }).limit(10),
+  ]);
+  const list = (projects ?? []) as ProjectRow[];
+  const active = list.filter((p) => p.status === "active");
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
-      <section className="studio-panel p-6 md:p-8">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <p className="text-sm font-medium uppercase tracking-[0.16em] text-accent">
-              Automation
-            </p>
-            <h1 className="font-display mt-3 text-4xl tracking-tight">
-              Automation Center
-            </h1>
-            <p className="mt-3 max-w-2xl text-sm text-muted">
-              Project rules for ideation, publishing slots, notifications, and
-              research. Pause or stop from the Project detail when needed.
-            </p>
-          </div>
-          <Link
-            href="/automation/runs"
-            className="text-sm font-medium text-accent hover:underline"
-          >
-            View runs →
-          </Link>
-        </div>
-      </section>
-
-      <section className="studio-panel p-6 md:p-8">
-        {rules.length === 0 ? (
-          <div className="py-10 text-center">
-            <h2 className="font-display text-2xl tracking-tight">
-              No automation rules yet
-            </h2>
-            <p className="mx-auto mt-2 max-w-md text-sm text-muted">
-              Rules appear after a Project is Active and schedules are
-              configured. Empty state is expected until then.
-            </p>
-            <Link
-              href="/projects"
-              className="mt-6 inline-block text-sm font-medium text-accent hover:underline"
-            >
-              Browse Projects
-            </Link>
-          </div>
-        ) : (
-          <ul className="flex flex-col gap-3">
-            {rules.map((rule) => (
-              <li
-                key={rule.id}
-                className="flex flex-col gap-2 rounded-xl border border-border bg-surface-strong px-4 py-4 sm:flex-row sm:items-center sm:justify-between"
-              >
-                <div className="min-w-0">
-                  <p className="font-medium capitalize">
-                    {rule.kind.replaceAll("_", " ")}
-                    {rule.strategy ? ` · ${rule.strategy}` : ""}
-                  </p>
-                  {rule.projects && (
-                    <p className="mt-1 text-sm text-muted">
-                      Project ·{" "}
-                      <Link
-                        href={`/projects/${rule.projects.id}`}
-                        className="text-accent hover:underline"
-                      >
-                        {rule.projects.name}
-                      </Link>
-                    </p>
-                  )}
-                  <p className="mt-1 text-xs text-muted">
-                    TZ {rule.timezone}
-                    {rule.next_due_at
-                      ? ` · next ${formatDate(rule.next_due_at)}`
-                      : ""}
-                    {rule.last_run_at
-                      ? ` · last ${formatDate(rule.last_run_at)}`
-                      : ""}
-                  </p>
+    <main className="page">
+      <LiveRefresh sources={[{ table: "projects" }, { table: "activity_events" }, { table: "generation_runs" }, { table: "video_renders" }]} />
+      <PageHead eyebrow="MANAGE" title="Automation Center" text="Everything the workflows do on your behalf: generation, rendering, uploads and recurring ideation." />
+      <div className="manage-metrics">
+        <div className="manage-metric"><span className="xs muted">Active projects</span><strong>{active.length}</strong><small>Publishing on schedule</small></div>
+        <div className="manage-metric"><span className="xs muted">Recurring ideation</span><strong>{active.filter((p) => p.ideation_enabled).length}</strong><small>Projects drafting new ideas</small></div>
+        <div className="manage-metric"><span className="xs muted">Rendering</span><strong>{rendering ?? 0}</strong><small>Videos in the queue</small></div>
+        <div className="manage-metric"><span className="xs muted">Uploads scheduled</span><strong>{scheduled ?? 0}</strong><small>YouTube</small></div>
+      </div>
+      <div className="management-grid">
+        <div className="stack">
+          <div className="card pad">
+            <div className="section"><h2>Project rules</h2></div>
+            {list.map((p) => (
+              <Link key={p.id} href={`/projects/${p.id}?tab=schedule`} className="listrow rowclick" style={{ textDecoration: "none" }}>
+                <div>
+                  <div className="small semibold">{p.title}</div>
+                  <div className="xs muted">Publishing {describeSchedule(p.schedule)} · Ideation {p.ideation_enabled ? `every ${p.ideation_every_days}d (next ${fmtDateTime(p.next_ideation_at)})` : "off"}</div>
                 </div>
-                <div className="flex shrink-0 items-center gap-2">
-                  {!rule.enabled && (
-                    <span className="text-xs text-muted">disabled</span>
-                  )}
-                  <StatusPill status={rule.status} />
-                </div>
-              </li>
+                <span className={pillClass(p.status)}>{statusLabel(p.status)}</span>
+              </Link>
             ))}
-          </ul>
-        )}
-      </section>
-    </div>
+            {!list.length && <p className="small muted">No projects to automate yet.</p>}
+          </div>
+          <div className="card pad">
+            <div className="section"><h2>Generation runs</h2></div>
+            {(runs ?? []).map((r) => (
+              <div key={r.id} className="listrow">
+                <div><div className="small semibold">{(r.projects as unknown as { title: string } | null)?.title}</div><div className="xs muted">{r.kind === "ideation" ? "Recurring ideation" : "Project setup"} · {timeAgo(r.created_at)}</div></div>
+                <span className={pillClass(r.status === "succeeded" ? "approved" : r.status === "failed" ? "failed" : "queued")}>{r.status}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="card pad">
+          <div className="section"><h2>Activity</h2></div>
+          <div className="mini-timeline">
+            {((activity ?? []) as ActivityRow[]).map((a) => (
+              <div key={a.id} className="listrow"><span className="small">{a.message}</span><span className="xs faint">{timeAgo(a.created_at)}</span></div>
+            ))}
+            {!activity?.length && <p className="small muted">No activity yet.</p>}
+          </div>
+        </div>
+      </div>
+    </main>
   );
-}
-
-function formatDate(iso: string): string {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return iso;
-  return date.toLocaleString(undefined, {
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
 }

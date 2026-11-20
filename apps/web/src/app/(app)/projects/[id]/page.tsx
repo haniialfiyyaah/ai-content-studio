@@ -1,462 +1,361 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
-import { Suspense, type ReactNode } from "react";
-import { getLatestKit } from "@acs/domain";
-import { createClient } from "@/lib/supabase/server";
-import { StatusPill } from "@/components/projects/status-pill";
-import { ProjectTabs } from "@/components/projects/project-tabs";
-import {
-  resolveProjectTab,
-  type ProjectTabId,
-} from "@/lib/project-tabs";
-import { ProjectLifecycleActions } from "@/components/projects/project-lifecycle-actions";
-import { InitialLaunchList } from "@/components/projects/initial-launch-list";
-import { CreativeKitPanel } from "@/components/projects/creative-kit-panel";
+import { ArrowRight, Check, Clock, Pause, Play, Square } from "lucide-react";
+import { OPTION_FIELDS, describeSchedule, resolveContent } from "@acs/domain";
+import { OptionPicker } from "@/components/content/option-picker";
+import { AgentPanel } from "@/components/project/agent-panel";
+import { AutomationForm } from "@/components/project/automation-form";
+import { GeneratingView } from "@/components/project/generating-view";
+import { ScheduleForm } from "@/components/project/schedule-form";
+import { WorkspaceFrame } from "@/components/project/workspace-frame";
+import { ActionButton } from "@/components/ui/action-button";
+import { LiveRefresh } from "@/components/ui/live-refresh";
+import { VideoBox } from "@/components/ui/video-player";
+import { fmtDateTime, pillClass, statusLabel, timeAgo } from "@/lib/format";
+import { loadWorkspace } from "@/lib/server/queries";
+import { requireUser } from "@/lib/server/session";
 
-interface ProjectDetailRow {
-  id: string;
-  name: string;
-  description: string | null;
-  objective: string | null;
-  status: string;
-  content_mode: string;
-  timezone: string;
-  default_production_mode: string;
-  creative_context_version: number;
-  settings_version: number;
-  activated_at: string | null;
-  paused_at: string | null;
-  stopped_at: string | null;
-  created_at: string;
-  updated_at: string;
-}
+const TABS = [
+  ["overview", "Overview"],
+  ["content", "Content"],
+  ["kit", "Creative Kit"],
+  ["schedule", "Schedule"],
+  ["videos", "Videos"],
+  ["activity", "Activity"],
+] as const;
+type Tab = (typeof TABS)[number][0];
 
-export default async function ProjectDetailPage({
+export default async function ProjectPage({
   params,
   searchParams,
 }: {
   params: Promise<{ id: string }>;
   searchParams: Promise<{ tab?: string }>;
 }) {
-  const { id } = await params;
-  const { tab: tabParam } = await searchParams;
-  const activeTab = resolveProjectTab(tabParam);
+  const [{ id }, { tab: rawTab }] = await Promise.all([params, searchParams]);
+  const { supabase, user } = await requireUser();
+  const ws = await loadWorkspace(supabase, user.id, id);
+  const { project: p, contents, run, readiness } = ws;
+  const tab: Tab = (TABS.find(([k]) => k === rawTab)?.[0] ?? "overview") as Tab;
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const live = (
+    <LiveRefresh
+      sources={[
+        { table: "projects", filter: `id=eq.${p.id}` },
+        { table: "generation_runs", filter: `project_id=eq.${p.id}` },
+        { table: "contents", filter: `project_id=eq.${p.id}` },
+        { table: "video_renders", filter: `project_id=eq.${p.id}` },
+        { table: "publish_jobs", filter: `project_id=eq.${p.id}` },
+        { table: "activity_events", filter: `project_id=eq.${p.id}` },
+        ...(ws.conversationId ? [{ table: "messages", filter: `conversation_id=eq.${ws.conversationId}` }] : []),
+      ]}
+    />
+  );
 
-  const { data: project } = await supabase
-    .from("projects")
-    .select(
-      "id, name, description, objective, status, content_mode, timezone, default_production_mode, creative_context_version, settings_version, activated_at, paused_at, stopped_at, created_at, updated_at",
-    )
-    .eq("id", id)
-    .eq("owner_id", user!.id)
-    .maybeSingle();
-
-  if (!project) {
-    notFound();
+  if (p.status === "generating" || (p.status === "failed" && !contents.length)) {
+    return (
+      <>
+        {live}
+        <GeneratingView projectId={p.id} run={run} messages={ws.messages} failed={p.status === "failed"} />
+      </>
+    );
   }
 
-  const row = project as ProjectDetailRow;
+  const approved = contents.filter((c) => c.status === "approved").length;
+  const drafts = contents.length - approved;
+  const ideating = run?.kind === "ideation" && (run.status === "queued" || run.status === "running");
+  const editable = p.status !== "stopped";
+  const kit = p.creative_kit ?? {};
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
-      <div>
-        <Link
-          href="/projects"
-          className="text-sm font-medium text-muted transition hover:text-accent"
-        >
-          ← Projects
-        </Link>
-      </div>
-
-      <section className="studio-panel p-6 md:p-8">
-        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-3">
-              <h1 className="font-display text-3xl tracking-tight md:text-4xl">
-                {row.name}
-              </h1>
-              <StatusPill status={row.status} />
+    <>
+      {live}
+      <WorkspaceFrame agent={<AgentPanel projectId={p.id} projectTitle={p.title} messages={ws.messages} />}>
+        <main className="page">
+          <div className="project-hero">
+            <div>
+              <div className="eyebrow">PROJECT WORKSPACE</div>
+              <div className="row" style={{ flexWrap: "wrap" }}>
+                <h1>{p.cover_emoji ? `${p.cover_emoji} ` : ""}{p.title}</h1>
+                <span className={pillClass(p.status)}>{statusLabel(p.status)}</span>
+              </div>
+              <p>{p.summary || p.prompt}</p>
+              <div className="tagrow">
+                {kit.language && <span className="badge-outline">{kit.language}</span>}
+                <span className="badge-outline">{contents.length} content</span>
+                <span className="badge-outline">YouTube Shorts</span>
+                <span className="badge-outline">{describeSchedule(p.schedule)}</span>
+              </div>
             </div>
-            {row.objective && (
-              <p className="mt-3 max-w-2xl text-sm text-muted">{row.objective}</p>
-            )}
-            <dl className="mt-4 flex flex-wrap gap-x-6 gap-y-2 text-xs text-muted">
-              <div>
-                <dt className="inline">Mode · </dt>
-                <dd className="inline capitalize">{row.content_mode}</dd>
-              </div>
-              <div>
-                <dt className="inline">Production · </dt>
-                <dd className="inline capitalize">
-                  {row.default_production_mode}
-                </dd>
-              </div>
-              <div>
-                <dt className="inline">Timezone · </dt>
-                <dd className="inline">{row.timezone}</dd>
-              </div>
-              <div>
-                <dt className="inline">Settings v</dt>
-                <dd className="inline">{row.settings_version}</dd>
-              </div>
-            </dl>
+            <div className="actions">
+              {p.status === "draft" && (
+                <ActionButton
+                  path={`/api/projects/${p.id}/lifecycle`}
+                  body={{ action: "activate" }}
+                  className="btn primary"
+                  disabled={!readiness.canActivate}
+                  title={readiness.canActivate ? "Start rendering and scheduled publishing" : "Finish the readiness checklist first"}
+                >
+                  <Play size={14} /> Activate Project
+                </ActionButton>
+              )}
+              {p.status === "active" && (
+                <ActionButton path={`/api/projects/${p.id}/lifecycle`} body={{ action: "pause" }}><Pause size={14} /> Pause</ActionButton>
+              )}
+              {p.status === "paused" && (
+                <ActionButton path={`/api/projects/${p.id}/lifecycle`} body={{ action: "resume" }} className="btn primary"><Play size={14} /> Resume</ActionButton>
+              )}
+              {["active", "paused", "draft"].includes(p.status) && (
+                <ActionButton
+                  path={`/api/projects/${p.id}/lifecycle`}
+                  body={{ action: "stop" }}
+                  confirm="Stop this project? Scheduled uploads and queued renders are cancelled. Published videos stay on YouTube."
+                  className="btn ghost"
+                >
+                  <Square size={13} /> Stop
+                </ActionButton>
+              )}
+            </div>
           </div>
-          <ProjectLifecycleActions
-            projectId={row.id}
-            status={row.status}
-            settingsVersion={row.settings_version}
-          />
-        </div>
 
-        <div className="mt-8">
-          <Suspense fallback={<div className="h-10 border-b border-border" />}>
-            <ProjectTabs projectId={row.id} />
-          </Suspense>
-        </div>
-
-        <div className="mt-6">
-          {await renderTabPanel(activeTab, row, user!.id)}
-        </div>
-      </section>
-    </div>
-  );
-}
-
-async function renderTabPanel(
-  tab: ProjectTabId,
-  project: ProjectDetailRow,
-  ownerId: string,
-) {
-  switch (tab) {
-    case "overview":
-      return (
-        <div className="grid gap-4 md:grid-cols-2">
-          <InfoCard title="Description">
-            {project.description?.trim() || "No description yet."}
-          </InfoCard>
-          <InfoCard title="Objective">
-            {project.objective?.trim() || "No objective yet."}
-          </InfoCard>
-          <InfoCard title="Lifecycle">
-            <ul className="space-y-1 text-sm text-muted">
-              <li>Created · {formatDate(project.created_at)}</li>
-              <li>Updated · {formatDate(project.updated_at)}</li>
-              <li>
-                Activated ·{" "}
-                {project.activated_at
-                  ? formatDate(project.activated_at)
-                  : "—"}
-              </li>
-              <li>
-                Paused ·{" "}
-                {project.paused_at ? formatDate(project.paused_at) : "—"}
-              </li>
-              <li>
-                Stopped ·{" "}
-                {project.stopped_at ? formatDate(project.stopped_at) : "—"}
-              </li>
-            </ul>
-          </InfoCard>
-          <InfoCard title="Creative context">
-            Version {project.creative_context_version}. Open the Creative Kit tab
-            to review or update brand voice.
-          </InfoCard>
-        </div>
-      );
-    case "content": {
-      const supabase = await createClient();
-      const { data } = await supabase
-        .from("concepts")
-        .select(
-          "id, title, updated_at, source, selected_for_initial_launch, working:concept_versions!concepts_working_version_id_fkey(review_status)",
-        )
-        .eq("project_id", project.id)
-        .eq("owner_id", ownerId)
-        .order("updated_at", { ascending: false });
-
-      const concepts = (data ?? []) as Array<{
-        id: string;
-        title: string | null;
-        updated_at: string;
-        source: string | null;
-        selected_for_initial_launch: boolean;
-        working: { review_status: string } | { review_status: string }[] | null;
-      }>;
-
-      if (concepts.length === 0) {
-        return (
-          <PlaceholderPanel
-            title="No concepts yet"
-            body="Ask the Creative Agent for a project idea. Planning creates one draft concept here. Script and storyboard stay empty until that draft is filled."
-          />
-        );
-      }
-
-      const items = concepts.map((concept) => {
-        const working = Array.isArray(concept.working)
-          ? concept.working[0]
-          : concept.working;
-        return {
-          id: concept.id,
-          title: concept.title,
-          updatedAt: formatDate(concept.updated_at),
-          source: concept.source,
-          reviewStatus: working?.review_status ?? "draft",
-          selected: concept.selected_for_initial_launch,
-        };
-      });
-
-      if (project.status === "draft") {
-        return (
-          <InitialLaunchList
-            projectId={project.id}
-            settingsVersion={project.settings_version}
-            concepts={items}
-          />
-        );
-      }
-
-      return (
-        <ul className="flex flex-col gap-3">
-          {items.map((concept) => (
-            <li key={concept.id}>
-              <Link
-                href={`/content/${concept.id}`}
-                className="flex flex-col gap-1 rounded-xl border border-border bg-surface-strong px-4 py-4 transition hover:border-accent sm:flex-row sm:items-center sm:justify-between"
-              >
-                <span>
-                  <span className="block font-medium">
-                    {concept.title?.trim() || "Untitled concept"}
-                  </span>
-                  <span className="mt-1 block text-xs text-muted">
-                    {concept.source ?? "web"} · {concept.updatedAt}
-                    {concept.selected ? " · Initial launch" : ""}
-                  </span>
-                </span>
-                <StatusPill status={concept.reviewStatus} />
+          <nav className="tabs" style={{ marginTop: 22 }}>
+            {TABS.map(([key, label]) => (
+              <Link key={key} href={`/projects/${p.id}?tab=${key}`} className={`tab ${tab === key ? "active" : ""}`} scroll={false}>
+                {label}
+                {key === "content" && drafts > 0 ? ` · ${drafts}` : ""}
               </Link>
-            </li>
-          ))}
-        </ul>
-      );
-    }
-    case "kit": {
-      const supabase = await createClient();
-      const kit = await getLatestKit(supabase, {
-        projectId: project.id,
-        ownerId,
-      });
-      return (
-        <CreativeKitPanel
-          projectId={project.id}
-          initialKit={
-            kit
-              ? {
-                  id: kit.id,
-                  version: kit.version,
-                  languageDefault: kit.languageDefault,
-                  tone: kit.tone,
-                  audience: kit.audience,
-                  brandOrCreatorName: kit.brandOrCreatorName,
-                  doSay: kit.doSay,
-                  dontSay: kit.dontSay,
-                  visualNotes: kit.visualNotes,
-                  updatedAt: kit.updatedAt,
-                }
-              : null
-          }
-        />
-      );
-    }
-    case "automation": {
-      const supabase = await createClient();
-      const { data } = await supabase
-        .from("automation_rules")
-        .select("id, kind, status, enabled, next_due_at")
-        .eq("project_id", project.id)
-        .eq("owner_id", ownerId)
-        .order("updated_at", { ascending: false });
-      const rules = data ?? [];
-      if (rules.length === 0) {
-        return (
-          <PlaceholderPanel
-            title="No automation rules"
-            body={
-              project.status === "active"
-                ? "This Active Project has no rules yet. Configure them from Automation Center."
-                : "Rules are available after the Project is Active. Nothing is scheduled yet."
-            }
-          />
-        );
-      }
-      return (
-        <ul className="flex flex-col gap-3">
-          {rules.map((rule) => (
-            <li
-              key={rule.id}
-              className="rounded-xl border border-border bg-surface-strong px-4 py-3 text-sm"
-            >
-              <p className="font-medium capitalize">{rule.kind}</p>
-              <p className="mt-1 text-xs text-muted">
-                {rule.enabled ? "Enabled" : "Disabled"} · {rule.status}
-                {rule.next_due_at ? ` · next ${formatDate(rule.next_due_at)}` : ""}
-              </p>
-            </li>
-          ))}
-        </ul>
-      );
-    }
-    case "publishing": {
-      const supabase = await createClient();
-      const { data } = await supabase
-        .from("publishing_jobs")
-        .select("id, status, scheduled_for")
-        .eq("project_id", project.id)
-        .eq("owner_id", ownerId)
-        .order("scheduled_for", { ascending: false })
-        .limit(20);
-      const jobs = (data ?? []) as Array<{
-        id: string;
-        status: string;
-        scheduled_for: string | null;
-      }>;
-      if (jobs.length === 0) {
-        return (
-          <PlaceholderPanel
-            title="Nothing scheduled"
-            body="Approved videos are scheduled from the Publishing composer. This Project has no publishing jobs."
-          />
-        );
-      }
-      return (
-        <ul className="flex flex-col gap-3">
-          {jobs.map((job) => (
-            <li
-              key={job.id}
-              className="rounded-xl border border-border bg-surface-strong px-4 py-3 text-sm"
-            >
-              <StatusPill status={job.status} />
-              <p className="mt-2 text-xs text-muted">
-                {job.scheduled_for ? formatDate(job.scheduled_for) : "Unscheduled"}
-              </p>
-            </li>
-          ))}
-        </ul>
-      );
-    }
-    case "assets": {
-      const supabase = await createClient();
-      const { data } = await supabase
-        .from("media_assets")
-        .select("id, kind, source_type, mime_type, provider, created_at")
-        .eq("project_id", project.id)
-        .eq("owner_id", ownerId)
-        .is("deleted_at", null)
-        .order("created_at", { ascending: false })
-        .limit(30);
-      const assets = data ?? [];
-      if (assets.length === 0) {
-        return (
-          <PlaceholderPanel
-            title="No assets yet"
-            body="Uploads and generated videos for this Project appear here after a real render or upload."
-          />
-        );
-      }
-      return (
-        <ul className="grid gap-3 sm:grid-cols-2">
-          {assets.map((asset) => (
-            <li
-              key={asset.id}
-              className="rounded-xl border border-border bg-surface-strong px-4 py-3"
-            >
-              <p className="text-sm font-medium capitalize">{asset.kind}</p>
-              <p className="mt-1 text-xs text-muted">
-                {asset.source_type ?? "unknown"}
-                {asset.provider ? ` · ${asset.provider}` : ""}
-                {asset.mime_type ? ` · ${asset.mime_type}` : ""}
-              </p>
-            </li>
-          ))}
-        </ul>
-      );
-    }
-    case "activity": {
-      const supabase = await createClient();
-      const { data } = await supabase
-        .from("workflow_runs")
-        .select("id, workflow_type, stage, status, created_at")
-        .eq("project_id", project.id)
-        .eq("owner_id", ownerId)
-        .order("created_at", { ascending: false })
-        .limit(20);
-      const runs = data ?? [];
-      if (runs.length === 0) {
-        return (
-          <PlaceholderPanel
-            title="No activity yet"
-            body="Agent runs for this Project will show here. Nothing has been recorded."
-          />
-        );
-      }
-      return (
-        <ul className="flex flex-col gap-3">
-          {runs.map((run) => (
-            <li
-              key={run.id}
-              className="rounded-xl border border-border bg-surface-strong px-4 py-3 text-sm"
-            >
-              <p className="font-medium">{run.workflow_type}</p>
-              <p className="mt-1 text-xs text-muted">
-                {run.stage ?? run.status} · {formatDate(run.created_at)}
-              </p>
-            </li>
-          ))}
-        </ul>
-      );
-    }
-    default:
-      return null;
-  }
-}
+            ))}
+          </nav>
 
-function InfoCard({
-  title,
-  children,
-}: {
-  title: string;
-  children: ReactNode;
-}) {
-  return (
-    <div className="rounded-xl border border-border bg-surface-strong p-4">
-      <h2 className="text-sm font-medium text-foreground">{title}</h2>
-      <div className="mt-2 text-sm text-muted">{children}</div>
-    </div>
+          {tab === "overview" && (
+            <div className="grid" style={{ gridTemplateColumns: "minmax(0,1.2fr) minmax(0,.9fr)" }}>
+              <div className="stack">
+                <div className="card pad">
+                  <div className="section">
+                    <div><h2>Project readiness</h2><p>Review content, schedule it and connect YouTube — then activate.</p></div>
+                    <span className={pillClass(p.status === "draft" ? "pending" : p.status)}>{p.status === "draft" ? "Preparing" : statusLabel(p.status)}</span>
+                  </div>
+                  <div className="checks">
+                    {readiness.steps.map((s) => (
+                      <div key={s.key} className="checkrow">
+                        <span className={`checkdot ${s.done ? "done" : ""}`}>{s.done ? <Check size={12} /> : <Clock size={12} />}</span>
+                        <div><div className="semibold">{s.label}</div><div className="xs muted">{s.detail}</div></div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="divider" />
+                  <div className="row between">
+                    <span className="xs muted">
+                      {p.status === "active" ? "Active: videos render automatically and upload at each slot." : "Next step"}
+                    </span>
+                    {p.status === "draft" && <NextStep steps={readiness.steps} projectId={p.id} />}
+                  </div>
+                </div>
+
+                <div className="card pad">
+                  <div className="section">
+                    <div><h2>Content plan</h2><p>Click a content to review every option and scene.</p></div>
+                    <Link href={`/projects/${p.id}?tab=content`} className="linklike">All content →</Link>
+                  </div>
+                  {contents.map((c) => {
+                    const r = ws.renders.get(c.id);
+                    const j = ws.jobs.get(c.id);
+                    return (
+                      <Link key={c.id} href={`/projects/${p.id}/content/${c.id}`} className="listrow rowclick" style={{ textDecoration: "none" }}>
+                        <div className="row">
+                          <span className={`iconTile ${c.status === "approved" ? "green" : "peach"}`}>{c.status === "approved" ? <Check size={15} /> : <Clock size={15} />}</span>
+                          <div>
+                            <div className="small semibold">{resolveContent(c.options, c.selection).title}</div>
+                            <div className="xs muted">{c.scenes.length} scenes · {c.scheduled_for ? fmtDateTime(c.scheduled_for, p.schedule.timezone) : "no slot yet"}</div>
+                          </div>
+                        </div>
+                        <div className="row">
+                          {j?.status === "published" ? <span className="pill approved">Published</span> : r ? <span className={pillClass(r.status)}>Video {r.status}</span> : null}
+                          <span className={pillClass(c.status)}>{c.status === "approved" ? "Approved" : "Pending"}</span>
+                          <span className="icbtn"><ArrowRight size={14} /></span>
+                        </div>
+                      </Link>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="stack">
+                <div className="card pad">
+                  <div className="section"><h2>Creative Kit</h2><Link href={`/projects/${p.id}?tab=kit`} className="linklike">View →</Link></div>
+                  <div className="tagrow" style={{ marginTop: 0 }}>
+                    {[kit.tone, kit.audience, kit.language].filter(Boolean).map((t) => <span key={t} className="pill">{t}</span>)}
+                  </div>
+                  {kit.visualStyle && <div className="note" style={{ marginTop: 14 }}>{kit.visualStyle}</div>}
+                </div>
+                <div className="card pad">
+                  <div className="section"><h2>Automation</h2><Link href={`/projects/${p.id}?tab=schedule`} className="linklike">Manage →</Link></div>
+                  <div className="kv"><label>Publishing</label><strong>{describeSchedule(p.schedule)}</strong></div>
+                  <div className="kv"><label>Destination</label><strong>YouTube Shorts</strong></div>
+                  <div className="kv"><label>Recurring ideation</label><strong>{p.ideation_enabled ? `Every ${p.ideation_every_days} days` : "Off"}</strong></div>
+                  <div className="kv"><label>Videos ready</label><strong>{[...ws.renders.values()].filter((r) => r.status === "ready").length} / {approved}</strong></div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {tab === "content" && (
+            <div className="stack">
+              <div className="card pad row between" style={{ flexWrap: "wrap" }}>
+                <div>
+                  <h2 style={{ fontSize: 16 }}>{drafts ? `${drafts} content waiting for approval` : "All content approved"}</h2>
+                  <p className="xs muted" style={{ marginTop: 5 }}>Every field has AI-generated options — pick one from the dropdown. Approve everything at once when you’re happy.</p>
+                </div>
+                <div className="actions">
+                  {editable && (
+                    <ActionButton path={`/api/projects/${p.id}/generate-more`} body={{ count: 3 }} className="btn soft" disabled={ideating}>
+                      {ideating ? "Generating…" : "Generate 3 more"}
+                    </ActionButton>
+                  )}
+                  {drafts > 0 && editable && (
+                    <ActionButton path={`/api/projects/${p.id}/approve-all`} className="btn primary"><Check size={14} /> Approve all ({drafts})</ActionButton>
+                  )}
+                </div>
+              </div>
+              {ideating && <div className="note pulse">The agent is drafting new ideas — they appear here automatically.</div>}
+              {contents.map((c, i) => {
+                const picked = resolveContent(c.options, c.selection);
+                return (
+                  <div key={c.id} className="card pad">
+                    <div className="section">
+                      <div>
+                        <div className="eyebrow">CONTENT {String(i + 1).padStart(2, "0")} · {c.scenes.length} SCENES</div>
+                        <h2>{picked.title}</h2>
+                      </div>
+                      <div className="row">
+                        <span className={pillClass(c.status)}>{c.status === "approved" ? "Approved" : "Pending"}</span>
+                        <Link href={`/projects/${p.id}/content/${c.id}`} className="btn small">Details →</Link>
+                      </div>
+                    </div>
+                    <div className="grid g2" style={{ gap: "0 24px" }}>
+                      {OPTION_FIELDS.filter((f) => f !== "script").map((f) => (
+                        <OptionPicker
+                          key={f}
+                          contentId={c.id}
+                          field={f}
+                          options={c.options[f] ?? []}
+                          selected={c.selection[f] ?? 0}
+                          disabled={!editable}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {tab === "kit" && (
+            <div className="grid g2">
+              <div className="card pad">
+                <div className="section"><h2>Creative Kit</h2><span className="pill">Generated</span></div>
+                {(
+                  [
+                    ["Tone", kit.tone],
+                    ["Audience", kit.audience],
+                    ["Language", kit.language],
+                    ["Voice", kit.voice],
+                    ["Visual style", kit.visualStyle],
+                  ] as const
+                ).map(([k, v]) => (
+                  <div key={k} className="kv"><label>{k}</label><span className="small" style={{ textAlign: "right" }}>{v || "—"}</span></div>
+                ))}
+                <div className="divider" />
+                <div className="eyebrow">CONTENT PILLARS</div>
+                <div className="tagrow">{(kit.pillars ?? []).map((t) => <span key={t} className="tag">{t}</span>)}</div>
+                <div className="eyebrow" style={{ marginTop: 16 }}>GUARDRAILS</div>
+                <div className="checks">{(kit.guardrails ?? []).map((g) => <div key={g} className="checkrow"><span className="checkdot">!</span>{g}</div>)}</div>
+              </div>
+              <div className="card pad">
+                <div className="section"><h2>Research angles</h2><span className="pill blue">Agent research</span></div>
+                {ws.research.length ? ws.research.map((a) => (
+                  <div key={a.title} className="listrow"><div><div className="small semibold">{a.title}</div><div className="xs muted">{a.why}</div></div></div>
+                )) : <p className="small muted">No research notes for this project.</p>}
+                <div className="note" style={{ marginTop: 14 }}>Ask the agent on the left to adjust tone or direction — it can draft new ideas in this style.</div>
+              </div>
+            </div>
+          )}
+
+          {tab === "schedule" && (
+            <div className="grid" style={{ gridTemplateColumns: "minmax(0,1.1fr) minmax(0,.9fr)" }}>
+              <div className="card pad">
+                <div className="section"><div><h2>Publishing schedule</h2><p>Each content gets the next free slot, in order.</p></div></div>
+                {editable ? <ScheduleForm projectId={p.id} initial={p.schedule} timezone={ws.timezone} /> : <p className="small muted">Stopped projects can’t be rescheduled.</p>}
+              </div>
+              <div className="stack">
+                <div className="card pad">
+                  <div className="section"><h2>Upcoming slots</h2></div>
+                  {contents.filter((c) => c.scheduled_for).map((c) => {
+                    const j = ws.jobs.get(c.id);
+                    return (
+                      <div key={c.id} className="listrow">
+                        <div><div className="small semibold">{resolveContent(c.options, c.selection).title}</div><div className="xs muted">{fmtDateTime(j?.scheduled_for ?? c.scheduled_for, p.schedule.timezone)}</div></div>
+                        <span className={pillClass(j?.status ?? c.status)}>{j ? statusLabel(j.status) : c.status === "approved" ? "Approved" : "Pending"}</span>
+                      </div>
+                    );
+                  })}
+                  {!contents.some((c) => c.scheduled_for) && <p className="small muted">Save a schedule to assign slots.</p>}
+                </div>
+                <div className="card pad">
+                  <div className="section"><h2>Automation</h2></div>
+                  <AutomationForm projectId={p.id} enabled={p.ideation_enabled} everyDays={p.ideation_every_days} />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {tab === "videos" && (
+            <>
+              {p.status !== "active" && p.status !== "paused" && (
+                <div className="note" style={{ marginBottom: 16 }}>Videos render automatically after you activate the project.</div>
+              )}
+              <div className="videogrid">
+                {contents.filter((c) => c.status === "approved").map((c) => {
+                  const r = ws.renders.get(c.id);
+                  const j = ws.jobs.get(c.id);
+                  return (
+                    <div key={c.id} className="video-card">
+                      <VideoBox url={r?.url} status={r?.status} phase={r?.phase} />
+                      <div className="small semibold">{resolveContent(c.options, c.selection).title}</div>
+                      <div className="row between">
+                        <span className="xs muted">{j?.status === "published" ? "Published" : `Uploads ${fmtDateTime(j?.scheduled_for ?? c.scheduled_for, p.schedule.timezone)}`}</span>
+                        {r?.status === "failed" && <ActionButton path={`/api/renders/${r.id}/retry`} className="btn small soft">Retry</ActionButton>}
+                        {j?.external_url && <a className="linklike" href={j.external_url} target="_blank" rel="noreferrer">YouTube →</a>}
+                      </div>
+                      {r?.status === "failed" && r.error && <span className="err">{r.error}</span>}
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          )}
+
+          {tab === "activity" && (
+            <div className="card pad">
+              <div className="section"><h2>Activity</h2></div>
+              {ws.activity.map((a) => (
+                <div key={a.id} className="listrow"><span className="small">{a.message}</span><span className="xs faint">{timeAgo(a.created_at)}</span></div>
+              ))}
+              {!ws.activity.length && <p className="small muted">No activity yet.</p>}
+            </div>
+          )}
+        </main>
+      </WorkspaceFrame>
+    </>
   );
 }
 
-function PlaceholderPanel({ title, body }: { title: string; body: string }) {
-  return (
-    <div className="rounded-xl border border-dashed border-border bg-surface-strong/50 px-5 py-10 text-center">
-      <h2 className="font-display text-xl tracking-tight">{title}</h2>
-      <p className="mx-auto mt-2 max-w-md text-sm text-muted">{body}</p>
-    </div>
-  );
-}
-
-function formatDate(iso: string): string {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return iso;
-  return date.toLocaleString(undefined, {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+function NextStep({ steps, projectId }: { steps: { key: string; done: boolean }[]; projectId: string }) {
+  const next = steps.find((s) => !s.done)?.key;
+  const map: Record<string, [string, string]> = {
+    approved: [`/projects/${projectId}?tab=content`, "Review content"],
+    scheduled: [`/projects/${projectId}?tab=schedule`, "Set schedule"],
+    youtube: ["/settings?section=connections", "Connect YouTube"],
+  };
+  if (!next || !map[next]) return <span className="pill approved">Ready to activate</span>;
+  return <Link href={map[next][0]} className="btn soft">{map[next][1]} →</Link>;
 }

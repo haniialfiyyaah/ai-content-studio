@@ -4,7 +4,7 @@ import {
   createHash,
   randomBytes,
 } from "node:crypto";
-import { AppError, ErrorCodes } from "@acs/schemas";
+import { AppError, ErrorCodes } from "@acs/domain";
 
 const ALGORITHM = "aes-256-gcm";
 const IV_LENGTH = 12;
@@ -18,7 +18,7 @@ function resolveEncryptionKey(raw?: string): Buffer {
   const value = raw ?? process.env.ACS_CREDENTIAL_ENCRYPTION_KEY;
   if (!value) {
     throw new AppError(
-      ErrorCodes.INTERNAL_ERROR,
+      ErrorCodes.NOT_CONFIGURED,
       "ACS_CREDENTIAL_ENCRYPTION_KEY is not configured",
       500,
     );
@@ -67,7 +67,7 @@ export function decryptSecret(
   const parts = payload.split(":");
   if (parts.length !== 3) {
     throw new AppError(
-      ErrorCodes.INTERNAL_ERROR,
+      ErrorCodes.NOT_CONFIGURED,
       "Invalid encrypted secret payload",
       500,
     );
@@ -81,7 +81,7 @@ export function decryptSecret(
 
   if (iv.length !== IV_LENGTH || authTag.length !== AUTH_TAG_LENGTH) {
     throw new AppError(
-      ErrorCodes.INTERNAL_ERROR,
+      ErrorCodes.NOT_CONFIGURED,
       "Invalid encrypted secret framing",
       500,
     );

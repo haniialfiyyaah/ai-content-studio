@@ -1,7 +1,9 @@
-import { LoginRequestSchema } from "@acs/schemas";
+import { z } from "zod";
 import { AppError, ErrorCodes } from "@acs/domain";
 import { createClient } from "@/lib/supabase/server";
 import { jsonError, jsonOk } from "@/lib/api/response";
+
+const LoginRequestSchema = z.object({ email: z.string().email(), password: z.string().min(1) });
 
 export async function POST(request: Request) {
   try {

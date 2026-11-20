@@ -15,18 +15,14 @@
     "db:status": "supabase status",
     "n8n:up": "docker-compose up -d n8n",
     "n8n:down": "docker-compose down",
-    "n8n:import": "node scripts/import-n8n-workflows.mjs",
     "typecheck": "pnpm -r typecheck",
-    "test:e2e": "playwright test",
-    "test:unit": "pnpm --filter @acs/domain test && pnpm --filter @acs/integrations test"
+    "test:unit": "pnpm --filter @acs/domain test && pnpm --filter @acs/integrations test",
+    "n8n:export": "node scripts/export-n8n-workflows.mjs"
   },
   "engines": {
     "node": ">=20"
   },
   "dependencies": {
     "zod": "^3.25.76"
-  },
-  "devDependencies": {
-    "@playwright/test": "1.56.1"
   }
 }

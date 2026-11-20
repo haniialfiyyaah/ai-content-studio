@@ -1,165 +1,42 @@
-import { AppError, ErrorCodes } from "@acs/domain";
 import { z } from "zod";
-import { jsonError, jsonOk } from "@/lib/api/response";
-import { createClient } from "@/lib/supabase/server";
+import { conflict } from "@acs/domain";
+import { handle } from "@/lib/api/response";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { requireUser } from "@/lib/server/session";
 
-const LinkBodySchema = z.object({
-  telegramUserId: z.coerce.number().int().positive(),
-  telegramChatId: z.coerce.number().int().positive().optional(),
-});
+const Body = z.object({ telegramUserId: z.string().regex(/^\d{4,15}$/, "Use your numeric Telegram user ID") });
 
-/**
- * GET /api/integrations/telegram — current owner's active Telegram link.
- */
-export async function GET() {
-  const correlationId = crypto.randomUUID();
-
-  try {
-    const supabase = await createClient();
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (authError || !user) {
-      throw new AppError(ErrorCodes.UNAUTHENTICATED, "Not signed in", 401);
-    }
-
-    const { data: link, error } = await supabase
+export async function POST(req: Request) {
+  return handle(async () => {
+    const { user } = await requireUser();
+    const { telegramUserId } = Body.parse(await req.json());
+    const db = createAdminClient();
+    const { data: taken } = await db
       .from("telegram_links")
-      .select(
-        "id, telegram_user_id, telegram_chat_id, linked_at, notifications_enabled",
-      )
-      .eq("owner_id", user.id)
+      .select("owner_id")
+      .eq("telegram_user_id", telegramUserId)
       .is("revoked_at", null)
       .maybeSingle();
-
-    if (error) {
-      throw new AppError(ErrorCodes.INTERNAL_ERROR, error.message, 500);
-    }
-
-    return jsonOk(
-      {
-        linked: Boolean(link),
-        link: link
-          ? {
-              id: link.id,
-              telegramUserId: link.telegram_user_id,
-              telegramChatId: link.telegram_chat_id,
-              linkedAt: link.linked_at,
-              notificationsEnabled: link.notifications_enabled,
-            }
-          : null,
-      },
-      correlationId,
-    );
-  } catch (error) {
-    return jsonError(error, correlationId);
-  }
+    if (taken && taken.owner_id !== user.id) throw conflict("That Telegram account is linked to another Studio user");
+    await db.from("telegram_links").update({ revoked_at: new Date().toISOString() }).eq("owner_id", user.id).is("revoked_at", null);
+    await db.from("telegram_links").insert({ owner_id: user.id, telegram_user_id: Number(telegramUserId) });
+    return { linked: true };
+  }, 201);
 }
 
-/**
- * POST /api/integrations/telegram — link this Studio account to a Telegram user.
- */
-export async function POST(request: Request) {
-  const correlationId = crypto.randomUUID();
-
-  try {
-    const supabase = await createClient();
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (authError || !user) {
-      throw new AppError(ErrorCodes.UNAUTHENTICATED, "Not signed in", 401);
-    }
-
-    const body = LinkBodySchema.parse(await request.json());
-    const telegramChatId = body.telegramChatId ?? body.telegramUserId;
-    const now = new Date().toISOString();
-
-    // One active Telegram identity per Studio owner.
-    await supabase
-      .from("telegram_links")
-      .update({ revoked_at: now })
-      .eq("owner_id", user.id)
-      .is("revoked_at", null);
-
-    // One Studio owner per Telegram user.
-    await supabase
-      .from("telegram_links")
-      .update({ revoked_at: now })
-      .eq("telegram_user_id", body.telegramUserId)
-      .is("revoked_at", null);
-
-    const { data: link, error } = await supabase
-      .from("telegram_links")
-      .insert({
-        owner_id: user.id,
-        telegram_user_id: body.telegramUserId,
-        telegram_chat_id: telegramChatId,
-        linked_at: now,
-        revoked_at: null,
-        notifications_enabled: true,
-      })
-      .select(
-        "id, telegram_user_id, telegram_chat_id, linked_at, notifications_enabled",
-      )
-      .single();
-
-    if (error) {
-      throw new AppError(ErrorCodes.INTERNAL_ERROR, error.message, 500);
-    }
-
-    return jsonOk(
-      {
-        linked: true,
-        link: {
-          id: link.id,
-          telegramUserId: link.telegram_user_id,
-          telegramChatId: link.telegram_chat_id,
-          linkedAt: link.linked_at,
-          notificationsEnabled: link.notifications_enabled,
-        },
-      },
-      correlationId,
-    );
-  } catch (error) {
-    return jsonError(error, correlationId);
-  }
+export async function PATCH(req: Request) {
+  return handle(async () => {
+    const { user, supabase } = await requireUser();
+    const { notificationsEnabled } = z.object({ notificationsEnabled: z.boolean() }).parse(await req.json());
+    await supabase.from("telegram_links").update({ notifications_enabled: notificationsEnabled }).eq("owner_id", user.id).is("revoked_at", null);
+    return { notificationsEnabled };
+  });
 }
 
-/**
- * DELETE /api/integrations/telegram — revoke the active Telegram link.
- */
 export async function DELETE() {
-  const correlationId = crypto.randomUUID();
-
-  try {
-    const supabase = await createClient();
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (authError || !user) {
-      throw new AppError(ErrorCodes.UNAUTHENTICATED, "Not signed in", 401);
-    }
-
-    const now = new Date().toISOString();
-    const { error } = await supabase
-      .from("telegram_links")
-      .update({ revoked_at: now })
-      .eq("owner_id", user.id)
-      .is("revoked_at", null);
-
-    if (error) {
-      throw new AppError(ErrorCodes.INTERNAL_ERROR, error.message, 500);
-    }
-
-    return jsonOk({ linked: false, link: null }, correlationId);
-  } catch (error) {
-    return jsonError(error, correlationId);
-  }
+  return handle(async () => {
+    const { user } = await requireUser();
+    await createAdminClient().from("telegram_links").update({ revoked_at: new Date().toISOString() }).eq("owner_id", user.id).is("revoked_at", null);
+    return { linked: false };
+  });
 }

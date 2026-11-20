@@ -1,88 +1,46 @@
-import type { ActionEnvelope } from "@acs/schemas";
 import { ZodError } from "zod";
 import { AppError, ErrorCodes } from "./errors";
 
-function newId(): string {
-  return crypto.randomUUID();
+export interface Envelope<T> {
+  status: "ok" | "error";
+  data: T | null;
+  error: { code: string; message: string; details?: unknown } | null;
 }
 
-export function okEnvelope<T>(
-  data: T,
-  correlationId = newId(),
-): ActionEnvelope<T> {
-  return {
-    requestId: newId(),
-    status: "ok",
-    data,
-    error: null,
-    correlationId,
-  };
-}
+export const ok = <T>(data: T): Envelope<T> => ({ status: "ok", data, error: null });
 
-export function acceptedEnvelope<T>(
-  data: T,
-  correlationId = newId(),
-): ActionEnvelope<T> {
-  return {
-    requestId: newId(),
-    status: "accepted",
-    data,
-    error: null,
-    correlationId,
-  };
-}
-
-export function errorEnvelope(
-  error: unknown,
-  correlationId = newId(),
-): ActionEnvelope<null> {
+export function toErrorEnvelope(error: unknown): { body: Envelope<null>; status: number } {
   if (error instanceof AppError) {
     return {
-      requestId: newId(),
-      status: "error",
-      data: null,
-      error: {
-        code: error.code,
-        message: error.message,
-        details: error.details,
+      status: error.status,
+      body: {
+        status: "error",
+        data: null,
+        error: { code: error.code, message: error.message, details: error.details },
       },
-      correlationId,
     };
   }
-
   if (error instanceof ZodError) {
     return {
-      requestId: newId(),
-      status: "error",
-      data: null,
-      error: {
-        code: ErrorCodes.VALIDATION_ERROR,
-        message: "Invalid request",
-        details: error.flatten(),
+      status: 400,
+      body: {
+        status: "error",
+        data: null,
+        error: {
+          code: ErrorCodes.VALIDATION_ERROR,
+          message: error.issues[0]?.message ?? "Invalid request",
+          details: error.flatten(),
+        },
       },
-      correlationId,
     };
   }
-
-  console.error("[domain] unhandled error", error);
+  console.error("[acs] unhandled error", error);
   return {
-    requestId: newId(),
-    status: "error",
-    data: null,
-    error: {
-      code: ErrorCodes.INTERNAL_ERROR,
-      message: "An unexpected error occurred",
+    status: 500,
+    body: {
+      status: "error",
+      data: null,
+      error: { code: ErrorCodes.INTERNAL_ERROR, message: "Something went wrong" },
     },
-    correlationId,
   };
-}
-
-export function httpStatusForError(error: unknown): number {
-  if (error instanceof AppError) {
-    return error.status;
-  }
-  if (error instanceof ZodError) {
-    return 400;
-  }
-  return 500;
 }

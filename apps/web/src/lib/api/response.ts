@@ -1,22 +1,18 @@
 import { NextResponse } from "next/server";
-import {
-  acceptedEnvelope,
-  errorEnvelope,
-  httpStatusForError,
-  okEnvelope,
-} from "@acs/domain";
+import { ok, toErrorEnvelope } from "@acs/domain";
 
-export function jsonOk<T>(data: T, correlationId?: string) {
-  return NextResponse.json(okEnvelope(data, correlationId));
+export const jsonOk = <T>(data: T, status = 200) => NextResponse.json(ok(data), { status });
+
+export function jsonError(error: unknown) {
+  const { body, status } = toErrorEnvelope(error);
+  return NextResponse.json(body, { status });
 }
 
-export function jsonAccepted<T>(data: T, correlationId?: string) {
-  return NextResponse.json(acceptedEnvelope(data, correlationId), {
-    status: 202,
-  });
-}
-
-export function jsonError(error: unknown, correlationId?: string) {
-  const body = errorEnvelope(error, correlationId);
-  return NextResponse.json(body, { status: httpStatusForError(error) });
+/** Wraps a route handler body so every thrown error becomes an envelope. */
+export async function handle<T>(fn: () => Promise<T>, status = 200) {
+  try {
+    return jsonOk(await fn(), status);
+  } catch (error) {
+    return jsonError(error);
+  }
 }

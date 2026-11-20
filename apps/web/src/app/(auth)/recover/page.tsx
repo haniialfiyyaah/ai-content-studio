@@ -1,28 +1,33 @@
+"use client";
+
 import Link from "next/link";
+import { type FormEvent, useState } from "react";
+import { createClient } from "@/lib/supabase/client";
+import { AuthCard } from "../auth-card";
 
 export default function RecoverPage() {
+  const [email, setEmail] = useState("");
+  const [state, setState] = useState<"idle" | "sending" | "sent" | "error">("idle");
+
+  async function onSubmit(e: FormEvent) {
+    e.preventDefault();
+    setState("sending");
+    const { error } = await createClient().auth.resetPasswordForEmail(email, { redirectTo: `${window.location.origin}/login` });
+    setState(error ? "error" : "sent");
+  }
+
   return (
-    <div className="relative z-10 flex min-h-screen items-center justify-center px-4 py-10">
-      <div className="studio-panel w-full max-w-md p-8 md:p-10">
-        <p className="text-sm font-medium uppercase tracking-[0.16em] text-accent">
-          AI Content Studio
-        </p>
-        <h1 className="font-display mt-3 text-3xl tracking-tight text-foreground">
-          Recover account
-        </h1>
-        <p className="mt-2 text-sm text-muted">
-          Password recovery will send a Supabase reset email. This flow is not
-          wired yet — use the link below to return to sign in.
-        </p>
-        <p className="mt-6 text-sm text-muted">
-          <Link
-            href="/login"
-            className="font-medium text-accent underline-offset-4 hover:underline"
-          >
-            Back to sign in
-          </Link>
-        </p>
-      </div>
-    </div>
+    <AuthCard title="Recover account" text="We'll email you a link to reset your password.">
+      {state === "sent" ? (
+        <div className="note green">If that email has an account, a reset link is on its way.</div>
+      ) : (
+        <form onSubmit={onSubmit} className="stack">
+          <div className="field"><label htmlFor="email">Email</label><input id="email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} /></div>
+          {state === "error" && <div className="err">Could not send the email. Try again.</div>}
+          <button className="btn primary" disabled={state === "sending"}>{state === "sending" ? "Sending…" : "Send reset link"}</button>
+        </form>
+      )}
+      <p className="xs muted" style={{ marginTop: 16 }}><Link href="/login" className="linklike">Back to sign in</Link></p>
+    </AuthCard>
   );
 }

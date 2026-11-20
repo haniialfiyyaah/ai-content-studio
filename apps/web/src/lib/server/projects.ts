@@ -1,0 +1,413 @@
+import "server-only";
+import {
+  AppError,
+  ErrorCodes,
+  OPTION_FIELDS,
+  ScheduleSchema,
+  computeSlots,
+  conflict,
+  isValidSelection,
+  notFound,
+  readiness,
+  type OptionField,
+  type Schedule,
+} from "@acs/domain";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { dispatchToN8n } from "./dispatch";
+import { logActivity, notifyTelegram, postAssistantMessage } from "./events";
+import type { ContentRow, ProjectRow } from "./rows";
+
+const admin = () => createAdminClient();
+
+async function loadOwnedProject(ownerId: string, projectId: string): Promise<ProjectRow> {
+  const { data } = await admin().from("projects").select("*").eq("id", projectId).eq("owner_id", ownerId).maybeSingle();
+  if (!data) throw notFound("Project");
+  return data as ProjectRow;
+}
+
+async function youtubeConnected(ownerId: string): Promise<boolean> {
+  const { data } = await admin()
+    .from("connected_accounts")
+    .select("id")
+    .eq("owner_id", ownerId)
+    .eq("platform", "youtube")
+    .eq("status", "connected")
+    .maybeSingle();
+  return Boolean(data);
+}
+
+// ---------------------------------------------------------------------------
+// Start: one prompt → new project + its own conversation + a generation run
+// ---------------------------------------------------------------------------
+export async function startProject(input: {
+  ownerId: string;
+  prompt: string;
+  contentCount?: number;
+  channel?: "web" | "telegram";
+}) {
+  const db = admin();
+  const prompt = input.prompt.trim();
+  if (prompt.length < 4) throw new AppError(ErrorCodes.VALIDATION_ERROR, "Tell the agent a bit more about your idea", 400);
+
+  const { data: project, error } = await db
+    .from("projects")
+    .insert({
+      owner_id: input.ownerId,
+      prompt,
+      title: prompt.length > 60 ? `${prompt.slice(0, 57)}…` : prompt,
+      cover_tone: Math.floor(Math.random() * 4),
+      status: "generating",
+    })
+    .select("id")
+    .single();
+  if (error || !project) throw new AppError(ErrorCodes.INTERNAL_ERROR, "Could not create project", 500);
+
+  const { data: convo } = await db
+    .from("conversations")
+    .insert({ owner_id: input.ownerId, project_id: project.id, channel: "web", title: "Project conversation" })
+    .select("id")
+    .single();
+  if (convo) {
+    await db.from("messages").insert([
+      { conversation_id: convo.id, owner_id: input.ownerId, role: "user", content: prompt },
+      {
+        conversation_id: convo.id,
+        owner_id: input.ownerId,
+        role: "assistant",
+        content:
+          "I'll research angles, build a Creative Kit and draft your content — each with a few options you can pick from.",
+      },
+    ]);
+  }
+
+  const run = await queueGeneration(input.ownerId, project.id, "project_setup", input.contentCount ?? 4);
+  await logActivity(db, {
+    ownerId: input.ownerId,
+    projectId: project.id,
+    kind: "project.created",
+    message: input.channel === "telegram" ? "Project started from Telegram" : "Project started from Overview",
+  });
+  return { projectId: project.id as string, runId: run.id, conversationId: (convo?.id as string) ?? null };
+}
+
+export async function queueGeneration(
+  ownerId: string,
+  projectId: string,
+  kind: "project_setup" | "ideation",
+  contentCount: number,
+) {
+  const { data: run, error } = await admin()
+    .from("generation_runs")
+    .insert({
+      owner_id: ownerId,
+      project_id: projectId,
+      kind,
+      content_count: Math.min(Math.max(contentCount, 1), 12),
+      stage: "queued",
+    })
+    .select("id")
+    .single();
+  if (error || !run) throw new AppError(ErrorCodes.INTERNAL_ERROR, "Could not queue generation", 500);
+  dispatchToN8n("generate", { runId: run.id });
+  return run as { id: string };
+}
+
+export async function retryGeneration(ownerId: string, projectId: string) {
+  const project = await loadOwnedProject(ownerId, projectId);
+  if (project.status !== "failed") throw conflict("Only a failed project can be regenerated");
+  await admin().from("projects").update({ status: "generating" }).eq("id", projectId);
+  return queueGeneration(ownerId, projectId, "project_setup", 4);
+}
+
+export async function generateMore(ownerId: string, projectId: string, count: number) {
+  const project = await loadOwnedProject(ownerId, projectId);
+  if (project.status === "generating") throw conflict("The project is still generating");
+  return queueGeneration(ownerId, projectId, "ideation", count);
+}
+
+// ---------------------------------------------------------------------------
+// Review: pick an option per field (no free text), approve everything at once
+// ---------------------------------------------------------------------------
+export async function selectOption(ownerId: string, contentId: string, field: OptionField, index: number) {
+  const db = admin();
+  const { data } = await db.from("contents").select("*").eq("id", contentId).eq("owner_id", ownerId).maybeSingle();
+  if (!data) throw notFound("Content");
+  const content = data as ContentRow;
+  if (!OPTION_FIELDS.includes(field) || !isValidSelection(content.options, field, index)) {
+    throw new AppError(ErrorCodes.VALIDATION_ERROR, "Not one of the generated options", 400);
+  }
+  // Changing a pick on approved content sends it back to review.
+  const { data: updated } = await db
+    .from("contents")
+    .update({
+      selection: { ...content.selection, [field]: index },
+      ...(content.status === "approved" ? { status: "draft", approved_at: null } : {}),
+    })
+    .eq("id", contentId)
+    .select("id, selection, status")
+    .single();
+  return updated;
+}
+
+export async function approveAll(ownerId: string, projectId: string) {
+  const project = await loadOwnedProject(ownerId, projectId);
+  if (project.status === "generating") throw conflict("Wait for generation to finish");
+  const db = admin();
+  const { data } = await db
+    .from("contents")
+    .update({ status: "approved", approved_at: new Date().toISOString() })
+    .eq("project_id", projectId)
+    .eq("status", "draft")
+    .select("id");
+  const count = data?.length ?? 0;
+  if (count) {
+    await logActivity(db, { ownerId, projectId, kind: "content.approved", message: `Approved ${count} content` });
+  }
+  // Active project: newly approved ideas join the schedule immediately.
+  if (project.status === "active" && count) await scheduleAndQueue(project);
+  return { approved: count };
+}
+
+// ---------------------------------------------------------------------------
+// Schedule → slots per content
+// ---------------------------------------------------------------------------
+export async function saveSchedule(ownerId: string, projectId: string, raw: unknown) {
+  const schedule = ScheduleSchema.parse(raw);
+  const project = await loadOwnedProject(ownerId, projectId);
+  const db = admin();
+  await db.from("projects").update({ schedule }).eq("id", projectId);
+  await assignSlots(projectId, schedule, project.status === "active");
+  await logActivity(db, { ownerId, projectId, kind: "schedule.updated", message: "Publishing schedule updated" });
+  return { schedule };
+}
+
+/** Gives every approved, unpublished content a slot in position order. */
+async function assignSlots(projectId: string, schedule: Schedule, syncJobs: boolean) {
+  const db = admin();
+  const { data: rows } = await db
+    .from("contents")
+    .select("id, position, status")
+    .eq("project_id", projectId)
+    .neq("status", "archived")
+    .order("position");
+  const { data: published } = await db
+    .from("publish_jobs")
+    .select("content_id")
+    .eq("project_id", projectId)
+    .in("status", ["published", "publishing"]);
+  const done = new Set((published ?? []).map((p) => p.content_id));
+  const pending = (rows ?? []).filter((r) => !done.has(r.id));
+  const slots = computeSlots(schedule, pending.length);
+
+  await Promise.all(
+    pending.map((c, i) =>
+      db.from("contents").update({ scheduled_for: slots[i]?.toISOString() ?? null }).eq("id", c.id),
+    ),
+  );
+  if (syncJobs) {
+    await Promise.all(
+      pending.map((c, i) =>
+        slots[i]
+          ? db
+              .from("publish_jobs")
+              .update({ scheduled_for: slots[i].toISOString() })
+              .eq("content_id", c.id)
+              .eq("status", "scheduled")
+          : Promise.resolve(),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Lifecycle
+// ---------------------------------------------------------------------------
+export async function projectReadiness(ownerId: string, project: ProjectRow) {
+  const { data } = await admin().from("contents").select("status").eq("project_id", project.id).neq("status", "archived");
+  const contents = data ?? [];
+  return readiness({
+    status: project.status,
+    contentCount: contents.length,
+    approvedCount: contents.filter((c) => c.status === "approved").length,
+    hasSchedule: ScheduleSchema.safeParse(project.schedule).success,
+    youtubeConnected: await youtubeConnected(ownerId),
+  });
+}
+
+export async function activateProject(ownerId: string, projectId: string) {
+  const project = await loadOwnedProject(ownerId, projectId);
+  const { canActivate, steps } = await projectReadiness(ownerId, project);
+  if (!canActivate) {
+    throw new AppError(ErrorCodes.NOT_READY, "Project is not ready to activate", 409, {
+      missing: steps.filter((s) => !s.done).map((s) => s.label),
+    });
+  }
+  const db = admin();
+  const now = new Date();
+  await db
+    .from("projects")
+    .update({
+      status: "active",
+      activated_at: now.toISOString(),
+      next_ideation_at: project.ideation_enabled
+        ? new Date(now.getTime() + project.ideation_every_days * 86_400_000).toISOString()
+        : null,
+    })
+    .eq("id", projectId);
+  const queued = await scheduleAndQueue({ ...project, status: "active" });
+
+  await logActivity(db, {
+    ownerId,
+    projectId,
+    kind: "project.activated",
+    message: `Activated — rendering ${queued} videos and scheduling uploads`,
+  });
+  await postAssistantMessage(
+    db,
+    ownerId,
+    projectId,
+    `Project is active. I'm rendering ${queued} videos now; each one is uploaded to YouTube at its scheduled time.`,
+  );
+  await notifyTelegram(db, {
+    ownerId,
+    projectId,
+    template: "project.activated",
+    text: `🚀 "${project.title}" is active. Rendering ${queued} videos — I'll message you as each one is ready.`,
+    path: `/projects/${projectId}`,
+  });
+  return { status: "active", renders: queued };
+}
+
+/**
+ * For each approved content: ensure a render (queued unless one is ready or in
+ * flight) and a scheduled publish job at its slot. Idempotent.
+ */
+async function scheduleAndQueue(project: ProjectRow): Promise<number> {
+  const db = admin();
+  const schedule = ScheduleSchema.parse(project.schedule);
+  await assignSlots(project.id, schedule, true);
+
+  const { data: rows } = await db
+    .from("contents")
+    .select("id, scheduled_for, video_prompt")
+    .eq("project_id", project.id)
+    .eq("status", "approved")
+    .order("position");
+  const contents = rows ?? [];
+  if (!contents.length) return 0;
+
+  const ids = contents.map((c) => c.id);
+  const { data: renders } = await db
+    .from("video_renders")
+    .select("content_id, status")
+    .in("content_id", ids)
+    .in("status", ["queued", "rendering", "ready"]);
+  const hasRender = new Set((renders ?? []).map((r) => r.content_id));
+
+  const toQueue = contents.filter((c) => !hasRender.has(c.id));
+  if (toQueue.length) {
+    const { data: created } = await db
+      .from("video_renders")
+      .insert(
+        toQueue.map((c) => ({
+          owner_id: project.owner_id,
+          project_id: project.id,
+          content_id: c.id,
+          prompt: c.video_prompt,
+          status: "queued",
+        })),
+      )
+      .select("id");
+    for (const r of created ?? []) dispatchToN8n("render", { renderId: r.id });
+  }
+
+  await db.from("publish_jobs").upsert(
+    contents
+      .filter((c) => c.scheduled_for)
+      .map((c) => ({
+        owner_id: project.owner_id,
+        project_id: project.id,
+        content_id: c.id,
+        platform: "youtube",
+        scheduled_for: c.scheduled_for,
+      })),
+    { onConflict: "content_id,platform", ignoreDuplicates: true },
+  );
+  return toQueue.length;
+}
+
+export async function setLifecycle(ownerId: string, projectId: string, action: "pause" | "resume" | "stop") {
+  const project = await loadOwnedProject(ownerId, projectId);
+  const allowed: Record<typeof action, string[]> = {
+    pause: ["active"],
+    resume: ["paused"],
+    stop: ["active", "paused", "draft"],
+  };
+  if (!allowed[action].includes(project.status)) throw conflict(`Cannot ${action} a ${project.status} project`);
+  const next = { pause: "paused", resume: "active", stop: "stopped" }[action];
+  const db = admin();
+  await db.from("projects").update({ status: next }).eq("id", projectId);
+  if (action === "stop") {
+    await db.from("publish_jobs").update({ status: "cancelled" }).eq("project_id", projectId).eq("status", "scheduled");
+    await db.from("video_renders").update({ status: "cancelled" }).eq("project_id", projectId).eq("status", "queued");
+  }
+  await logActivity(db, { ownerId, projectId, kind: `project.${action}`, message: `Project ${next}` });
+  return { status: next };
+}
+
+export async function updateAutomation(ownerId: string, projectId: string, input: { ideationEnabled: boolean; everyDays: number }) {
+  const project = await loadOwnedProject(ownerId, projectId);
+  const everyDays = Math.min(Math.max(Math.round(input.everyDays), 1), 60);
+  await admin()
+    .from("projects")
+    .update({
+      ideation_enabled: input.ideationEnabled,
+      ideation_every_days: everyDays,
+      next_ideation_at:
+        input.ideationEnabled && project.status === "active"
+          ? new Date(Date.now() + everyDays * 86_400_000).toISOString()
+          : null,
+    })
+    .eq("id", projectId);
+  return { ideationEnabled: input.ideationEnabled, everyDays };
+}
+
+export async function retryRender(ownerId: string, renderId: string) {
+  const db = admin();
+  const { data } = await db
+    .from("video_renders")
+    .select("id, status, content_id, project_id, prompt")
+    .eq("id", renderId)
+    .eq("owner_id", ownerId)
+    .maybeSingle();
+  if (!data) throw notFound("Render");
+  if (data.status !== "failed") throw conflict("Only failed renders can be retried");
+  const { data: created } = await db
+    .from("video_renders")
+    .insert({ owner_id: ownerId, project_id: data.project_id, content_id: data.content_id, prompt: data.prompt })
+    .select("id")
+    .single();
+  if (created) dispatchToN8n("render", { renderId: created.id });
+  return { renderId: created?.id };
+}
+
+export async function sendProjectMessage(ownerId: string, projectId: string, content: string) {
+  await loadOwnedProject(ownerId, projectId);
+  const db = admin();
+  const { data: convo } = await db
+    .from("conversations")
+    .select("id")
+    .eq("project_id", projectId)
+    .eq("channel", "web")
+    .order("created_at")
+    .limit(1)
+    .maybeSingle();
+  if (!convo) throw notFound("Conversation");
+  const { data: msg } = await db
+    .from("messages")
+    .insert({ conversation_id: convo.id, owner_id: ownerId, role: "user", content: content.trim().slice(0, 4000) })
+    .select("id")
+    .single();
+  dispatchToN8n("agent-chat", { conversationId: convo.id, messageId: msg?.id });
+  return { conversationId: convo.id, messageId: msg?.id };
+}

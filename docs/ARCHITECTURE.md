@@ -1,159 +1,52 @@
-# Architecture — AI Content Studio
+# Architecture — v2.7 rebuild (2026-11-20)
 
-**Scope:** Architecture as **implemented** in this repository (plus intended n8n orchestration contracts).  
-**Specs:** [PRD](specifications/PRD.md) · [TDD](specifications/TDD.md) · [n8n](specifications/N8N_WORKFLOWS.md)
+Source of truth for UX: `AI-Content-Studio-Complete-Package-v2.7` (prototype + screen spec).
+Product flow simplified by the owner: **no spend approval, no BYOK, no manual text editing.**
 
-## High-level topology
-
-```mermaid
-flowchart LR
-  Browser[Browser]
-  Telegram[Telegram]
-  Next[Nextjs_App_Router]
-  SB[(Supabase_Auth_DB_Storage)]
-  N8N[n8n]
-  Gateway[AI_Provider_Gateway]
-  OpenAI[OpenAI]
-  Fal[fal.ai]
-  EL[ElevenLabs]
-  RW[Remotion_Worker]
-  YT[YouTube_OAuth]
-
-  Browser --> Next
-  Telegram --> N8N
-  Next --> SB
-  Next -->|signed_webhook_outbox| N8N
-  N8N -->|HTTP_internal_APIs| Next
-  Next --> Gateway
-  Gateway --> OpenAI
-  N8N -->|orchestration_only| Next
-  Next --> Fal
-  Next --> EL
-  Next --> RW
-  Next --> YT
+```
+Overview prompt ──► project (generating) + its own conversation + generation_run
+                     │  WF-01 (webhook, OpenAI): plan → Creative Kit + research → N contents
+                     ▼  each content: 3 AI options per field (title/hook/script/caption/hashtags) + scenes
+Review (dropdowns) ──► Approve all ──► Schedule (days/time/tz → slot per content)
+                     ▼  readiness: generated · all approved · scheduled · YouTube connected
+Activate ──► video_renders (queued) + publish_jobs (scheduled)
+                     │  WF-02 render: 1 fal clip per scene → fal compose (+ElevenLabs narration) → Storage
+                     │  WF-03 every 5 min: due jobs → YouTube resumable upload (3 attempts)
+                     ▼  WF-06 every 1 min: Telegram notifications · UI updates via Supabase Realtime
 ```
 
-## Component responsibilities
+## Layers
 
-| Component | Owns | Does not own |
+| Layer | Where | Rule |
 |---|---|---|
-| **`apps/web`** | UI, public APIs, internal APIs, session auth, AI gateway, claim/authorize gates | Long-running LLM loops as the only orchestration model |
-| **`packages/domain`** | State transitions, activation/launch gates, grants, policy (BYOK no fallback) | Provider HTTP details |
-| **`packages/schemas`** | Zod contracts / error codes | Persistence |
-| **`packages/integrations`** | OpenAI/fal/ElevenLabs adapters + fixtures, secret encrypt/decrypt | Authorization decisions |
-| **`packages/agent-contracts`** | Allowlisted tool names/schemas | Execution |
-| **`apps/web` Remotion** | Player preview + `@remotion/web-renderer` browser MP4 export (MVP default) | Unattended / headless encode |
-| **`apps/render-worker`** | Optional legacy Remotion HTTP worker (`ACS_REMOTION_RENDER_BACKEND=legacy_worker`) | **Not required** for browser MVP; code preserved |
-| **`n8n/workflows`** | Importable orchestration graphs | Provider secrets, business SoT |
-| **`supabase/`** | Schema, RLS, storage policies | Application logic |
+| UI | `apps/web/src/app/(app)` server components + small client islands | Design system = prototype CSS verbatim (`globals.css`). Pages re-render on Realtime changes (`LiveRefresh`). |
+| Domain (pure) | `packages/domain` | Types, zod contracts (n8n ↔ API), schedule slots, readiness. Unit-tested. |
+| Server services | `apps/web/src/lib/server/*` | Only place that writes the DB. User actions check ownership; trusted writes use the service role. |
+| Provider adapters | `packages/integrations` | fal (submit/poll/compose), ElevenLabs, YouTube OAuth/upload/stats, AES secrets. |
+| Orchestration | n8n Cloud | Never touches the DB. Calls `/api/internal/*` with `x-acs-service-token`. |
+| Data | Supabase (`supabase/migrations/20261120000000_v27_schema.sql`) | Owner RLS everywhere; tokens + workflow errors are service-only. |
 
-## Auth and tenancy
+## Queue model (no lost work)
 
-- Supabase Auth + `@supabase/ssr` cookie sessions.
-- Public Route Handlers call `auth.getUser()`; RLS uses `owner_id = auth.uid()`.
-- Internal APIs require `x-acs-service-token` (`ACS_INTERNAL_SERVICE_TOKEN`).
-- Browser never receives service-role or BYOK plaintext.
+Every job is a row first. The app fires a webhook as a **fast path** (`after()`),
+and **WF-00 Queue Scheduler** (every 2 min) re-dispatches anything still
+`queued`. Claims are compare-and-set (`queued → rendering`, `scheduled → publishing`),
+so webhook + scheduler can race safely. Stuck work is failed server-side
+(generation > 15 min, render > 45 min) so the UI never spins forever.
 
-## AI Provider Gateway (critical path)
+## n8n workflows (cloud ids)
 
-```mermaid
-sequenceDiagram
-  participant N8n as n8n
-  participant API as Next_internal_ai
-  participant Dom as domain_assertAiPolicy
-  participant Gw as executeOpenAi
-  participant OAI as OpenAI
-
-  N8n->>API: POST /api/internal/ai/check-policy
-  API->>Dom: assertAiPolicy mode+connection+allowance
-  Dom-->>API: allowed or BYOK_KEY_INVALID / MANAGED_ALLOWANCE_EXHAUSTED
-  N8n->>API: POST /api/internal/ai/execute
-  API->>API: resolve managed vs BYOK
-  API->>Gw: executeOpenAi
-  alt fixture mode
-    Gw-->>API: deterministic fixture
-  else live
-    Gw->>OAI: chat.completions
-    OAI-->>Gw: completion
-  end
-```
-
-**Invariant:** BYOK mode never uses `OPENAI_API_KEY` (studio-managed). Invalid/missing BYOK fails closed.
-
-n8n workflows (**WF-A3**, **WF-01**, **WF-05**) call the gateway via `httpRequest` nodes — they do **not** use n8n OpenAI Chat Model credentials.
-
-## Agent planning paths (current)
-
-| Path | When | Status |
+| Workflow | Id | Trigger |
 |---|---|---|
-| Sync fixture in `POST /api/agent/messages` | `N8N_WEBHOOK_BASE_URL` unset | **Verified** (creates Draft Project via fixtures) |
-| Webhook → n8n WF-A1 → WF-A3 → gateway | `N8N_WEBHOOK_BASE_URL` set | **Implemented in JSON + dispatch code; live E2E not fully verified** |
+| WF-00 Queue Scheduler | `c3VwV5JlwWHW02Gr` | every 2 min |
+| WF-01 Generate Project | `HAcp9KphY2c6quix` | webhook `acs-generate` + sub-workflow |
+| WF-02 Render Video | `pFPyYRiZKu9dr2LO` | webhook `acs-render` + sub-workflow |
+| WF-03 Publishing & Analytics | `nesO8x03td8rF25k` | every 5 min / every 6 h |
+| WF-04 Error Handling | `Skab0JCwPCgIgrYN` | error trigger (all workflows) |
+| WF-06 Notifications | `ZMoSD2okLc7psv3z` | every 1 min |
+| WF-A1 Project Agent Chat | `1FOlfsXAnFVbqDzw` | webhook `acs-agent-chat` |
+| WF-A2 Telegram Gateway | `EAETpN89kJ1GVTC4` | Telegram trigger |
 
-## Consent layers (enforced in domain)
-
-1. Activate project ≠ concept approve ≠ video approve ≠ `produce_paid_media` ≠ publish destination.
-2. First activation requires nonempty `selected_for_initial_launch` with approved, non-revoked working versions.
-3. Video render requires `produce_paid_media` grant or returns `BUDGET_AUTHORIZATION_REQUIRED`.
-
-## Remotion rendering (M4)
-
-```mermaid
-sequenceDiagram
-  participant UI as Browser_UI
-  participant API as Next_APIs
-  participant Dom as domain
-  participant Stor as Supabase_renders
-  participant N8n as n8n_WF02
-
-  Note over UI,N8n: Browser path (MVP default)
-  UI->>API: queue remotion job (grant + approved concept)
-  N8n->>API: POST /api/internal/render/remotion
-  API->>Dom: progress awaiting_browser_render
-  API-->>N8n: awaitingBrowser true (no ready_for_review)
-  UI->>UI: renderMediaOnWeb MP4
-  UI->>API: multipart complete + upload
-  API->>Stor: verify object
-  API->>Dom: completeVideoJob with outputAssetId
-
-  Note over N8n: Vercel Sandbox path not provisioned yet
-```
-
-| Backend (`ACS_REMOTION_RENDER_BACKEND`) | Status |
-|---|---|
-| `browser` (default) | **Implemented** — user-initiated WebCodecs MP4 |
-| `vercel_sandbox` | **Not started** — fails honestly; no paid provision |
-| `legacy_worker` | **Optional** — preserved `apps/render-worker` |
-
-## Data model (abbreviated)
-
-Account → Projects → Concepts → Concept Versions → Video Jobs/Attempts → Publishing Jobs  
-Plus: Creative Kit (`project_brand_kits`), conversations/messages, automation_rules, outbox/workflow_runs, AI provider prefs/connections/usage.
-
-Full schema: [`supabase/migrations/`](../supabase/migrations/).
-
-## Repository layout
-
-```text
-apps/web                 Next.js UI + APIs + browser Remotion export
-apps/render-worker       Optional legacy Remotion worker (not required)
-packages/{domain,schemas,integrations,agent-contracts}
-n8n/workflows            Importable workflow JSON
-supabase/                Migrations + local config
-docs/                    Specs, architecture, progress
-```
-
-## Trust boundaries
-
-| Boundary | Mechanism |
-|---|---|
-| Browser ↔ API | Session cookies, no service role |
-| n8n ↔ API | Shared service token + scoped internal routes |
-| BYOK secrets | AES-GCM at rest (`ACS_CREDENTIAL_ENCRYPTION_KEY`); never in n8n env |
-| Managed OpenAI | `OPENAI_API_KEY` on Next.js only |
-
-## Related docs
-
-- [LOCAL_DEV.md](LOCAL_DEV.md) — run locally  
-- [CREDENTIALS.md](CREDENTIALS.md) — env vars  
-- [TRACEABILITY.md](TRACEABILITY.md) — requirements ↔ status  
-- [PROGRESS.md](PROGRESS.md) — milestone tracking  
+n8n variables: `ACS_API_BASE_URL`, `ACS_INTERNAL_SERVICE_TOKEN`.
+OpenAI runs on n8n's OpenAI credential (currently n8n gateway credits; swap to the Studio key in the
+`OpenAI (plan|content|agent)` nodes for production volume).
