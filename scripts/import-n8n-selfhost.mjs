@@ -129,7 +129,8 @@ const ORDER = [
   "WF-A1-project-agent-chat.json",
   "WF-A2-telegram-gateway.json",
 ];
-const NO_ACTIVATE = new Set(["WF-04 Error Handling"]); // error-trigger only; runs without activation
+// n8n 2.x only runs an error workflow that is published, so WF-04 is activated too.
+const NO_ACTIVATE = new Set();
 
 const existing = await listAll("/workflows");
 const idMap = {}; // old cloud id -> new id
