@@ -20,5 +20,5 @@ pnpm dev:web
 pnpm test:unit
 ```
 
-Docs: `docs/ARCHITECTURE.md` (system + queue model + workflow ids), `docs/PROGRESS.md`
+Docs: `docs/ARCHITECTURE.md` (system + queue model + workflow ids), `docs/COSTS.md` (cost per video/month + levers), `docs/PROGRESS.md`
 (status + go-live checklist), `docs/DECISIONS.md` (ADRs).
