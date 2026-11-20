@@ -55,7 +55,7 @@ function Background({ scene, index, duration, accent }: { scene: ShortScene; ind
       {scene.imageUrl ? (
         <Img src={scene.imageUrl} style={{ width: "100%", height: "100%", objectFit: "cover", transform: `translate(${x}px, ${y}px) scale(${scale})` }} />
       ) : (
-        <AbsoluteFill style={{ background: `radial-gradient(circle at 30% 20%, ${accent}, #2b2440 60%, #120f1c)`, transform: `scale(${scale})` }} />
+        <DesignBackground accent={accent} index={index} />
       )}
       <AbsoluteFill
         style={{
@@ -64,6 +64,59 @@ function Background({ scene, index, duration, accent }: { scene: ShortScene; ind
             "linear-gradient(180deg, rgba(10,8,20,.72) 0%, rgba(10,8,20,.5) 38%, rgba(10,8,20,.18) 52%, rgba(10,8,20,.35) 60%, rgba(10,8,20,.7) 78%, rgba(10,8,20,.85) 100%)",
         }}
       />
+    </AbsoluteFill>
+  );
+}
+
+/** Code-drawn branded background for `design` beats (and missing images). */
+function DesignBackground({ accent, index }: { accent: string; index: number }) {
+  const frame = useCurrentFrame();
+  const t = frame / FPS;
+  const orb = (cx: number, cy: number, r: number, color: string, speed: number, phase: number) => (
+    <div
+      style={{
+        position: "absolute",
+        left: cx + Math.sin(t * speed + phase) * 90 - r,
+        top: cy + Math.cos(t * speed * 0.8 + phase) * 120 - r,
+        width: r * 2,
+        height: r * 2,
+        borderRadius: "50%",
+        background: color,
+        filter: "blur(90px)",
+        opacity: 0.75,
+      }}
+    />
+  );
+  const flip = index % 2 === 0;
+  return (
+    <AbsoluteFill style={{ background: "linear-gradient(160deg, #1d1833 0%, #120f1c 70%)", overflow: "hidden" }}>
+      {orb(flip ? 260 : 820, 520, 380, accent, 0.6, index)}
+      {orb(flip ? 860 : 220, 1300, 420, "#5b4bd6", 0.45, index + 2)}
+      {orb(540, 1750, 300, "#2fb7a8", 0.5, index + 4)}
+      <AbsoluteFill
+        style={{
+          backgroundImage: "radial-gradient(rgba(255,255,255,.14) 2px, transparent 2px)",
+          backgroundSize: "46px 46px",
+          transform: `translateY(${(t * 14) % 46}px)`,
+          opacity: 0.6,
+        }}
+      />
+      {[0, 1, 2].map((k) => (
+        <div
+          key={k}
+          style={{
+            position: "absolute",
+            left: [120, 780, 420][k],
+            top: [380, 980, 1560][k] + Math.sin(t * 0.9 + k) * 30,
+            width: [90, 130, 70][k],
+            height: [90, 130, 70][k],
+            border: `8px solid ${k === 1 ? accent : "rgba(255,255,255,.18)"}`,
+            borderRadius: k === 2 ? "50%" : 28,
+            transform: `rotate(${t * (k + 1) * 12}deg)`,
+            opacity: 0.55,
+          }}
+        />
+      ))}
     </AbsoluteFill>
   );
 }

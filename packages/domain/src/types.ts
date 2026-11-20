@@ -55,6 +55,8 @@ export const SceneSchema = z.object({
   statLabel: z.string().max(80).default(""),
   emphasis: z.array(z.string().max(30)).max(6).default([]),
   transition: z.enum(BEAT_TRANSITIONS).catch("cut").default("cut"),
+  /** ai = generated illustration; design = code-drawn branded background (no image cost). */
+  background: z.enum(["ai", "design"]).catch("ai").default("ai"),
 });
 export type Scene = z.infer<typeof SceneSchema>;
 

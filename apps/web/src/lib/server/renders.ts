@@ -137,9 +137,11 @@ export async function startRender(renderId: string) {
     );
 
     // 1) OpenAI, all scenes in parallel (synchronous API → stored immediately)
+    const wantsImage = (s: Scene) => s.background !== "design";
     const openAiResults = openAiAvailable
       ? await Promise.all(
           scenes.map(async (s, i): Promise<SceneStep | null> => {
+            if (!wantsImage(s)) return { scene: i, source: "none", status: "completed", url: null };
             const ref = refFor(s, i);
             const guided = p.visual_mode === "ai_with_references" && ref ? refBytes.get(ref.id) : undefined;
             try {
@@ -168,6 +170,10 @@ export async function startRender(renderId: string) {
           ? { scene: i, source: "reference", referencePath: ref.storage_path, status: "completed", url: ref.url }
           : { scene: i, source: "none", status: "completed", url: null };
 
+      if (!wantsImage(s)) {
+        steps.push({ scene: i, source: "none", status: "completed", url: null });
+        continue;
+      }
       // 2) fal (async queue; polled in pollRender)
       if (falAvailable) {
         const guided = p.visual_mode === "ai_with_references" && ref?.url;

@@ -49,7 +49,8 @@ A content has `format` and 5–9 **beats** (≈ 2–5 s each). Every beat:
   "stat": "73%",  "statLabel": "of devs…",  // stat
   "emphasis": ["words to color-pop in captions"],
   "motion": "push-in | pull-out | pan-left | pan-right | punch",
-  "transition": "cut | slide | zoom | flash | wipe"   // into this beat
+  "transition": "cut | slide | zoom | flash | wipe",  // into this beat
+  "background": "ai | design"                         // AI image or code-drawn (§5)
 }
 ```
 
@@ -117,9 +118,17 @@ Always append: the style string, palette, recurring subject (when the beat
 features it), "vertical 9:16", and "no text, no letters, no numbers, no logos,
 no UI, no watermark".
 
-**Character reference (automatic):** when `recurringSubject` is set, the app
-generates a clean full-body reference sheet once (after project setup, or on
-the first render for older projects) and stores it as project reference #1
+**AI image or code-drawn? (per beat, decided by the writer):** each beat sets
+`background: "ai" | "design"`. Use `ai` when the picture carries meaning (hook,
+story moments, product, the recurring character). Use `design` when the text
+layout *is* the content (code, compare, stat, most points/statement beats):
+the template draws an animated branded background (palette orbs, dot grid,
+shapes) — cleaner, consistent, and no image cost. Aim for ~40–60 % `ai`.
+
+**Character reference (automatic, during generation):** when the plan sets
+`recurringSubject`, WF-01 calls `/api/internal/generation/identity` right after
+the plan (stage "Designing your character") and the app draws a clean
+full-body reference sheet (on first render for older projects) and stores it as project reference #1
 (`★ Main character (AI)`, `apps/web/src/lib/server/identity.ts`). Scene images
 are then image-conditioned on it (OpenAI edits / Kontext) so the subject stays
 identical across beats and videos. Users can only *regenerate* it (Assets tab)

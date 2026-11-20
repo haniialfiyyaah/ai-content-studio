@@ -6,6 +6,7 @@ const STAGES = [
   { key: "understanding", label: "Understanding your idea" },
   { key: "research", label: "Researching angles" },
   { key: "creative_kit", label: "Creating the Creative Kit" },
+  { key: "character", label: "Designing your character" },
   { key: "contents", label: "Developing content and scenes" },
   { key: "saving", label: "Preparing your workspace" },
 ];
