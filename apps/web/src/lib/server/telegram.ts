@@ -187,9 +187,13 @@ export async function deliverNotification(notificationId: string) {
       const url = await signedVideoUrl(r?.storage_path ?? null, 3600);
       if (!url || !r) return { skip: true, reason: "video missing" };
       act(pl.chatId, "upload_video");
+      // Direct file link (no Studio login): signed, attachment, valid 7 days.
+      const { data: c } = await db.from("contents").select("options, selection").eq("id", r.content_id).single();
+      const fileName = `${resolveContent(c?.options, c?.selection).title.replace(/[^\w\- ]+/g, "").trim().slice(0, 60) || "video"}.mp4`;
+      const direct = await signedVideoUrl(r.storage_path, 7 * 24 * 3600, fileName);
       sayVideo(pl.chatId, url, esc(pl.text ?? "Your video is ready"), [
         [{ text: "👍 Looks good", data: `ok:${r.id}` }, { text: "🔁 Re-render", data: `rr:${r.content_id}` }],
-        [{ text: "⬇️ Download", url: `${appUrl()}/api/renders/${r.id}/download` }],
+        [{ text: "⬇️ Download MP4", url: direct ?? url }, { text: "🔗 Details", url: `${appUrl()}/videos/${r.id}` }],
       ]);
     } else if (pl.cards && n.project_id) {
       await sendProjectCards(pl.chatId, n.project_id, pl.cards.contentIds, pl.text);

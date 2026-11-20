@@ -144,18 +144,47 @@ export function narrationConfigured(): boolean {
   return Boolean(process.env.ELEVENLABS_API_KEY?.trim());
 }
 
-/** Returns MP3 bytes + word timings, or null when ElevenLabs isn't configured. */
-export async function synthesizeNarration(text: string): Promise<{ audio: Uint8Array; words: CaptionWord[] } | null> {
-  const key = process.env.ELEVENLABS_API_KEY?.trim();
-  if (!key || !text.trim()) return null;
-  const voice = process.env.ELEVENLABS_VOICE_ID?.trim() || "21m00Tcm4TlvDq8ikWAM";
-  const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voice}/with-timestamps`, {
+let cachedVoice: string | null = null;
+
+/**
+ * A voice this account may use via the API. Free plans cannot use library
+ * voices (402), so prefer the account's own/premade voices.
+ */
+async function usableVoice(key: string): Promise<string | null> {
+  if (cachedVoice) return cachedVoice;
+  const res = await fetch("https://api.elevenlabs.io/v1/voices", { headers: { "xi-api-key": key } });
+  if (!res.ok) return null;
+  const json = (await res.json()) as { voices?: { voice_id: string; category?: string }[] };
+  const voices = json.voices ?? [];
+  const rank = (c?: string) => (c === "cloned" || c === "generated" || c === "professional" ? 0 : c === "premade" ? 1 : 2);
+  cachedVoice = [...voices].sort((x, y) => rank(x.category) - rank(y.category))[0]?.voice_id ?? null;
+  return cachedVoice;
+}
+
+async function tts(key: string, voice: string, text: string) {
+  return fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voice}/with-timestamps`, {
     method: "POST",
     headers: { "xi-api-key": key, "Content-Type": "application/json" },
     body: JSON.stringify({ text: text.slice(0, 2500), model_id: "eleven_multilingual_v2" }),
   });
+}
+
+/** Returns MP3 bytes + word timings, or null when ElevenLabs isn't configured. */
+export async function synthesizeNarration(text: string): Promise<{ audio: Uint8Array; words: CaptionWord[]; voice: string } | null> {
+  const key = process.env.ELEVENLABS_API_KEY?.trim();
+  if (!key || !text.trim()) return null;
+  let voice = process.env.ELEVENLABS_VOICE_ID?.trim() || (await usableVoice(key)) || "JBFqnCBsd6RMkjVDRZzb";
+  let res = await tts(key, voice, text);
+  if (res.status === 402 || res.status === 403 || res.status === 404) {
+    // Configured voice not allowed on this plan → fall back to one the account can use.
+    const fallback = await usableVoice(key);
+    if (fallback && fallback !== voice) {
+      voice = fallback;
+      res = await tts(key, voice, text);
+    }
+  }
   if (!res.ok) {
-    // Surface ElevenLabs' own reason (e.g. free tier blocked from cloud IPs, quota, bad voice id).
+    // Surface ElevenLabs' own reason (e.g. plan limits, quota, bad voice id).
     const body = await res.text().catch(() => "");
     let reason = body.slice(0, 200);
     try {
@@ -168,7 +197,7 @@ export async function synthesizeNarration(text: string): Promise<{ audio: Uint8A
     audio_base64: string;
     alignment?: { characters: string[]; character_start_times_seconds: number[]; character_end_times_seconds: number[] };
   };
-  return { audio: Uint8Array.from(Buffer.from(json.audio_base64, "base64")), words: wordsFromAlignment(json.alignment) };
+  return { audio: Uint8Array.from(Buffer.from(json.audio_base64, "base64")), words: wordsFromAlignment(json.alignment), voice };
 }
 
 export function wordsFromAlignment(a?: {
