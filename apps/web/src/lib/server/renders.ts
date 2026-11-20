@@ -252,7 +252,7 @@ async function dispatchToRenderer(render: LoadedRender) {
   const db = admin();
   const [{ data: content }, { data: project }] = await Promise.all([
     db.from("contents").select("*").eq("id", render.content_id).single(),
-    db.from("projects").select("cover_tone").eq("id", render.project_id).single(),
+    db.from("projects").select("cover_tone, title").eq("id", render.project_id).single(),
   ]);
   const c = content as ContentRow;
   const picked = resolveContent(c.options, c.selection);
@@ -278,7 +278,22 @@ async function dispatchToRenderer(render: LoadedRender) {
           : step?.source === "openai" && step.imagePath
             ? (await db.storage.from(BUCKET).createSignedUrl(step.imagePath, 6 * 3600)).data?.signedUrl ?? null
             : step?.url ?? null;
-      return { imageUrl, seconds: Number(durations[i].toFixed(2)), onScreenText: s.onScreenText || "", motion: s.motion || "" };
+      return {
+        imageUrl,
+        seconds: Number(durations[i].toFixed(2)),
+        onScreenText: s.onScreenText || "",
+        motion: s.motion || "",
+        layout: s.layout ?? "image",
+        headline: s.headline || "",
+        points: s.points ?? [],
+        code: s.code || "",
+        left: s.left || "",
+        right: s.right || "",
+        stat: s.stat || "",
+        statLabel: s.statLabel || "",
+        emphasis: s.emphasis ?? [],
+        transition: s.transition ?? (i === 0 ? "cut" : (["slide", "zoom", "wipe", "flash"] as const)[i % 4]),
+      };
     }),
   );
   const narrationUrl = render.narration_path
@@ -303,6 +318,9 @@ async function dispatchToRenderer(render: LoadedRender) {
         scenes: sceneProps,
         narrationUrl,
         words: render.captions,
+        musicUrl: process.env.MUSIC_URL?.trim() || null,
+        handle: project?.title ?? "",
+        format: (c as ContentRow & { format?: string }).format ?? "explainer",
       },
     }),
     signal: AbortSignal.timeout(20_000),
