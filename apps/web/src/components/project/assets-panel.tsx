@@ -3,13 +3,13 @@
 import { useRouter } from "next/navigation";
 import { useRef, useState, useTransition } from "react";
 import { ImagePlus, Trash2 } from "lucide-react";
-import { VISUAL_MODES, VISUAL_MODE_LABELS, type VisualMode } from "@acs/domain";
+import { IMAGE_ENGINES, IMAGE_ENGINE_LABELS, VISUAL_MODES, VISUAL_MODE_LABELS, type ImageEngine, type VisualMode } from "@acs/domain";
 import { api } from "@/lib/client/api";
 import { ACCEPT, uploadReference } from "@/lib/client/upload";
 import { Spinner } from "@/components/ui/spinner";
 
 const MODE_HELP: Record<VisualMode, string> = {
-  ai: "Every scene image is generated in the Creative Kit's art style (OpenAI images, fal as backup; otherwise your references or a styled background).",
+  ai: "Every scene image is generated in the Creative Kit's art style with the image engine below (the other engine is the backup; otherwise your references or a styled background).",
   ai_with_references: "Scenes are generated from your references — keeps products and characters consistent.",
   references: "Your uploads are used directly as the scene images, animated with zoom, captions and transitions. No AI image cost.",
 };
@@ -17,12 +17,14 @@ const MODE_HELP: Record<VisualMode, string> = {
 export function AssetsPanel({
   projectId,
   mode,
+  engine = "openai",
   assets,
   editable,
   subject,
 }: {
   projectId: string;
   mode: VisualMode;
+  engine?: ImageEngine;
   assets: { id: string; label: string; url: string | null }[];
   editable: boolean;
   /** Creative Kit recurring subject; enables AI character generation. */
@@ -129,6 +131,18 @@ export function AssetsPanel({
             </label>
           );
         })}
+        {mode !== "references" && (
+          <>
+            <div className="divider" />
+            <div className="eyebrow">IMAGE ENGINE</div>
+            {IMAGE_ENGINES.map((e) => (
+              <label key={e} className={`ai-option ${engine === e ? "selected" : ""}`} style={{ opacity: !editable || pending ? 0.6 : 1 }}>
+                <input type="radio" name="image-engine" checked={engine === e} disabled={!editable || pending} onChange={() => run(() => api(`/api/projects/${projectId}/image-engine`, "PATCH", { imageEngine: e }))} />
+                <div><div className="small semibold">{IMAGE_ENGINE_LABELS[e].label}</div><div className="xs muted line">{IMAGE_ENGINE_LABELS[e].help}</div></div>
+              </label>
+            ))}
+          </>
+        )}
         <div className="note" style={{ marginTop: 14 }}>Applies to the next renders. Already-finished videos keep their images.</div>
       </div>
     </div>

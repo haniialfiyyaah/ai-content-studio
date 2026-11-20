@@ -124,6 +124,13 @@ export type Schedule = z.infer<typeof ScheduleSchema>;
 
 export type Selection = Partial<Record<OptionField, number>>;
 
+export const IMAGE_ENGINES = ["openai", "fal"] as const;
+export type ImageEngine = (typeof IMAGE_ENGINES)[number];
+export const IMAGE_ENGINE_LABELS: Record<ImageEngine, { label: string; help: string }> = {
+  openai: { label: "OpenAI (GPT Image)", help: "Best at following the scene description and keeping your character consistent. fal is the backup." },
+  fal: { label: "fal (Flux)", help: "Fast, painterly Flux images; uses your fal credit. OpenAI is the backup if fal fails or runs out." },
+};
+
 export const VISUAL_MODES = ["ai", "ai_with_references", "references"] as const;
 export type VisualMode = (typeof VISUAL_MODES)[number];
 export const VISUAL_MODE_LABELS: Record<VisualMode, string> = {

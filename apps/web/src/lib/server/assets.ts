@@ -1,5 +1,5 @@
 import "server-only";
-import { AppError, ErrorCodes, VISUAL_MODES, notFound, type VisualMode } from "@acs/domain";
+import { AppError, ErrorCodes, IMAGE_ENGINES, VISUAL_MODES, notFound, type ImageEngine, type VisualMode } from "@acs/domain";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 const admin = () => createAdminClient();
@@ -81,6 +81,13 @@ export async function setVisualMode(ownerId: string, projectId: string, mode: Vi
   }
   await admin().from("projects").update({ visual_mode: mode }).eq("id", projectId);
   return { visualMode: mode };
+}
+
+export async function setImageEngine(ownerId: string, projectId: string, engine: ImageEngine) {
+  await ownedProject(ownerId, projectId);
+  if (!IMAGE_ENGINES.includes(engine)) throw new AppError(ErrorCodes.VALIDATION_ERROR, "Unknown image engine", 400);
+  await admin().from("projects").update({ image_engine: engine }).eq("id", projectId);
+  return { imageEngine: engine };
 }
 
 /** Assets in upload order with signed URLs (index = referenceIndex used by scenes). */

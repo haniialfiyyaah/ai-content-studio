@@ -108,13 +108,16 @@ export async function startRender(renderId: string) {
       }
     }
 
-    // Provider chain per scene: OpenAI images → fal → user's reference → gradient.
+    // Provider chain per scene (project image engine first, the other as backup):
+    //   openai: OpenAI images → fal → user's reference → gradient
+    //   fal:    fal → OpenAI images → user's reference → gradient
     const refs = await listAssets(p.id, 6 * 3600);
     const refFor = (s: Scene, i: number) =>
       refs.length ? refs[s.referenceIndex >= 0 && s.referenceIndex < refs.length ? s.referenceIndex : i % refs.length] : null;
     const generate = p.visual_mode !== "references";
     let openAiAvailable = generate && openAiImagesConfigured();
     let falAvailable = generate && Boolean(process.env.FAL_KEY?.trim());
+    const falFirst = p.image_engine === "fal" && falAvailable;
 
     // Reference bytes for OpenAI edits (only in "AI + my references").
     const refBytes = new Map<string, { bytes: ArrayBuffer; mimeType: string; name: string }>();
@@ -139,24 +142,23 @@ export async function startRender(renderId: string) {
 
     // 1) OpenAI, all scenes in parallel (synchronous API → stored immediately)
     const wantsImage = (s: Scene) => s.background !== "design";
-    const openAiResults = openAiAvailable
-      ? await Promise.all(
-          scenes.map(async (s, i): Promise<SceneStep | null> => {
-            if (!wantsImage(s)) return { scene: i, source: "none", status: "completed", url: null };
-            const ref = refFor(s, i);
-            const guided = p.visual_mode === "ai_with_references" && ref ? refBytes.get(ref.id) : undefined;
-            try {
-              const img = guided ? await editOpenAiImage(prompts[i], [guided]) : await generateOpenAiImage(prompts[i]);
-              const imagePath = `${render.owner_id}/${render.id}/scene-${i}.png`;
-              await db.storage.from(BUCKET).upload(imagePath, img.bytes, { contentType: "image/png", upsert: true });
-              return { scene: i, source: "openai", model: img.model, imagePath, status: "completed", url: null };
-            } catch (e) {
-              console.warn(`[render] OpenAI image failed for scene ${i}:`, e instanceof Error ? e.message : e);
-              if (e instanceof AppError && e.code === ErrorCodes.NOT_CONFIGURED) openAiAvailable = false;
-              return null;
-            }
-          }),
-        )
+    const openAiScene = async (s: Scene, i: number): Promise<SceneStep | null> => {
+      if (!wantsImage(s)) return { scene: i, source: "none", status: "completed", url: null };
+      const ref = refFor(s, i);
+      const guided = p.visual_mode === "ai_with_references" && ref ? refBytes.get(ref.id) : undefined;
+      try {
+        const img = guided ? await editOpenAiImage(prompts[i], [guided]) : await generateOpenAiImage(prompts[i]);
+        const imagePath = `${render.owner_id}/${render.id}/scene-${i}.png`;
+        await db.storage.from(BUCKET).upload(imagePath, img.bytes, { contentType: "image/png", upsert: true });
+        return { scene: i, source: "openai", model: img.model, imagePath, status: "completed", url: null };
+      } catch (e) {
+        console.warn(`[render] OpenAI image failed for scene ${i}:`, e instanceof Error ? e.message : e);
+        if (e instanceof AppError && e.code === ErrorCodes.NOT_CONFIGURED) openAiAvailable = false;
+        return null;
+      }
+    };
+    const openAiResults = openAiAvailable && !falFirst
+      ? await Promise.all(scenes.map(openAiScene))
       : scenes.map(() => null);
 
     const steps: SceneStep[] = [];
@@ -186,6 +188,14 @@ export async function startRender(renderId: string) {
         } catch (e) {
           console.warn(`[render] fal failed for scene ${i}:`, e instanceof Error ? e.message : e);
           if (e instanceof AppError && e.code === ErrorCodes.NOT_CONFIGURED) falAvailable = false;
+        }
+      }
+      // 2b) fal-first projects: OpenAI is the backup when fal couldn't take the scene
+      if (falFirst && openAiAvailable) {
+        const viaOpenAi = await openAiScene(s, i);
+        if (viaOpenAi) {
+          steps.push(viaOpenAi);
+          continue;
         }
       }
       // 3) reference or gradient

@@ -453,3 +453,6 @@ ALTER TABLE public.video_renders
 
 -- narrator voice chosen per project (matched to Creative Kit.voice), kept for the series
 ALTER TABLE public.projects ADD COLUMN voice_id text, ADD COLUMN voice_name text;
+
+-- Per-project image engine for scene images (the other one is the fallback).
+alter table public.projects add column if not exists image_engine text not null default 'openai' check (image_engine in ('openai','fal'));
