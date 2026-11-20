@@ -13,6 +13,9 @@ const PORT = Number(process.env.PORT || 8080);
 const TOKEN = process.env.RENDERER_TOKEN || "";
 // Memory-safe defaults for small instances; raise RENDER_CONCURRENCY on bigger plans.
 const CONCURRENCY = Number(process.env.RENDER_CONCURRENCY || 1);
+// 0.6667 → 720×1280 (fits ~512 MB instances); set RENDER_SCALE=1 for 1080×1920 on ≥1.5 GB.
+const SCALE = Number(process.env.RENDER_SCALE || 0.6667);
+const X264_PRESET = process.env.RENDER_X264_PRESET || "veryfast";
 
 if (!TOKEN) {
   console.error("RENDERER_TOKEN is required");
@@ -78,8 +81,9 @@ async function renderJob(job) {
       disallowParallelEncoding: process.env.RENDER_PARALLEL_ENCODING !== "true",
       chromiumOptions: { enableMultiProcessOnLinux: false },
       // Compression: visually clean for Shorts, ~2-5 MB for 15-30 s (Telegram/YouTube friendly).
-      crf: Number(process.env.RENDER_CRF || 26),
-      x264Preset: "medium",
+      crf: Number(process.env.RENDER_CRF || 25),
+      x264Preset: X264_PRESET,
+      scale: SCALE,
       audioBitrate: "128k",
       timeoutInMilliseconds: 120_000,
     });
