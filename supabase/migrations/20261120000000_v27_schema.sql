@@ -427,3 +427,17 @@ ON CONFLICT (id) DO NOTHING;
 CREATE POLICY storage_assets_select_own ON storage.objects
   FOR SELECT TO authenticated
   USING (bucket_id = 'assets' AND (storage.foldername(name))[1] = auth.uid()::text);
+
+-- ---------------------------------------------------------------------------
+-- Telegram flow + AI revisions (2026-11-20, third pass)
+-- ---------------------------------------------------------------------------
+-- Telegram conversation state: { currentProjectId, awaiting: 'revise' | null }
+ALTER TABLE public.telegram_links ADD COLUMN state jsonb NOT NULL DEFAULT '{}'::jsonb;
+
+ALTER TABLE public.generation_runs DROP CONSTRAINT IF EXISTS generation_runs_kind_check;
+ALTER TABLE public.generation_runs ADD CONSTRAINT generation_runs_kind_check
+  CHECK (kind IN ('project_setup', 'ideation', 'research', 'revision'));
+ALTER TABLE public.generation_runs
+  ADD COLUMN feedback text,
+  ADD COLUMN target_ids uuid[] NOT NULL DEFAULT '{}',
+  ADD COLUMN channel text NOT NULL DEFAULT 'web' CHECK (channel IN ('web', 'telegram'));

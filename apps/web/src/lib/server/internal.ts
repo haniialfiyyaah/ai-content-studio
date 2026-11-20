@@ -10,9 +10,8 @@ import {
 import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logActivity, notifyTelegram, postAssistantMessage } from "./events";
-import { generateMore, startProject } from "./projects";
+import { generateMore } from "./projects";
 import type { ContentRow, ProjectRow, RunRow } from "./rows";
-import { appUrl } from "./session";
 
 const admin = () => createAdminClient();
 
@@ -47,10 +46,27 @@ export async function generationContext(runId: string) {
   const { data: refs } = await db.from("project_assets").select("label").eq("project_id", p.id).order("created_at");
   const references = (refs ?? []).map((r, index) => ({ index, label: r.label || `Reference ${index + 1}` }));
 
+  let revision: { feedback: string; items: { number: number; current: Record<string, string>; scenes: unknown }[] } | null = null;
+  if (r.kind === "revision") {
+    const { data: all } = await db.from("contents").select("id, options, selection, scenes").eq("project_id", p.id).neq("status", "archived").order("position");
+    const ids = (run as RunRow & { target_ids: string[] }).target_ids ?? [];
+    revision = {
+      feedback: (run as RunRow & { feedback: string | null }).feedback ?? "",
+      items: ids
+        .map((id) => {
+          const idx = (all ?? []).findIndex((c) => c.id === id);
+          const c = (all ?? [])[idx];
+          return c ? { number: idx + 1, current: resolveContent(c.options, c.selection), scenes: c.scenes } : null;
+        })
+        .filter((x): x is NonNullable<typeof x> => Boolean(x)),
+    };
+  }
+
   return {
     runId,
     skip: false as const,
     kind: r.kind,
+    revision,
     contentCount: r.content_count,
     projectId: p.id,
     prompt: p.prompt,
@@ -106,6 +122,45 @@ export async function generationComplete(raw: unknown) {
     }
   }
 
+  const n = payload.contents.length;
+  const title = payload.project?.title ?? p.title;
+  const channelLink = (path: string) => path;
+
+  if (r.kind === "revision") {
+    const ids = ((run as RunRow & { target_ids: string[] }).target_ids ?? []).slice(0, n);
+    await Promise.all(
+      ids.map((id, i) =>
+        db
+          .from("contents")
+          .update({
+            options: payload.contents[i].options,
+            scenes: payload.contents[i].scenes,
+            video_prompt: payload.contents[i].videoPrompt,
+            selection: {},
+            status: "draft",
+            approved_at: null,
+          })
+          .eq("id", id)
+          .eq("project_id", p.id),
+      ),
+    );
+    await db
+      .from("generation_runs")
+      .update({ status: "succeeded", stage: "done", progress: 100, finished_at: new Date().toISOString() })
+      .eq("id", r.id);
+    await logActivity(db, { ownerId: p.owner_id, projectId: p.id, kind: "revision.done", message: `Revised ${ids.length} content from feedback` });
+    await postAssistantMessage(db, p.owner_id, p.id, `I revised ${ids.length} content based on your feedback — review the new options and approve when ready.`);
+    await notifyTelegram(db, {
+      ownerId: p.owner_id,
+      projectId: p.id,
+      template: "revision.ready",
+      text: `✏️ Updated ${ids.length} content in "${title}". Here are the new versions:`,
+      path: channelLink(`/projects/${p.id}?tab=content`),
+      cards: { contentIds: ids },
+    });
+    return { runId: r.id, revised: ids.length };
+  }
+
   const { data: last } = await db
     .from("contents")
     .select("position")
@@ -115,7 +170,7 @@ export async function generationComplete(raw: unknown) {
     .maybeSingle();
   const start = (last?.position ?? -1) + 1;
 
-  const { error } = await db.from("contents").insert(
+  const { data: inserted, error } = await db.from("contents").insert(
     payload.contents.map((c, i) => ({
       owner_id: p.owner_id,
       project_id: p.id,
@@ -126,7 +181,7 @@ export async function generationComplete(raw: unknown) {
       scenes: c.scenes,
       video_prompt: c.videoPrompt,
     })),
-  );
+  ).select("id");
   if (error) throw new AppError(ErrorCodes.INTERNAL_ERROR, "Could not save generated content", 500);
 
   await db
@@ -135,8 +190,7 @@ export async function generationComplete(raw: unknown) {
     .eq("id", r.id);
   if (p.status === "generating") await db.from("projects").update({ status: "draft" }).eq("id", p.id);
 
-  const n = payload.contents.length;
-  const title = payload.project?.title ?? p.title;
+  const newIds = (inserted ?? []).map((x) => x.id as string);
   if (r.kind === "project_setup") {
     await logActivity(db, { ownerId: p.owner_id, projectId: p.id, kind: "generation.done", message: `Generated ${n} content ideas` });
     await postAssistantMessage(
@@ -151,6 +205,7 @@ export async function generationComplete(raw: unknown) {
       template: "project.ready",
       text: `✨ "${title}" is ready — ${n} content ideas to review.`,
       path: `/projects/${p.id}?tab=content`,
+      cards: { contentIds: newIds },
     });
   } else {
     await logActivity(db, { ownerId: p.owner_id, projectId: p.id, kind: "ideation.done", message: `${n} new content ideas to review` });
@@ -160,6 +215,7 @@ export async function generationComplete(raw: unknown) {
       template: "ideation.ready",
       text: `💡 ${n} new ideas for "${title}" are waiting for your approval.`,
       path: `/projects/${p.id}?tab=content`,
+      cards: { contentIds: newIds },
     });
   }
   return { runId: r.id, contents: n };
@@ -293,27 +349,8 @@ export async function claimDue(raw: unknown) {
     .update({ delivery_state: "sending" })
     .in("id", ids)
     .eq("delivery_state", "pending")
-    .select("id, payload");
-  return {
-    kind,
-    jobs: (leased ?? []).map((n) => ({
-      notificationId: n.id,
-      chatId: n.payload?.chatId ?? "",
-      text: n.payload?.text ?? "",
-      url: n.payload?.url ?? "",
-    })),
-  };
-}
-
-export async function completeNotification(input: { notificationId: string; delivered: boolean }) {
-  await admin()
-    .from("notifications")
-    .update({
-      delivery_state: input.delivered ? "delivered" : "failed",
-      delivered_at: input.delivered ? new Date().toISOString() : null,
-    })
-    .eq("id", input.notificationId);
-  return { ok: true };
+    .select("id");
+  return { kind, jobs: (leased ?? []).map((n) => ({ notificationId: n.id })) };
 }
 
 // ---------------------------------------------------------------------------
@@ -371,52 +408,6 @@ export async function agentReply(raw: unknown) {
     }
   }
   return { ok: true };
-}
-
-// ---------------------------------------------------------------------------
-// Telegram (WF-A2): a linked user's message starts a new project
-// ---------------------------------------------------------------------------
-export const TelegramIntakeSchema = z.object({
-  telegramUserId: z.coerce.string().min(1),
-  chatId: z.coerce.string().min(1),
-  text: z.string().default(""),
-});
-
-export async function telegramIntake(raw: unknown) {
-  const input = TelegramIntakeSchema.parse(raw);
-  const db = admin();
-  const { data: link } = await db
-    .from("telegram_links")
-    .select("id, owner_id, telegram_chat_id")
-    .eq("telegram_user_id", input.telegramUserId)
-    .is("revoked_at", null)
-    .maybeSingle();
-
-  if (!link) {
-    return {
-      linked: false,
-      reply: `Your Telegram isn't linked yet. In Studio open Settings → Telegram and enter your user ID ${input.telegramUserId}, then message me again.\n${appUrl()}/settings?section=telegram`,
-    };
-  }
-  if (!link.telegram_chat_id || String(link.telegram_chat_id) !== input.chatId) {
-    await db.from("telegram_links").update({ telegram_chat_id: Number(input.chatId) }).eq("id", link.id);
-  }
-
-  const text = input.text.trim();
-  if (!text || text === "/start") {
-    return { linked: true, reply: "Hi! Send me an idea (e.g. \"weekly cat stories for kids\") and I'll create a project for it." };
-  }
-  try {
-    const { projectId } = await startProject({ ownerId: link.owner_id, prompt: text, channel: "telegram" });
-    return {
-      linked: true,
-      projectId,
-      reply: `On it — creating your project now. I'll message you when the content is ready to review.\n${appUrl()}/projects/${projectId}`,
-    };
-  } catch (e) {
-    if (e instanceof AppError) return { linked: true, reply: e.message };
-    throw e;
-  }
 }
 
 export async function recordWorkflowError(raw: unknown) {

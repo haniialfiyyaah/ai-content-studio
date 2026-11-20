@@ -7,7 +7,7 @@ export const PROJECT_STATUSES = ["generating", "draft", "active", "paused", "sto
 export type ProjectStatus = (typeof PROJECT_STATUSES)[number];
 
 export type RunStatus = "queued" | "running" | "succeeded" | "failed";
-export type RunKind = "project_setup" | "ideation" | "research";
+export type RunKind = "project_setup" | "ideation" | "research" | "revision";
 export type ContentStatus = "draft" | "approved" | "archived";
 export type RenderStatus = "queued" | "rendering" | "ready" | "failed" | "cancelled";
 export type PublishStatus = "scheduled" | "publishing" | "published" | "failed" | "cancelled";

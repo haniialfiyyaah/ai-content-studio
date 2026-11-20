@@ -68,6 +68,10 @@ async function renderJob(job) {
       concurrency: CONCURRENCY,
       imageFormat: "jpeg",
       jpegQuality: 88,
+      // Compression: visually clean for Shorts, ~2-5 MB for 15-30 s (Telegram/YouTube friendly).
+      crf: Number(process.env.RENDER_CRF || 26),
+      x264Preset: "medium",
+      audioBitrate: "128k",
       timeoutInMilliseconds: 120_000,
     });
     const bytes = await readFile(out);

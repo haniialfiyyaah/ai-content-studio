@@ -23,7 +23,19 @@ export async function logActivity(
  */
 export async function notifyTelegram(
   admin: Admin,
-  n: { ownerId: string; projectId?: string | null; template: string; text: string; path?: string },
+  n: {
+    ownerId: string;
+    projectId?: string | null;
+    template: string;
+    text: string;
+    path?: string;
+    /** Send content cards for these contents (or all drafts) with Approve/Edit buttons. */
+    cards?: { contentIds?: string[] };
+    /** Send the rendered MP4 itself. */
+    renderId?: string;
+    /** Extra inline keyboard rows (callback data). */
+    buttons?: { text: string; data?: string; url?: string }[][];
+  },
 ) {
   const { data: link } = await admin
     .from("telegram_links")
@@ -42,6 +54,9 @@ export async function notifyTelegram(
       chatId: String(link.telegram_chat_id),
       text: n.text,
       url: n.path ? `${appUrl()}${n.path}` : null,
+      cards: n.cards ?? null,
+      renderId: n.renderId ?? null,
+      buttons: n.buttons ?? null,
     },
   });
 }

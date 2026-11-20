@@ -1,11 +1,14 @@
 import { z } from "zod";
 import { handle } from "@/lib/api/response";
 import { assertInternalServiceAuth } from "@/lib/internal-auth";
-import { completeNotification } from "@/lib/server/internal";
+import { deliverNotification } from "@/lib/server/telegram";
+
+export const maxDuration = 120;
 
 export async function POST(req: Request) {
   return handle(async () => {
     assertInternalServiceAuth(req);
-    return completeNotification(z.object({ notificationId: z.string().uuid(), delivered: z.boolean() }).parse(await req.json()));
+    const { notificationId } = z.object({ notificationId: z.string().uuid() }).parse(await req.json());
+    return deliverNotification(notificationId);
   });
 }

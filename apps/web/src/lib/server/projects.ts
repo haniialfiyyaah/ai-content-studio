@@ -82,7 +82,9 @@ export async function startProject(input: {
     ]);
   }
 
-  const run = await queueGeneration(input.ownerId, project.id, "project_setup", input.contentCount ?? 4, !input.deferGeneration);
+  const run = await queueGeneration(input.ownerId, project.id, "project_setup", input.contentCount ?? 4, !input.deferGeneration, {
+    channel: input.channel ?? "web",
+  });
   await logActivity(db, {
     ownerId: input.ownerId,
     projectId: project.id,
@@ -95,9 +97,10 @@ export async function startProject(input: {
 export async function queueGeneration(
   ownerId: string,
   projectId: string,
-  kind: "project_setup" | "ideation",
+  kind: "project_setup" | "ideation" | "revision",
   contentCount: number,
   dispatch = true,
+  extra: { feedback?: string; targetIds?: string[]; channel?: "web" | "telegram" } = {},
 ) {
   const { data: run, error } = await admin()
     .from("generation_runs")
@@ -107,6 +110,9 @@ export async function queueGeneration(
       kind,
       content_count: Math.min(Math.max(contentCount, 1), 12),
       stage: "queued",
+      feedback: extra.feedback ?? null,
+      target_ids: extra.targetIds ?? [],
+      channel: extra.channel ?? "web",
     })
     .select("id")
     .single();
@@ -169,10 +175,42 @@ export async function retryGeneration(ownerId: string, projectId: string) {
   return queueGeneration(ownerId, projectId, "project_setup", 4);
 }
 
-export async function generateMore(ownerId: string, projectId: string, count: number) {
+export async function generateMore(ownerId: string, projectId: string, count: number, channel: "web" | "telegram" = "web") {
   const project = await loadOwnedProject(ownerId, projectId);
   if (project.status === "generating") throw conflict("The project is still generating");
-  return queueGeneration(ownerId, projectId, "ideation", count);
+  return queueGeneration(ownerId, projectId, "ideation", count, true, { channel });
+}
+
+/**
+ * AI revision: rewrites selected contents from natural-language feedback
+ * (e.g. "make #2 funnier"). `#n` numbers pick contents by list position;
+ * without numbers every unpublished content is revised. Revised contents go
+ * back to draft with fresh options — the user never types into fields.
+ */
+export async function reviseContents(ownerId: string, projectId: string, feedback: string, channel: "web" | "telegram" = "web") {
+  const project = await loadOwnedProject(ownerId, projectId);
+  if (project.status === "generating") throw conflict("The project is still generating");
+  const db = admin();
+  const { data: rows } = await db
+    .from("contents")
+    .select("id, position")
+    .eq("project_id", projectId)
+    .neq("status", "archived")
+    .order("position");
+  const list = rows ?? [];
+  const { data: published } = await db.from("publish_jobs").select("content_id").eq("project_id", projectId).eq("status", "published");
+  const locked = new Set((published ?? []).map((j) => j.content_id));
+  const numbers = [...feedback.matchAll(/#\s*(\d{1,2})/g)].map((m) => Number(m[1]) - 1);
+  const picked = (numbers.length ? numbers.map((n) => list[n]).filter(Boolean) : list).filter((c) => !locked.has(c!.id));
+  if (!picked.length) throw new AppError(ErrorCodes.VALIDATION_ERROR, "No matching content to revise (published content can't change)", 400);
+  const targetIds = [...new Set(picked.map((c) => c!.id))].slice(0, 8);
+  const run = await queueGeneration(ownerId, projectId, "revision", targetIds.length, true, {
+    feedback: feedback.trim().slice(0, 1500),
+    targetIds,
+    channel,
+  });
+  await logActivity(db, { ownerId, projectId, kind: "revision.requested", message: `Revision requested for ${targetIds.length} content` });
+  return { runId: run.id, revising: targetIds.length, positions: targetIds.map((id) => list.findIndex((c) => c.id === id) + 1) };
 }
 
 // ---------------------------------------------------------------------------

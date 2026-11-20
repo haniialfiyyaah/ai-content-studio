@@ -326,8 +326,9 @@ export async function rendererCallback(input: { renderId: string; ok: boolean; e
     ownerId: render.owner_id,
     projectId: render.project_id,
     template: "render.ready",
-    text: `🎬 Video ready: "${title}". Download it in Studio — it uploads to YouTube only if the project is scheduled and active.`,
-    path: `/videos?render=${render.id}`,
+    text: `🎬 Video ready: "${title}"`,
+    path: `/projects/${render.project_id}?tab=videos`,
+    renderId: render.id,
   });
   return { ok: true };
 }

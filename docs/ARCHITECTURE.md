@@ -64,3 +64,14 @@ OpenAI runs on n8n's OpenAI credential (currently n8n gateway credits; swap to t
    word-by-word captions, progress bar), uploads the MP4 and calls `/api/internal/renders/callback`.
 5. Any approved content can be rendered on demand (`POST /api/contents/:id/render`) and downloaded
    (`GET /api/renders/:id/download`); YouTube upload still requires schedule + activation.
+
+## Telegram flow
+
+WF-A2 forwards every update (messages + button taps) to `/api/internal/telegram/update`; the app's
+bot (`lib/server/telegram.ts`) replies through the Bot API (`TELEGRAM_BOT_TOKEN`). WF-06 delivers queued
+notifications through `/api/internal/notifications/deliver` (text, content cards with buttons, or the MP4).
+
+Loop: idea → project cards (#n, hook, script) → ✅ Approve all (starts rendering) or ✏️ edit in plain
+language (`generation_runs.kind = revision`, AI rewrites only the referenced `#n`) → schedule presets /
+"just send me the videos" → MP4 delivered in chat → 🚀 Activate (YouTube). Commands: `/new`, `/projects`,
+`/render`, `/schedule`, `/edit`, `/help`. Conversation state lives in `telegram_links.state`.
