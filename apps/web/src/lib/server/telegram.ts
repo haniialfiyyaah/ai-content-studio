@@ -36,7 +36,7 @@ import { appUrl } from "./session";
  *   nd:<project>  download only        id:<project>:on|off recurring ideas
  *   ac:<project>  activate             rn:<content> render one
  *   rr:<content>  re-render            ok:<render>  looks good
- *   ra:<project>  render all approved
+ *   ra:<project>  render all approved   sp:<project>  schedule presets
  */
 const admin = () => createAdminClient();
 
@@ -184,7 +184,7 @@ export async function deliverNotification(notificationId: string) {
     };
     if (!pl.chatId) return { skip: true, reason: "no chat id" };
     if (pl.renderId) {
-      const { data: r } = await db.from("video_renders").select("id, content_id, storage_path").eq("id", pl.renderId).single();
+      const { data: r } = await db.from("video_renders").select("id, content_id, storage_path, project_id").eq("id", pl.renderId).single();
       const url = await signedVideoUrl(r?.storage_path ?? null, 3600);
       if (!url || !r) return { skip: true, reason: "video missing" };
       act(pl.chatId, "upload_video");
@@ -192,8 +192,22 @@ export async function deliverNotification(notificationId: string) {
       const { data: c } = await db.from("contents").select("options, selection").eq("id", r.content_id).single();
       const fileName = `${resolveContent(c?.options, c?.selection).title.replace(/[^\w\- ]+/g, "").trim().slice(0, 60) || "video"}.mp4`;
       const direct = await signedVideoUrl(r.storage_path, 7 * 24 * 3600, fileName);
+      // Publishing button reflects where this video stands.
+      const [{ data: job }, { data: proj }] = await Promise.all([
+        db.from("publish_jobs").select("status, scheduled_for, external_url").eq("content_id", r.content_id).maybeSingle(),
+        db.from("projects").select("id, schedule").eq("id", r.project_id).single(),
+      ]);
+      const tz = (proj?.schedule as { timezone?: string } | null)?.timezone ?? "Asia/Jakarta";
+      const when = (iso: string) =>
+        new Intl.DateTimeFormat("en-GB", { timeZone: tz, weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }).format(new Date(iso));
+      const publishBtn: TgButton =
+        job?.status === "published" && job.external_url
+          ? { text: "▶️ On YouTube", url: job.external_url }
+          : job?.status === "scheduled" || job?.status === "publishing"
+            ? { text: `📅 Uploads ${when(job.scheduled_for)}`, data: `ok:${r.id}` }
+            : { text: "📅 Schedule publishing", data: `sp:${r.project_id}` };
       sayVideo(pl.chatId, url, esc(pl.text ?? "Your video is ready"), [
-        [{ text: "👍 Looks good", data: `ok:${r.id}` }, { text: "🔁 Re-render", data: `rr:${r.content_id}` }],
+        [publishBtn, { text: "🔁 Re-render", data: `rr:${r.content_id}` }],
         [{ text: "⬇️ Download MP4", url: direct ?? url }, { text: "🔗 Details", url: `${appUrl()}/videos/${r.id}` }],
       ]);
     } else if (pl.cards && n.project_id) {
@@ -494,6 +508,11 @@ async function onCallback(link: Link, chatId: number, callbackId: string, data: 
       return offerActivation(owner, chatId, project.id, `📅 Publishing ${describeSchedule({ days: preset.days, time: preset.time })} (${tz}).`);
     }
 
+    case "sp":
+      await tgAnswerSafe(callbackId);
+      await askAutomation(chatId, project.id);
+      return { ok: true };
+
     case "nd":
       answer(callbackId, "No publishing");
       say(chatId, "📥 Got it — no publishing. Videos arrive here as they finish; you can schedule later with /schedule.", [
@@ -532,6 +551,10 @@ async function onCallback(link: Link, chatId: number, callbackId: string, data: 
   }
   answer(callbackId);
   return { ok: false, unknown: code };
+}
+
+async function tgAnswerSafe(callbackId: string) {
+  answer(callbackId);
 }
 
 async function offerActivation(owner: string, chatId: number, projectId: string, intro: string) {
