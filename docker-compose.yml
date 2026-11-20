@@ -18,7 +18,7 @@ services:
       - ACS_API_BASE_URL=${ACS_API_BASE_URL:-http://host.docker.internal:3000}
       # Must match apps/web ACS_INTERNAL_SERVICE_TOKEN. Recreate after changes:
       #   docker-compose up -d --force-recreate n8n
-      - ACS_INTERNAL_SERVICE_TOKEN=${ACS_INTERNAL_SERVICE_TOKEN:-local-internal-token-change-me}
+      - ACS_INTERNAL_SERVICE_TOKEN=${ACS_INTERNAL_SERVICE_TOKEN:?set ACS_INTERNAL_SERVICE_TOKEN in .env}
     volumes:
       - n8n_data:/home/node/.n8n
       - ./n8n/workflows:/workflows:ro
