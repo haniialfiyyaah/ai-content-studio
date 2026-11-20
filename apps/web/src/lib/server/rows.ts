@@ -26,6 +26,7 @@ export interface ProjectRow {
   ideation_enabled: boolean;
   visual_mode: "ai" | "ai_with_references" | "references";
   image_engine?: "openai" | "fal";
+  ending?: unknown;
   ideation_every_days: number;
   next_ideation_at: string | null;
   activated_at: string | null;

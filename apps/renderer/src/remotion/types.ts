@@ -41,7 +41,24 @@ export interface ShortProps extends Record<string, unknown> {
   musicUrl?: string | null;
   /** Shown on the end card, e.g. project title or channel handle. */
   handle?: string;
+  /** End screen of the last (cta) beat. */
+  endCard?: EndCard;
   format?: string;
+}
+
+export type EndCardCta = "follow" | "subscribe" | "comment" | "save" | "link" | "visit";
+export interface EndCard {
+  /** Channel name / @handle. */
+  handle: string;
+  cta: EndCardCta;
+  /** Button text, e.g. FOLLOW / SUBSCRIBE / LINK IN BIO. */
+  button: string;
+  /** Website shown for "visit". */
+  link?: string;
+  /** The recurring character (round avatar). */
+  avatarUrl?: string | null;
+  /** Series teaser: title of the next episode. */
+  next?: string;
 }
 
 export const FPS = 30;
@@ -56,6 +73,7 @@ export const defaultProps: ShortProps = {
   hook: "Your schema is lying to you.",
   accent: "#e8735a",
   handle: "Code by Hani",
+  endCard: { handle: "@codebyhani", cta: "follow", button: "FOLLOW", avatarUrl: null, next: "oneOf in real APIs" },
   format: "explainer",
   narrationUrl: null,
   musicUrl: null,

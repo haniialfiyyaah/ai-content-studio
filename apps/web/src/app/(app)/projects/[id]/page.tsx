@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ArrowRight, Check, Clock, Pause, Play, Square } from "lucide-react";
-import { OPTION_FIELDS, describeSchedule, resolveContent } from "@acs/domain";
+import { OPTION_FIELDS, describeSchedule, parseEnding, resolveContent } from "@acs/domain";
 import { OptionPicker } from "@/components/content/option-picker";
 import { RenderControls } from "@/components/content/render-controls";
 import { AssetsPanel } from "@/components/project/assets-panel";
@@ -8,6 +8,7 @@ import { AgentPanel } from "@/components/project/agent-panel";
 import { AgentActions } from "@/components/project/agent-actions";
 import { ReviewFlow } from "@/components/content/review-flow";
 import { AutomationForm } from "@/components/project/automation-form";
+import { EndingForm } from "@/components/project/ending-form";
 import { GeneratingView } from "@/components/project/generating-view";
 import { ScheduleForm } from "@/components/project/schedule-form";
 import { WorkspaceFrame } from "@/components/project/workspace-frame";
@@ -369,6 +370,10 @@ export default async function ProjectPage({
                   <div key={a.title} className="listrow"><div><div className="small semibold">{a.title}</div><div className="xs muted">{a.why}</div></div></div>
                 )) : <p className="small muted">No research notes for this project.</p>}
                 <div className="note" style={{ marginTop: 14 }}>Ask the agent on the left to adjust tone or direction — it can draft new ideas in this style.</div>
+              </div>
+              <div className="card pad" style={{ gridColumn: "1 / -1" }}>
+                <div className="section"><div><h2>Ending</h2><p>How every Short ends — the last beat of the script and the end screen of the video.</p></div></div>
+                <EndingForm projectId={p.id} initial={parseEnding(p.ending)} editable={editable} />
               </div>
             </div>
           )}

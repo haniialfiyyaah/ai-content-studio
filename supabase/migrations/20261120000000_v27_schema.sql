@@ -463,3 +463,6 @@ alter table public.contents
   add column if not exists storyboard_status text not null default 'none' check (storyboard_status in ('none','generating','ready','failed')),
   add column if not exists storyboard_key text,
   add column if not exists storyboard_started_at timestamptz;
+
+-- How every Short ends: CTA type/text, @handle, website, series teaser.
+alter table public.projects add column if not exists ending jsonb not null default '{"cta":"follow","series":true}'::jsonb;

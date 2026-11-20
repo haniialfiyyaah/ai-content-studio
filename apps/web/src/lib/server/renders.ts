@@ -1,5 +1,5 @@
 import "server-only";
-import { AppError, ErrorCodes, notFound, resolveContent, type Scene } from "@acs/domain";
+import { AppError, CTA_LABELS, ErrorCodes, notFound, parseEnding, resolveContent, type Scene } from "@acs/domain";
 import {
   FAL_IMAGE_FALLBACK_MODEL,
   evenCaptions,
@@ -329,7 +329,7 @@ async function dispatchToRenderer(render: LoadedRender) {
   const db = admin();
   const [{ data: content }, { data: project }] = await Promise.all([
     db.from("contents").select("*").eq("id", render.content_id).single(),
-    db.from("projects").select("cover_tone, title").eq("id", render.project_id).single(),
+    db.from("projects").select("id, cover_tone, title, ending").eq("id", render.project_id).single(),
   ]);
   const c = content as ContentRow;
   const picked = resolveContent(c.options, c.selection);
@@ -377,6 +377,29 @@ async function dispatchToRenderer(render: LoadedRender) {
     ? (await db.storage.from(BUCKET).createSignedUrl(render.narration_path, 6 * 3600)).data?.signedUrl ?? null
     : null;
 
+  // End screen: @handle, CTA button, character avatar and (series) the next episode's title.
+  const ending = parseEnding(project?.ending);
+  const [{ data: identity }, { data: siblings }] = await Promise.all([
+    db.from("project_assets").select("storage_path").eq("project_id", render.project_id).eq("label", IDENTITY_LABEL).limit(1).maybeSingle(),
+    ending.series
+      ? db.from("contents").select("id, options, selection, position").eq("project_id", render.project_id).neq("status", "archived").order("position")
+      : Promise.resolve({ data: [] as { id: string; options: ContentRow["options"]; selection: ContentRow["selection"]; position: number }[] }),
+  ]);
+  const idx = (siblings ?? []).findIndex((x) => x.id === c.id);
+  const nextRow = idx >= 0 ? (siblings ?? [])[idx + 1] : undefined;
+  const endCard = {
+    handle: ending.handle || project?.title || "",
+    cta: ending.cta,
+    button: CTA_LABELS[ending.cta].button,
+    link: ending.cta === "visit" ? ending.link : "",
+    avatarUrl: identity?.storage_path ? await signedRef(identity.storage_path) : null,
+    // Series: the last beat's headline is the AI's teaser; fall back to the next content's title.
+    next: ending.series
+      ? ((scenes.at(-1)?.layout === "cta" && scenes.at(-1)?.headline) || (nextRow ? resolveContent(nextRow.options, nextRow.selection).title : ""))
+          .replace(/^(next( episode)?|up next|berikutnya|selanjutnya)\s*[:\-–]\s*/i, "")
+      : "",
+  };
+
   const path = `${render.owner_id}/${render.id}/video.mp4`;
   const { data: upload, error } = await db.storage.from(BUCKET).createSignedUploadUrl(path, { upsert: true });
   if (error || !upload) throw new AppError(ErrorCodes.INTERNAL_ERROR, "Could not prepare video upload", 500);
@@ -396,7 +419,8 @@ async function dispatchToRenderer(render: LoadedRender) {
         narrationUrl,
         words: render.captions,
         musicUrl: process.env.MUSIC_URL?.trim() || null,
-        handle: project?.title ?? "",
+        handle: endCard.handle,
+        endCard,
         format: (c as ContentRow & { format?: string }).format ?? "explainer",
       },
     }),

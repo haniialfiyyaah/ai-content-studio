@@ -10,7 +10,7 @@ import {
   useCurrentFrame,
   useVideoConfig,
 } from "remotion";
-import { FPS, TRANSITION_FRAMES, type CaptionWord, type ShortProps, type ShortScene } from "./types";
+import { FPS, TRANSITION_FRAMES, type CaptionWord, type EndCard, type EndCardCta, type ShortProps, type ShortScene } from "./types";
 
 // Content-video template v2 — spec: .claude/skills/content-video/SKILL.md
 const FONT = '"Noto Sans", "Inter", system-ui, sans-serif';
@@ -390,24 +390,83 @@ function LabelLayout({ text, accent }: { text: string; accent: string }) {
   );
 }
 
-function CtaLayout({ headline, handle, accent }: { headline: string; handle?: string; accent: string }) {
-  const frame = useCurrentFrame();
-  const s = useIn(0, 11);
-  const bounce = Math.sin(frame / 4) * 12;
+const ICONS: Record<EndCardCta, string> = {
+  follow: "M12 5v14M5 12h14",
+  subscribe: "M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.94 1.94 0 0 0 3.4 0",
+  comment: "M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z",
+  save: "M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z",
+  link: "M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71",
+  visit: "M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zM2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z",
+};
+
+function Icon({ path, size = 44, color = "#fff" }: { path: string; size?: number; color?: string }) {
   return (
-    <AbsoluteFill style={{ background: "rgba(10,8,20,.62)" }}>
-      <Zone top={SAFE_TOP + 260}>
-        {handle ? <div style={{ fontFamily: FONT, fontWeight: 800, fontSize: 46, color: "rgba(255,255,255,.85)", marginBottom: 18, opacity: s }}>{handle}</div> : null}
-        <div style={{ fontFamily: FONT, fontWeight: 900, fontSize: 96, lineHeight: 1.05, color: "#fff", textAlign: "center", transform: `scale(${0.8 + s * 0.2})` }}>{headline || "Follow for more"}</div>
-        <div style={{ marginTop: 36, background: accent, color: "#fff", fontFamily: FONT, fontWeight: 900, fontSize: 50, padding: "20px 46px", borderRadius: 999, transform: `translateY(${bounce}px)`, boxShadow: `0 18px 50px ${accent}88` }}>
-          FOLLOW ＋
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2.6} strokeLinecap="round" strokeLinejoin="round">
+      <path d={path} />
+    </svg>
+  );
+}
+
+/**
+ * End screen: character avatar, series teaser ("NEXT EPISODE"), the CTA headline,
+ * @handle and an animated button that gets "tapped" (Follow → Following ✓).
+ */
+function CtaLayout({ headline, handle, accent, duration, endCard }: { headline: string; handle?: string; accent: string; duration: number; endCard?: EndCard }) {
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+  const pop = (delay: number) => spring({ frame: frame - delay, fps, config: { damping: 13, stiffness: 140 } });
+  const card = endCard ?? { handle: handle ?? "", cta: "follow" as EndCardCta, button: "FOLLOW" };
+  const tapAt = Math.max(22, Math.round(duration * 0.62));
+  const tapped = frame >= tapAt && (card.cta === "follow" || card.cta === "subscribe");
+  const press = interpolate(frame, [tapAt - 4, tapAt, tapAt + 6], [1, 0.9, 1], clamp);
+  const bounce = tapped ? 0 : Math.sin(frame / 5) * 8;
+  const fingerIn = interpolate(frame, [tapAt - 16, tapAt - 2], [0, 1], { ...clamp, easing: ease });
+  const fingerOut = interpolate(frame, [tapAt + 4, tapAt + 14], [1, 0], clamp);
+  const label = tapped ? (card.cta === "subscribe" ? "SUBSCRIBED" : "FOLLOWING") : card.button;
+  const avatar = pop(0);
+  return (
+    <AbsoluteFill style={{ background: "linear-gradient(180deg, rgba(10,8,20,.35) 0%, rgba(10,8,20,.78) 45%, rgba(10,8,20,.9) 100%)" }}>
+      <Zone top={SAFE_TOP + 70}>
+        {card.avatarUrl ? (
+          <div style={{ width: 300, height: 300, borderRadius: "50%", overflow: "hidden", border: `10px solid ${accent}`, boxShadow: `0 20px 60px ${accent}66`, transform: `scale(${avatar})`, background: "#fff" }}>
+            <Img src={card.avatarUrl} style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "50% 18%", transform: "scale(1.35)" }} />
+          </div>
+        ) : null}
+        {card.handle ? (
+          <div style={{ marginTop: 26, fontFamily: FONT, fontWeight: 850, fontSize: 50, color: "#fff", opacity: pop(5), letterSpacing: -0.5 }}>{card.handle}</div>
+        ) : null}
+        {card.next ? (
+          <div style={{ marginTop: 44, opacity: pop(9), transform: `translateY(${(1 - pop(9)) * 30}px)`, display: "flex", flexDirection: "column", alignItems: "center" }}>
+            <div style={{ fontFamily: FONT, fontWeight: 900, fontSize: 30, letterSpacing: 6, color: accent, background: "#fff", padding: "8px 22px", borderRadius: 10 }}>NEXT EPISODE</div>
+            <div style={{ marginTop: 18, fontFamily: FONT, fontWeight: 900, fontSize: 70, lineHeight: 1.08, color: "#fff", textAlign: "center", maxWidth: 900 }}>{card.next}</div>
+          </div>
+        ) : (
+          <div style={{ marginTop: 40, fontFamily: FONT, fontWeight: 900, fontSize: 88, lineHeight: 1.05, color: "#fff", textAlign: "center", maxWidth: 920, transform: `scale(${0.85 + pop(8) * 0.15})`, opacity: pop(8) }}>
+            {headline || "Follow for more"}
+          </div>
+        )}
+        <div style={{ position: "relative", marginTop: 50, transform: `translateY(${bounce}px) scale(${press * (0.7 + pop(14) * 0.3)})`, opacity: pop(14) }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 18, background: tapped ? "#fff" : accent, color: tapped ? accent : "#fff", fontFamily: FONT, fontWeight: 900, fontSize: 52, padding: "22px 50px", borderRadius: 999, boxShadow: `0 18px 50px ${accent}88` }}>
+            <Icon path={tapped ? "M5 13l4 4L19 7" : ICONS[card.cta]} color={tapped ? accent : "#fff"} />
+            {label}
+          </div>
+          {(card.cta === "follow" || card.cta === "subscribe") && fingerIn > 0 && fingerOut > 0 ? (
+            <div style={{ position: "absolute", right: -30, bottom: -70, opacity: fingerIn * fingerOut, transform: `translate(${(1 - fingerIn) * 80}px, ${(1 - fingerIn) * 80}px)` }}>
+              <svg width="96" height="96" viewBox="0 0 24 24" fill="#fff" stroke="#1b1630" strokeWidth={1.2}>
+                <path d="M9 11V5.5a1.5 1.5 0 0 1 3 0V11l.5-1.5a1.5 1.5 0 0 1 3 .5v1a1.5 1.5 0 0 1 3 0v4.5a6 6 0 0 1-6 6h-1a6 6 0 0 1-5-2.7L4 15a1.6 1.6 0 0 1 2.4-2L9 15z" />
+              </svg>
+            </div>
+          ) : null}
         </div>
+        {card.cta === "visit" && card.link ? (
+          <div style={{ marginTop: 26, fontFamily: FONT, fontWeight: 800, fontSize: 42, color: "rgba(255,255,255,.9)", opacity: pop(18) }}>{card.link}</div>
+        ) : null}
       </Zone>
     </AbsoluteFill>
   );
 }
 
-function Foreground({ scene, accent, duration, handle }: { scene: ShortScene; accent: string; duration: number; handle?: string }) {
+function Foreground({ scene, accent, duration, handle, endCard }: { scene: ShortScene; accent: string; duration: number; handle?: string; endCard?: EndCard }) {
   const layout = scene.layout ?? "image";
   const headline = scene.headline || scene.onScreenText || "";
   switch (layout) {
@@ -428,7 +487,7 @@ function Foreground({ scene, accent, duration, handle }: { scene: ShortScene; ac
     case "product":
       return <ProductLayout points={scene.points ?? []} headline={scene.headline} accent={accent} />;
     case "cta":
-      return <CtaLayout headline={headline} handle={handle} accent={accent} />;
+      return <CtaLayout headline={headline} handle={handle} accent={accent} duration={duration} endCard={endCard} />;
     default:
       return <LabelLayout text={headline} accent={accent} />;
   }
@@ -520,7 +579,7 @@ export function Short(props: ShortProps) {
           <Sequence key={i} from={from} durationInFrames={duration} name={`Beat ${i + 1} · ${scene.layout ?? "image"}`}>
             <Entrance transition={scene.transition} first={i === 0}>
               <Background scene={scene} index={i} duration={duration} accent={props.accent} />
-              <Foreground scene={scene} accent={props.accent} duration={ranges[i].duration} handle={props.handle} />
+              <Foreground scene={scene} accent={props.accent} duration={ranges[i].duration + (i === props.scenes.length - 1 ? 30 : 0)} handle={props.handle} endCard={props.endCard} />
             </Entrance>
           </Sequence>
         );

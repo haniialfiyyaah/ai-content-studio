@@ -38,6 +38,9 @@ skill decides *what* the video should be.
 A content has `format` and 7–11 **beats** (≈ 2–4 s each; the render keeps up to 12). Arc: hook → promise →
 value beats → **payoff** (second-to-last beat delivers what the hook promised) → **CTA** (specific, loops back to
 the hook). About 3 of 4 beats use `background: "ai"`; `design` only for code / compare / stat, never twice in a row.
+Ending settings (project → Creative Kit → Ending: CTA type, exact words, @handle, website, series) are passed
+to the writer/editor as `endingBrief`; with series on, each CTA teases the next item. The cta beat renders as an
+end screen: character avatar, @handle, "NEXT EPISODE" teaser and an animated button (Follow → Following ✓).
 Narration is written in the Creative Kit narrator voice (persona, style, signature phrases); WF-01 runs an
 **editor pass** that checks hook, payoff, CTA, voice and consistency before saving. Scene images are drawn when
 content is approved (storyboard) and the render reuses them. Every beat:

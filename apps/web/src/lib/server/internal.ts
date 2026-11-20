@@ -5,8 +5,7 @@ import {
   GenerationCompleteSchema,
   conflict,
   notFound,
-  resolveContent,
-} from "@acs/domain";
+  resolveContent, endingBrief } from "@acs/domain";
 import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logActivity, notifyTelegram, postAssistantMessage } from "./events";
@@ -75,6 +74,7 @@ export async function generationContext(runId: string) {
     prompt: p.prompt,
     title: p.title,
     creativeKit: p.creative_kit,
+    endingBrief: endingBrief((p as ProjectRow & { ending?: unknown }).ending, p.title),
     existingTitles,
     visualMode: p.visual_mode,
     references,

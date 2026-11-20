@@ -10,7 +10,7 @@ import {
   notFound,
   readiness,
   type OptionField,
-  type Schedule, inferContentCount } from "@acs/domain";
+  type Schedule, inferContentCount, type Ending } from "@acs/domain";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { dispatchToN8n } from "./dispatch";
 import { queueStoryboards } from "./storyboard";
@@ -326,6 +326,14 @@ export async function approveAll(ownerId: string, projectId: string) {
   // Active project: newly approved ideas join the schedule immediately.
   if (project.status === "active" && count) await scheduleAndQueue(project);
   return { approved: count };
+}
+
+export async function saveEnding(ownerId: string, projectId: string, ending: Ending) {
+  await loadOwnedProject(ownerId, projectId);
+  const db = admin();
+  await db.from("projects").update({ ending }).eq("id", projectId);
+  await logActivity(db, { ownerId, projectId, kind: "ending.updated", message: "Ending settings updated" });
+  return { ending };
 }
 
 // ---------------------------------------------------------------------------

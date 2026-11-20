@@ -138,3 +138,51 @@ export const VISUAL_MODE_LABELS: Record<VisualMode, string> = {
   ai_with_references: "AI + my references",
   references: "Use my images",
 };
+
+// ---------------------------------------------------------------------------
+// Ending: how every Short ends (call to action, handle, series teaser).
+// ---------------------------------------------------------------------------
+export const CTA_TYPES = ["follow", "subscribe", "comment", "save", "link", "visit"] as const;
+export type CtaType = (typeof CTA_TYPES)[number];
+export const CTA_LABELS: Record<CtaType, { label: string; button: string; example: string }> = {
+  follow: { label: "Follow for more", button: "FOLLOW", example: "Follow — part 2 drops tomorrow" },
+  subscribe: { label: "Subscribe", button: "SUBSCRIBE", example: "Subscribe so you don't miss the next one" },
+  comment: { label: "Comment", button: "COMMENT", example: "Comment your city and I'll rate it" },
+  save: { label: "Save this", button: "SAVE", example: "Save this for your next exam" },
+  link: { label: "Link in bio", button: "LINK IN BIO", example: "Full recipe — link in bio" },
+  visit: { label: "Visit website", button: "VISIT", example: "Get it at shop.example.com" },
+};
+
+export const EndingSchema = z.object({
+  /** Channel name or @handle shown on the end screen and used in the CTA. */
+  handle: z.string().trim().max(40).default(""),
+  cta: z.enum(CTA_TYPES).default("follow"),
+  /** Optional exact call to action the creator wants (overrides the default style). */
+  ctaText: z.string().trim().max(120).default(""),
+  /** Website for "visit" (shown on the end screen). */
+  link: z.string().trim().max(120).default(""),
+  /** Each video teases the next one in the project. */
+  series: z.boolean().default(true),
+});
+export type Ending = z.infer<typeof EndingSchema>;
+
+export function parseEnding(raw: unknown): Ending {
+  const r = EndingSchema.safeParse(raw ?? {});
+  return r.success ? r.data : EndingSchema.parse({});
+}
+
+/** Instructions for the writer/editor so every script ends the creator's way. */
+export function endingBrief(raw: unknown, fallbackHandle = ""): string {
+  const e = parseEnding(raw);
+  const handle = e.handle || fallbackHandle;
+  const lines = [
+    "ENDING (the creator's settings — the last beat must follow them):",
+    `- Call to action: ${CTA_LABELS[e.cta].label}${e.ctaText ? ` — say it like: "${e.ctaText}"` : ` (e.g. "${CTA_LABELS[e.cta].example}")`}.`,
+    handle ? `- Mention the channel naturally as ${handle} in the CTA narration or headline.` : "",
+    e.cta === "visit" && e.link ? `- The website is ${e.link}; say it simply.` : "",
+    e.series
+      ? "- SERIES: each item's CTA teases the NEXT item in this batch by its concrete topic (item 1 teases item 2, …; the last item teases a natural next episode not in this batch), e.g. \"Next: the 3-ingredient sauce — follow so you don't miss it\". The cta beat headline should be the teaser (<= 5 words)."
+      : "- The cta beat headline is the call to action itself (<= 5 words).",
+  ];
+  return lines.filter(Boolean).join("\n");
+}
