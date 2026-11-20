@@ -96,5 +96,5 @@ Shared `projectTone(id)` (0–3) and `.project-tile[data-tone]`. Library cards u
 ## Open follow-ups
 
 - Capture desktop and mobile screenshots into `.impeccable/review/` and run the finish review.
-- Align or retire `/agent` (`agent-chat.tsx`); home is now the conversation.
-- Content Detail and remaining secondary screens inherit tokens but still use earlier layouts.
+- ~~Align or retire `/agent`~~ — done (2026-11-20): `/agent` now redirects to `/`; `agent-chat.tsx` removed. Home is the only conversation surface.
+- Content Detail and remaining secondary screens inherit tokens correctly (verified against `.app-page`/`.studio-panel` definitions in `globals.css`) but still use earlier, plainer layouts than the Studio home.

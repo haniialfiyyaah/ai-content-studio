@@ -6,6 +6,7 @@ import {
   createDraftProject,
   createKitVersion,
   getLatestKit,
+  queueTelegramNotification,
 } from "@acs/domain";
 import { z } from "zod";
 import { jsonError, jsonOk } from "@/lib/api/response";
@@ -171,6 +172,19 @@ export async function POST(request: Request) {
         .from("agent_conversations")
         .update({ project_id: projectId })
         .eq("id", run.conversation_id);
+    }
+
+    // The shared agent spans web + Telegram — if this owner has an active
+    // Telegram link, deliver the reply there too (WF-06 sends it; Telegram
+    // triggers never wait on the agent run directly).
+    if (assistantMessage && body.status !== "partial") {
+      await queueTelegramNotification(supabase, {
+        ownerId: run.owner_id,
+        projectId,
+        template: "agent_reply",
+        previewText: assistantMessage.slice(0, 400),
+        deepLinkPath: projectId ? `/projects/${projectId}` : "/",
+      });
     }
 
     return jsonOk(

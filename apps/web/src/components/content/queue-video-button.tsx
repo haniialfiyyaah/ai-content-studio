@@ -6,8 +6,17 @@ import { Button } from "@/components/ui/button";
 
 type ProductionMode = "fal" | "remotion" | "hybrid";
 
+const MODE_NOTES: Record<ProductionMode, string> = {
+  fal: "Submits to fal.ai and polls until the render is ready — works unattended, no browser tab needed.",
+  remotion:
+    "Parks the job at “awaiting browser render” until someone opens Content → Production and runs the browser export. Not suitable for unattended / Telegram-only review.",
+  hybrid:
+    "Not available headlessly yet — WF-02 will fail this job immediately. Use Content → Production → Browser video export with “include footage and narration” instead.",
+};
+
 /**
  * Enqueues paid video production for WF-02 — returns immediately (no browser wait).
+ * Only `fal` can actually finish without a browser tab open; see MODE_NOTES.
  */
 export function QueueVideoButton({
   conceptVersionId,
@@ -70,8 +79,8 @@ export function QueueVideoButton({
       <div>
         <p className="text-sm font-medium">Queue video (n8n WF-02)</p>
         <p className="mt-1 text-xs text-muted">
-          Enqueues a job and returns immediately. Prefer this for Telegram /
-          async review — no long browser wait.
+          Enqueues a job and returns immediately. Only fal.ai completes
+          unattended today — see the note below once you pick a mode.
         </p>
       </div>
       <label className="flex flex-col gap-1 text-sm">
@@ -84,11 +93,12 @@ export function QueueVideoButton({
             setMode(event.target.value as ProductionMode)
           }
         >
-          <option value="fal">fal.ai (async / preferred for chat)</option>
-          <option value="remotion">Remotion (worker / browser backend)</option>
-          <option value="hybrid">Hybrid</option>
+          <option value="fal">fal.ai (unattended — recommended for Telegram)</option>
+          <option value="remotion">Remotion (requires an open browser tab)</option>
+          <option value="hybrid">Hybrid (not implemented headlessly)</option>
         </select>
       </label>
+      <p className="text-xs text-muted">{MODE_NOTES[mode]}</p>
       <Button
         type="button"
         disabled={!canProduce || pending}

@@ -2,6 +2,14 @@
   "name": "WF-06 Notifications",
   "nodes": [
     {
+      "id": "1403082a-648d-451f-ace5-0c22018da9a1",
+      "name": "06-01 Poll notification work",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        400
+      ],
       "parameters": {
         "rule": {
           "interval": [
@@ -11,26 +19,26 @@
             }
           ]
         }
-      },
-      "id": "wf06-01-schedule",
-      "name": "06-01 Poll notification work",
-      "type": "n8n-nodes-base.scheduleTrigger",
-      "typeVersion": 1.2,
-      "position": [
-        0,
-        0
-      ]
+      }
     },
     {
+      "id": "35c3377c-88bd-42a7-897e-172f9bf3c21f",
+      "name": "06-02 Claim notifications",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        224,
+        400
+      ],
       "parameters": {
         "method": "POST",
-        "url": "={{$vars.ACS_API_BASE_URL}}/api/internal/automation/claim-due",
+        "url": "={{ $vars.ACS_API_BASE_URL }}/api/internal/automation/claim-due",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
             {
               "name": "x-acs-service-token",
-              "value": "={{$vars.ACS_INTERNAL_SERVICE_TOKEN}}"
+              "value": "={{ $vars.ACS_INTERNAL_SERVICE_TOKEN }}"
             },
             {
               "name": "Content-Type",
@@ -39,22 +47,23 @@
           ]
         },
         "sendBody": true,
+        "contentType": "json",
         "specifyBody": "json",
-        "jsonBody": "={\n  \"kind\": \"notifications\",\n  \"limit\": 20\n}",
+        "jsonBody": "={ \"kind\": \"notifications\", \"limit\": 20 }",
         "options": {
           "timeout": 30000
         }
-      },
-      "id": "wf06-02-claim",
-      "name": "06-02 Claim notifications",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        260,
-        0
-      ]
+      }
     },
     {
+      "id": "0976b8a5-96cb-4e96-a5f9-8a75d86de19e",
+      "name": "06-03 Has notifications?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        448,
+        400
+      ],
       "parameters": {
         "conditions": {
           "options": {
@@ -65,7 +74,7 @@
           "conditions": [
             {
               "id": "has-items",
-              "leftValue": "={{ ($json.data?.notifications || $json.notifications || []).length }}",
+              "leftValue": "={{ ($json.data?.notifications || $json.data?.jobs || $json.notifications || $json.jobs || []).length }}",
               "rightValue": 0,
               "operator": {
                 "type": "number",
@@ -74,19 +83,18 @@
             }
           ],
           "combinator": "and"
-        },
-        "options": {}
-      },
-      "id": "wf06-03-if-due",
-      "name": "06-03 Has notifications?",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2.2,
-      "position": [
-        520,
-        0
-      ]
+        }
+      }
     },
     {
+      "id": "3736bd53-8c16-4595-8766-055a9d5ad784",
+      "name": "06-04 Template message",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        672,
+        304
+      ],
       "parameters": {
         "mode": "manual",
         "duplicateItem": false,
@@ -95,65 +103,76 @@
             {
               "id": "notificationId",
               "name": "notificationId",
-              "value": "={{ ($json.data?.notifications || $json.notifications || [])[0]?.notificationId || ($json.data?.notifications || $json.notifications || [])[0]?.id || '' }}",
+              "value": "={{ ($json.data?.notifications || $json.data?.jobs || $json.notifications || $json.jobs || [])[0]?.notificationId || ($json.data?.notifications || $json.data?.jobs || [])[0]?.id || '' }}",
               "type": "string"
             },
             {
               "id": "channel",
               "name": "channel",
-              "value": "={{ ($json.data?.notifications || $json.notifications || [])[0]?.channel || 'in_app' }}",
+              "value": "={{ ($json.data?.notifications || $json.data?.jobs || [])[0]?.channel || 'in_app' }}",
               "type": "string"
             },
             {
               "id": "eventType",
               "name": "eventType",
-              "value": "={{ ($json.data?.notifications || $json.notifications || [])[0]?.eventType || '' }}",
-              "type": "string"
-            },
-            {
-              "id": "recipientId",
-              "name": "recipientId",
-              "value": "={{ ($json.data?.notifications || $json.notifications || [])[0]?.recipientId || '' }}",
+              "value": "={{ ($json.data?.notifications || $json.data?.jobs || [])[0]?.eventType || ($json.data?.notifications || $json.data?.jobs || [])[0]?.template || '' }}",
               "type": "string"
             },
             {
               "id": "deliveryAllowed",
               "name": "deliveryAllowed",
-              "value": "={{ ($json.data?.notifications || $json.notifications || [])[0]?.deliveryAllowed ?? true }}",
+              "value": "={{ ($json.data?.notifications || $json.data?.jobs || [])[0]?.deliveryAllowed ?? true }}",
               "type": "boolean"
             },
             {
               "id": "previewText",
               "name": "previewText",
-              "value": "={{ ($json.data?.notifications || $json.notifications || [])[0]?.previewText || ($json.data?.notifications || $json.notifications || [])[0]?.message || '' }}",
+              "value": "={{ ($json.data?.notifications || $json.data?.jobs || [])[0]?.previewText || '' }}",
               "type": "string"
             },
             {
               "id": "deepLink",
               "name": "deepLink",
-              "value": "={{ ($json.data?.notifications || $json.notifications || [])[0]?.deepLink || '' }}",
+              "value": "={{ ($json.data?.notifications || $json.data?.jobs || [])[0]?.deepLink || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "chatId",
+              "name": "chatId",
+              "value": "={{ ($json.data?.notifications || $json.data?.jobs || [])[0]?.chatId || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "attemptId",
+              "name": "attemptId",
+              "value": "={{ ($json.data?.notifications || $json.data?.jobs || [])[0]?.attemptId || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "jobIdVideo",
+              "name": "jobIdVideo",
+              "value": "={{ ($json.data?.notifications || $json.data?.jobs || [])[0]?.jobIdVideo || '' }}",
               "type": "string"
             },
             {
               "id": "correlationId",
               "name": "correlationId",
-              "value": "={{ ($json.data?.notifications || $json.notifications || [])[0]?.correlationId || '' }}",
+              "value": "={{ ($json.data?.notifications || $json.data?.jobs || [])[0]?.correlationId || '' }}",
               "type": "string"
             }
           ]
-        },
-        "options": {}
-      },
-      "id": "wf06-04-pick",
-      "name": "06-04 Template message",
-      "type": "n8n-nodes-base.set",
-      "typeVersion": 3.4,
-      "position": [
-        780,
-        0
-      ]
+        }
+      }
     },
     {
+      "id": "70f9084c-13b8-456c-9dd8-ac9b1302f8f5",
+      "name": "06-05 Delivery allowed?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        896,
+        304
+      ],
       "parameters": {
         "conditions": {
           "options": {
@@ -174,23 +193,24 @@
             }
           ],
           "combinator": "and"
-        },
-        "options": {}
-      },
-      "id": "wf06-05-if-allowed",
-      "name": "06-05 Delivery allowed?",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2.2,
-      "position": [
-        1040,
-        0
-      ]
+        }
+      }
     },
     {
+      "id": "00832029-64bd-4721-94b2-ddfd37075c68",
+      "name": "06-06 Channel switch",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        1120,
+        80
+      ],
       "parameters": {
         "rules": {
           "values": [
             {
+              "outputKey": "telegram",
+              "renameOutput": true,
               "conditions": {
                 "options": {
                   "caseSensitive": true,
@@ -208,11 +228,11 @@
                   }
                 ],
                 "combinator": "and"
-              },
-              "renameOutput": true,
-              "outputKey": "telegram"
+              }
             },
             {
+              "outputKey": "email",
+              "renameOutput": true,
               "conditions": {
                 "options": {
                   "caseSensitive": true,
@@ -230,68 +250,114 @@
                   }
                 ],
                 "combinator": "and"
-              },
-              "renameOutput": true,
-              "outputKey": "email"
+              }
             }
           ]
         },
         "options": {
           "fallbackOutput": "extra"
         }
-      },
-      "id": "wf06-06-channel-switch",
-      "name": "06-06 Channel switch",
-      "type": "n8n-nodes-base.switch",
-      "typeVersion": 3.2,
-      "position": [
-        1300,
-        -40
-      ]
+      }
     },
     {
+      "id": "3c253e3a-c025-44c8-87eb-67af05e8b3da",
+      "name": "06-07a Has chat id?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1232,
+        -112
+      ],
       "parameters": {
-        "method": "POST",
-        "url": "={{$vars.ACS_API_BASE_URL}}/api/internal/jobs/progress",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
             {
-              "name": "x-acs-service-token",
-              "value": "={{$vars.ACS_INTERNAL_SERVICE_TOKEN}}"
-            },
+              "id": "has-chat",
+              "leftValue": "={{ $json.chatId }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEquals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "b26ddd63-747a-4c58-a340-827ca5278b8b",
+      "name": "06-07 Deliver telegram",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1344,
+        0
+      ],
+      "parameters": {
+        "resource": "message",
+        "operation": "sendMessage",
+        "chatId": "={{ $json.chatId }}",
+        "text": "=Your video is ready for review.\n\n{{ $json.deepLink }}",
+        "replyMarkup": "inlineKeyboard",
+        "inlineKeyboard": {
+          "rows": [
             {
-              "name": "Content-Type",
-              "value": "application/json"
+              "row": {
+                "buttons": [
+                  {
+                    "text": "Approve",
+                    "additionalFields": {
+                      "callback_data": "=a:{{ $json.attemptId }}"
+                    }
+                  },
+                  {
+                    "text": "Refine",
+                    "additionalFields": {
+                      "callback_data": "=r:{{ $json.jobIdVideo }}"
+                    }
+                  }
+                ]
+              }
             }
           ]
         },
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={\n  \"jobId\": \"{{ $json.notificationId }}\",\n  \"kind\": \"notification\",\n  \"channel\": \"telegram\",\n  \"stage\": \"deliver\",\n  \"previewText\": {{ JSON.stringify(($json.previewText || '').toString().slice(0, 400)) }},\n  \"deepLink\": \"{{ $json.deepLink }}\",\n  \"correlationId\": \"{{ $json.correlationId }}\"\n}",
-        "options": {
-          "timeout": 30000
+        "additionalFields": {
+          "appendAttribution": false
         }
       },
-      "id": "wf06-07-telegram",
-      "name": "06-07 Deliver telegram",
+      "webhookId": "7d0db33a-e8e0-454e-a86d-1a620cc33487",
+      "credentials": {
+        "telegramApi": {
+          "id": "REPLACE_ME",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "id": "e688565c-f7e7-4db9-8304-8655b4b1a789",
+      "name": "06-07b No chat id",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        1560,
-        -200
-      ]
-    },
-    {
+        1456,
+        -160
+      ],
       "parameters": {
         "method": "POST",
-        "url": "={{$vars.ACS_API_BASE_URL}}/api/internal/jobs/progress",
+        "url": "={{ $vars.ACS_API_BASE_URL }}/api/internal/notifications/complete",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
             {
               "name": "x-acs-service-token",
-              "value": "={{$vars.ACS_INTERNAL_SERVICE_TOKEN}}"
+              "value": "={{ $vars.ACS_INTERNAL_SERVICE_TOKEN }}"
             },
             {
               "name": "Content-Type",
@@ -300,31 +366,32 @@
           ]
         },
         "sendBody": true,
+        "contentType": "json",
         "specifyBody": "json",
-        "jsonBody": "={\n  \"jobId\": \"{{ $json.notificationId }}\",\n  \"kind\": \"notification\",\n  \"channel\": \"email\",\n  \"stage\": \"deliver\",\n  \"previewText\": {{ JSON.stringify(($json.previewText || '').toString().slice(0, 400)) }},\n  \"deepLink\": \"{{ $json.deepLink }}\",\n  \"correlationId\": \"{{ $json.correlationId }}\"\n}",
+        "jsonBody": "={ \"notificationId\": \"{{ $('06-04 Template message').item.json.notificationId }}\", \"state\": \"failed\", \"correlationId\": \"{{ $('06-04 Template message').item.json.correlationId }}\" }",
         "options": {
           "timeout": 30000
         }
-      },
-      "id": "wf06-08-email",
+      }
+    },
+    {
+      "id": "fc0b0163-0dc2-4b14-85e6-a28dcf4bd521",
       "name": "06-08 Deliver email",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        1560,
-        -40
-      ]
-    },
-    {
+        1344,
+        192
+      ],
       "parameters": {
         "method": "POST",
-        "url": "={{$vars.ACS_API_BASE_URL}}/api/internal/jobs/progress",
+        "url": "={{ $vars.ACS_API_BASE_URL }}/api/internal/jobs/progress",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
             {
               "name": "x-acs-service-token",
-              "value": "={{$vars.ACS_INTERNAL_SERVICE_TOKEN}}"
+              "value": "={{ $vars.ACS_INTERNAL_SERVICE_TOKEN }}"
             },
             {
               "name": "Content-Type",
@@ -333,31 +400,32 @@
           ]
         },
         "sendBody": true,
+        "contentType": "json",
         "specifyBody": "json",
-        "jsonBody": "={\n  \"jobId\": \"{{ $json.notificationId }}\",\n  \"kind\": \"notification\",\n  \"channel\": \"in_app\",\n  \"stage\": \"deliver\",\n  \"previewText\": {{ JSON.stringify(($json.previewText || '').toString().slice(0, 400)) }},\n  \"deepLink\": \"{{ $json.deepLink }}\",\n  \"correlationId\": \"{{ $json.correlationId }}\"\n}",
+        "jsonBody": "={ \"jobId\": \"{{ $json.notificationId }}\", \"kind\": \"notification\", \"channel\": \"email\", \"stage\": \"deliver\", \"previewText\": {{ JSON.stringify(($json.previewText || '').toString().slice(0, 400)) }}, \"deepLink\": \"{{ $json.deepLink }}\", \"correlationId\": \"{{ $json.correlationId }}\" }",
         "options": {
           "timeout": 30000
         }
-      },
-      "id": "wf06-09-inapp",
+      }
+    },
+    {
+      "id": "68839938-7b63-4dc0-9a8c-60c01f1261f3",
       "name": "06-09 Deliver in-app",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        1560,
-        120
-      ]
-    },
-    {
+        1344,
+        384
+      ],
       "parameters": {
         "method": "POST",
-        "url": "={{$vars.ACS_API_BASE_URL}}/api/internal/jobs/complete",
+        "url": "={{ $vars.ACS_API_BASE_URL }}/api/internal/jobs/progress",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
             {
               "name": "x-acs-service-token",
-              "value": "={{$vars.ACS_INTERNAL_SERVICE_TOKEN}}"
+              "value": "={{ $vars.ACS_INTERNAL_SERVICE_TOKEN }}"
             },
             {
               "name": "Content-Type",
@@ -366,31 +434,32 @@
           ]
         },
         "sendBody": true,
+        "contentType": "json",
         "specifyBody": "json",
-        "jsonBody": "={\n  \"jobId\": \"{{ $('06-04 Template message').item.json.notificationId }}\",\n  \"kind\": \"notification\",\n  \"channel\": \"{{ $('06-04 Template message').item.json.channel }}\",\n  \"state\": \"delivered\",\n  \"providerMessageId\": \"{{ $json.data?.providerMessageId || $json.providerMessageId || '' }}\",\n  \"correlationId\": \"{{ $('06-04 Template message').item.json.correlationId }}\"\n}",
+        "jsonBody": "={ \"jobId\": \"{{ $json.notificationId }}\", \"kind\": \"notification\", \"channel\": \"in_app\", \"stage\": \"deliver\", \"previewText\": {{ JSON.stringify(($json.previewText || '').toString().slice(0, 400)) }}, \"deepLink\": \"{{ $json.deepLink }}\", \"correlationId\": \"{{ $json.correlationId }}\" }",
         "options": {
           "timeout": 30000
         }
-      },
-      "id": "wf06-10-complete",
+      }
+    },
+    {
+      "id": "34cf8143-b7a2-490f-bf93-2651401fafca",
       "name": "06-10 Mark result",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        1820,
-        -40
-      ]
-    },
-    {
+        1568,
+        192
+      ],
       "parameters": {
         "method": "POST",
-        "url": "={{$vars.ACS_API_BASE_URL}}/api/internal/jobs/complete",
+        "url": "={{ $vars.ACS_API_BASE_URL }}/api/internal/notifications/complete",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
             {
               "name": "x-acs-service-token",
-              "value": "={{$vars.ACS_INTERNAL_SERVICE_TOKEN}}"
+              "value": "={{ $vars.ACS_INTERNAL_SERVICE_TOKEN }}"
             },
             {
               "name": "Content-Type",
@@ -399,22 +468,57 @@
           ]
         },
         "sendBody": true,
+        "contentType": "json",
         "specifyBody": "json",
-        "jsonBody": "={\n  \"jobId\": \"{{ $('06-04 Template message').item.json.notificationId }}\",\n  \"kind\": \"notification\",\n  \"state\": \"suppressed\",\n  \"message\": \"Delivery deferred or suppressed by preference/quiet hours\",\n  \"correlationId\": \"{{ $('06-04 Template message').item.json.correlationId }}\"\n}",
+        "jsonBody": "={\n  \"notificationId\": \"{{ $('06-04 Template message').item.json.notificationId }}\",\n  \"state\": \"delivered\",\n  \"providerMessageId\": \"{{ $json.result?.message_id || $json.message_id || '' }}\",\n  \"correlationId\": \"{{ $('06-04 Template message').item.json.correlationId }}\"\n}",
         "options": {
           "timeout": 30000
         }
-      },
-      "id": "wf06-11-suppress",
+      }
+    },
+    {
+      "id": "9ef5c69f-53b3-46da-b121-e165236efeb8",
       "name": "06-11 Mark suppressed",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        1300,
-        200
-      ]
+        1120,
+        304
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $vars.ACS_API_BASE_URL }}/api/internal/notifications/complete",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-acs-service-token",
+              "value": "={{ $vars.ACS_INTERNAL_SERVICE_TOKEN }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"notificationId\": \"{{ $('06-04 Template message').item.json.notificationId }}\",\n  \"state\": \"cancelled\",\n  \"correlationId\": \"{{ $('06-04 Template message').item.json.correlationId }}\"\n}",
+        "options": {
+          "timeout": 30000
+        }
+      }
     },
     {
+      "id": "dfd49d4b-510e-431d-a756-1d6ce229a6a9",
+      "name": "06-12 Idle finish",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        672,
+        496
+      ],
       "parameters": {
         "mode": "manual",
         "duplicateItem": false,
@@ -433,17 +537,8 @@
               "type": "string"
             }
           ]
-        },
-        "options": {}
-      },
-      "id": "wf06-12-idle",
-      "name": "06-12 Idle finish",
-      "type": "n8n-nodes-base.set",
-      "typeVersion": 3.4,
-      "position": [
-        780,
-        200
-      ]
+        }
+      }
     }
   ],
   "connections": {
@@ -520,7 +615,7 @@
       "main": [
         [
           {
-            "node": "06-07 Deliver telegram",
+            "node": "06-07a Has chat id?",
             "type": "main",
             "index": 0
           }
@@ -535,17 +630,6 @@
         [
           {
             "node": "06-09 Deliver in-app",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "06-07 Deliver telegram": {
-      "main": [
-        [
-          {
-            "node": "06-10 Mark result",
             "type": "main",
             "index": 0
           }
@@ -568,6 +652,35 @@
         [
           {
             "node": "06-10 Mark result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "06-07 Deliver telegram": {
+      "main": [
+        [
+          {
+            "node": "06-10 Mark result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "06-07a Has chat id?": {
+      "main": [
+        [
+          {
+            "node": "06-07 Deliver telegram",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "06-07b No chat id",
             "type": "main",
             "index": 0
           }

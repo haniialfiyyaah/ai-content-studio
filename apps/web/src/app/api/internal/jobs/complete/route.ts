@@ -39,7 +39,9 @@ export async function POST(request: Request) {
         ? body.providerRequestId
         : undefined;
 
-    // Soft-ack when remotion is still awaiting browser MP4.
+    // Soft-ack when no verified output exists yet — never fake success for
+    // any production mode (remotion awaiting browser, or fal/hybrid still
+    // mid-poll). The caller should retry once a real asset is persisted.
     if (!body.outputAssetId) {
       const { data: job } = await supabase
         .from("video_jobs")
@@ -47,16 +49,18 @@ export async function POST(request: Request) {
         .eq("id", body.jobId)
         .maybeSingle();
 
-      if (job?.production_mode === "remotion") {
+      if (job) {
+        const awaitingBrowser = job.production_mode === "remotion";
         return jsonOk(
           {
             kind: "video" as const,
             completed: false,
-            awaitingBrowser: true,
+            awaitingBrowser,
             claim: AWAITING_BROWSER_RENDER,
             jobId: body.jobId,
-            message:
-              "Remotion browser render pending — not marking ready_for_review without MP4.",
+            message: awaitingBrowser
+              ? "Remotion browser render pending — not marking ready_for_review without MP4."
+              : `${job.production_mode} render pending — not marking ready_for_review without a verified output asset.`,
           },
           body.correlationId ?? correlationId,
         );

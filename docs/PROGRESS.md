@@ -61,15 +61,51 @@ Unit tests: 19 passed (`@acs/domain` 15 + `@acs/integrations` 4).
 | Browser-closed jobs | Interrupt API marks failed — no auto-resume without a user tab |
 | fal + ElevenLabs in composition | Adapters exist; not mixed into ShortFormVideo timeline yet |
 | Headless n8n-only MP4 | Requires Sandbox (or legacy worker); browser backend returns `awaitingBrowser` |
+| Hybrid headless | No compositor exists server-side; WF-02 now fails it explicitly (`HYBRID_HEADLESS_NOT_IMPLEMENTED`) instead of the old fake `ready_for_review` — fixed 2026-11-20, use browser export's "include footage and narration" instead |
+
+## Generate-video-flow correctness fix (2026-11-20)
+
+The fal and hybrid branches of WF-02 could previously reach `ready_for_review`
+with **no output asset at all** — fal submit is async (`queued`/`in_progress`)
+but WF-02 never polled it, and `completeVideoJob`'s "don't fake success" guard
+only covered `production_mode === "remotion"`. A creator could approve a
+"finished" video that was never rendered.
+
+Fixed:
+- `completeVideoJob` (`packages/domain/src/services/videos.ts`) now requires a
+  verified `outputAssetId` for **every** production mode, not just remotion.
+- `/api/internal/media/fal` persists a real `media_assets` row (downloads the
+  provider's output URL server-side) whenever a submit/poll call reports
+  `status: "completed"`, and returns `outputAssetId` directly.
+- WF-02 now loops submit → poll (bounded at 24 × 5s) until `outputAssetId` is
+  present before calling `jobs/complete`; hybrid fails immediately and
+  honestly since no headless compositor exists.
+- `QueueVideoButton` copy no longer implies Remotion/Hybrid work unattended —
+  only fal does today.
+
+## Video queue safety net (2026-11-20)
+
+Video production previously depended on one fire-and-forget webhook call; a
+lost call (or any regenerate, which never dispatched) left jobs `queued`
+forever. Now (ADR-013):
+- `dispatchVideoProduction` (`apps/web/src/lib/n8n/`) wakes WF-02 via `after()`
+  from both render and regenerate.
+- `claim-due` `kind: "video_jobs"` → `listStaleQueuedVideoJobs` (queued 2 min–24 h).
+- **WF-02S Video Queue Sweeper** (cloud id `fOYSmnb1rKkzn9KY`) dispatches those
+  into WF-02 every 2 min. **Publish it after the app deploy** — before that,
+  the live API rejects the new kind.
+- WF-02: webhook acks on receipt, sub-workflow entry, lost claim = no-op,
+  Remotion branch no longer double-completes. `failVideoJob` won't overwrite
+  finished jobs.
 
 ## Blockers
 
 | Item | Notes |
 |---|---|
-| Provider keys | Live OpenAI/fal/ElevenLabs/Telegram/YouTube not supplied (adapters ready; fixture-tested) |
+| Provider keys | Live OpenAI/fal/ElevenLabs/YouTube not supplied (adapters ready; fixture-tested). Telegram bot token obtained 2026-11-20 and applied as the n8n `Telegram account` credential. |
 | Playwright Chromium | Install aborted — re-run `pnpm exec playwright install chromium` |
 | Supabase Cloud | Auth + M4 job→storage **Verified**; Mailtrap SMTP optional for signup emails |
-| n8n | Cloud account now has WF-A1, WF-A3, published WF-04 Error Handling, SUB Progress Reporter, and SUB Scoped Domain Tool. A1, A3, the progress reporter, and the domain tool point at WF-04. Still only in the repo: WF-01, WF-02, WF-03, WF-05, WF-06, WF-07, WF-08, WF-A2. Webhook URL remains empty. |
+| n8n | `N8N_WEBHOOK_BASE_URL`/`N8N_BASE_URL` point at `codebyhani.app.n8n.cloud`. All 13 workflows (WF-01…08, WF-A1/A2/A3, SUB Progress Reporter, SUB Scoped Domain Tool) are on the instance and published, using `$vars` and the shared `Telegram account` credential. 2026-11-20: WF-02 fal poll loop + honest hybrid failure published via the n8n MCP connector; WF-06 telegram missing-chatId guard published. The cloud copies of WF-06/WF-A2 had been edited directly (inline Approve/Refine keyboard, `notifications/complete`, Telegram acks) and were ahead of the repo — repo JSON re-synced from the live versions. Treat the instance as source of truth for these and re-export after any direct edit. |
 | Browser WebCodecs | Chrome 94+ / Firefox 130+ / Safari 26+ required for in-browser MP4 |
 
 ## Decisions

@@ -27,11 +27,11 @@ Status vocabulary:
 | Activate ≠ paid render ≠ publish | **Verified** | Activate succeeded without auto-render; render needs grant |
 | Creator authorizes spend from the UI | **Implemented** | `AuthorizeSpendButton` on the Studio home decision card and Content → Production posts a `produce_paid_media` grant ($5, 30 days) after an explicit confirm. Not yet clicked through live. |
 | Consent gates visible per concept | **Implemented** | `deriveConsentTrack` (Concept, Spend, Video, Publish) from persisted rows; shown on the Studio home and Content Detail. Home confirmed by screenshot; Content Detail and mobile not yet. |
-| Video Remotion / fal / Hybrid | **Partial** | Browser Remotion + media prepare **Implemented** (fal LTX + ElevenLabs Flash into composition; fixture CORS samples). Storage upload smoke **Verified**. Chrome encode manual. WF-02 voice→`/api/internal/media/elevenlabs`, fal→`fal-ai/ltx-video`. Sandbox unattended **Not started** |
+| Video Remotion / fal / Hybrid | **Partial** | Browser Remotion + media prepare **Implemented** (fal LTX + ElevenLabs Flash into composition; fixture CORS samples). Storage upload smoke **Verified**. Chrome encode manual. WF-02 voice→`/api/internal/media/elevenlabs`, fal→`fal-ai/ltx-video` with real poll-until-complete + persisted asset (2026-11-20) — `completeVideoJob` now refuses `ready_for_review` for **every** mode without a verified `outputAssetId`, not just remotion. Hybrid headless has no compositor — WF-02 fails it explicitly instead of faking completion; browser export's "include footage and narration" toggle is the only working hybrid-equivalent path today. Sandbox unattended **Not started** |
 | Publishing calendar + schedule form | **Implemented** | UI + `publishing_jobs` API; live OAuth **Blocked** |
 | BYOK no silent managed fallback | **Verified** | Unit policy + fixture BYOK execute decrypt; invalid/missing key → `BYOK_KEY_INVALID` |
-| Telegram continuity | **Partial** | WF-A2 JSON + resolve-actor stub; bot **Blocked** |
-| n8n all 11 workflows | **Partial** | Repo still has all 13 JSON files. Cloud account: WF-A1, WF-A3, published WF-04, SUB Progress Reporter, SUB Scoped Domain Tool. WF-01, WF-02, WF-03, WF-05, WF-06, WF-07, WF-08, and WF-A2 are not on the account yet. |
+| Telegram continuity | **Partial** | WF-A2 rewired (2026-11-20) to call the previously-unused `/api/internal/telegram/intake` → launch WF-A1, replacing a `jobs/claim(kind:"agent_run")` call that always returned `not_claimable` (Telegram messages never reached the agent at all). WF-06 now sends real Telegram messages via `n8n-nodes-base.telegram` instead of just pinging a progress endpoint and marking itself "delivered". Still **Blocked**: bot token known to this session but not yet applied as an n8n credential (needs `n8n-mcp`/claude.ai n8n MCP auth — pending), and the workflows are not yet pushed to the cloud instance. |
+| n8n all 11 workflows | **Implemented** | All 13 repo workflows are on the cloud account and published; WF-02S (queue sweeper) added 2026-11-20, unpublished pending app deploy. |
 
 ## Functional requirements (selected)
 
@@ -57,14 +57,15 @@ Status vocabulary:
 | ID | Status |
 |---|---|
 | WF-A1 Web Agent Gateway | **Verified** (fixture E2E) |
-| WF-A2 Telegram Gateway | JSON **Implemented**; credentials **Blocked** |
+| WF-A2 Telegram Gateway | JSON **Implemented** — now routes through intake → WF-A1 instead of a dead claim path (2026-11-20); Telegram credential **Blocked** |
 | WF-A3 Shared Creative Agent | **Verified** (sub-workflow via A1; fixture AI) |
 | WF-01 Ideation | JSON **Implemented** |
-| WF-02 Video Production | JSON **Implemented** |
+| WF-02 Video Production | **Published** on cloud — fal branch polls to real completion and persists an asset before claiming done; hybrid fails honestly; webhook acks on receipt; lost claim is a no-op (2026-11-20) |
+| WF-02S Video Queue Sweeper | **Implemented**, on cloud **unpublished** until the app with `claim-due` `video_jobs` is deployed — every 2 min re-dispatches `queued` jobs the webhook missed (ADR-013) |
 | WF-03 Publishing | JSON **Implemented** |
 | WF-04 Error / Recovery | JSON **Implemented** |
 | WF-05 Research | JSON **Implemented** |
-| WF-06 Notifications | JSON **Implemented** |
+| WF-06 Notifications | JSON **Implemented** — Telegram channel now sends via a real `n8n-nodes-base.telegram` node (2026-11-20); email/in-app remain progress-only stubs |
 | WF-07 Analytics | JSON **Implemented** (Phase 4 lean) |
 | WF-08 Reconciliation | JSON **Implemented** |
 

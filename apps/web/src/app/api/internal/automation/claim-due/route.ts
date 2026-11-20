@@ -1,4 +1,4 @@
-import { AppError, ErrorCodes } from "@acs/domain";
+import { AppError, ErrorCodes, listStaleQueuedVideoJobs } from "@acs/domain";
 import { z } from "zod";
 import { jsonError, jsonOk } from "@/lib/api/response";
 import { assertInternalServiceAuth } from "@/lib/internal-auth";
@@ -12,6 +12,7 @@ const ClaimDueSchema = z.object({
     "analytics",
     "reconciliation",
     "research",
+    "video_jobs",
   ]),
   limit: z.number().int().positive().max(50).default(10),
   correlationId: z.string().optional(),
@@ -142,6 +143,16 @@ export async function POST(request: Request) {
           notifications,
           jobs: notifications,
         },
+        body.correlationId ?? correlationId,
+      );
+    }
+
+    if (body.kind === "video_jobs") {
+      // WF-02S safety net: queued jobs the webhook fast path never claimed.
+      // Read-only; WF-02's jobs/claim does the atomic queued→preparing CAS.
+      const jobs = await listStaleQueuedVideoJobs(supabase, { limit });
+      return jsonOk(
+        { kind: body.kind, jobs },
         body.correlationId ?? correlationId,
       );
     }

@@ -60,3 +60,21 @@
 - **Date:** 2026-11-20
 - **Decision:** Default fal model `fal-ai/ltx-video` (~$0.02/video advisory) for cost-sensitive demos; quality alt `minimax/h3-max-turbo/text-to-video` (~$0.094/5s). Default ElevenLabs model `eleven_flash_v2_5`. Fixture mode uses Remotion CORS sample media so browser composition works without paid calls. Live spend requires explicit fixture flags off + keys + user authorization.
 - **Why:** Capstone demo needs real composition wiring without forcing paid generation during development.
+
+## ADR-011: Completion guard is mode-agnostic; hybrid fails honestly
+
+- **Date:** 2026-11-20
+- **Decision:** `completeVideoJob` refuses `ready_for_review` without a verified `outputAssetId` for **every** `production_mode`, not only `remotion`. WF-02's fal branch now submits then polls (bounded, 24 × 5s) until the provider reports completion, downloads the output, and persists a real `media_assets` row via `/api/internal/media/fal` before calling `jobs/complete`. The hybrid branch, which has no server-side compositor, now calls `jobs/fail` with `HYBRID_HEADLESS_NOT_IMPLEMENTED` instead of faking progress into `ready_for_review`.
+- **Why:** fal.ai is asynchronous; WF-02 was calling `jobs/complete` immediately after `submit` with no asset, and the existing "don't fake success" guard only checked for `remotion`. Fal/hybrid jobs could reach `ready_for_review` — and be approved — with no rendered video at all.
+
+## ADR-012: Telegram agent routes through existing intake, not a dead claim path
+
+- **Date:** 2026-11-20
+- **Decision:** WF-A2 now calls `/api/internal/telegram/intake` (dedupes the Telegram update, creates/reuses the conversation, appends the message, starts the planning run) and then launches **WF-A1** (not WF-A3 directly) as a sub-workflow with the resulting `{runId, conversationId, messageId, correlationId, ownerId}` — mirroring exactly what `/api/agent/messages` does for the web surface. WF-06's Telegram delivery node is now a real `n8n-nodes-base.telegram` `sendMessage` call using the notification's `chatId`, instead of a call to `/api/internal/jobs/progress` that only pretended to deliver.
+- **Why:** WF-A2 previously called `/api/internal/jobs/claim` with `kind: "agent_run"`, a kind `jobs/claim` never handles (it only recognizes `"video"` and returns `not_claimable` for anything else) — so the "claim acquired?" branch was always false and Telegram messages from linked users never reached the agent at all. `/api/internal/telegram/intake` already existed, fully implemented, and was simply never wired into any workflow.
+
+## ADR-013: Video production = durable queue row + webhook fast path + scheduled sweeper
+
+- **Date:** 2026-11-20
+- **Decision:** The `video_jobs` row (`status = queued`) is the source of truth. Render and regenerate wake WF-02 immediately via `dispatchVideoProduction` (`next/server` `after()`, 10s timeout) as a latency optimisation only. **WF-02S Video Queue Sweeper** runs every 2 minutes, asks `claim-due` (`kind: "video_jobs"`) for jobs still `queued` 2 min–24 h after their last update, and starts WF-02 once per job (Execute Workflow, `mode: each`, no wait). WF-02's `jobs/claim` (`queued → preparing` compare-and-set) guarantees a job runs once even when the webhook and sweeper race. WF-02 now acks the webhook on receipt; a non-acquired claim is a no-op. `failVideoJob` refuses to overwrite `ready_for_review`/`cancelled`/`failed`. The Remotion branch ends at `render/remotion`, which already completes or parks the job.
+- **Why:** Dispatch was a single fire-and-forget `void fetch` (can be cut off on Vercel); nothing consumed `outbox_events`, no scheduler claimed `queued` video jobs, and regenerate never dispatched at all — a lost call left jobs `queued` forever. The old "claim not acquired → `jobs/fail`" branch would also have let a losing duplicate fail the winner's running job. The 24 h ceiling stops a backlog of old paid jobs from starting unexpectedly.

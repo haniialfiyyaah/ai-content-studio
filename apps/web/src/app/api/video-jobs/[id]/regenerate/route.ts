@@ -1,6 +1,7 @@
 import { AppError, ErrorCodes, regenerateVideoJob } from "@acs/domain";
 import { RegenerateVideoJobInputSchema } from "@acs/schemas";
 import { jsonAccepted, jsonError } from "@/lib/api/response";
+import { dispatchVideoProduction } from "@/lib/n8n/dispatch-video-production";
 import { createClient } from "@/lib/supabase/server";
 
 /**
@@ -32,6 +33,16 @@ export async function POST(
       jobId,
       ownerId: user.id,
       reason: body.reason,
+      correlationId,
+    });
+
+    dispatchVideoProduction({
+      jobId: result.job.id,
+      projectId: result.job.projectId,
+      conceptVersionId: result.job.conceptVersionId,
+      productionMode: result.job.productionMode,
+      consentId: result.job.consentId,
+      idempotencyKey: result.job.idempotencyKey,
       correlationId,
     });
 

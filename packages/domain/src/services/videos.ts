@@ -8,6 +8,7 @@ import {
   type VideoJob,
   type VideoJobStatus,
 } from "@acs/schemas";
+import { queueTelegramNotification } from "./notifications";
 
 /** Minimal query surface for video services. */
 export interface VideoDbClient {
@@ -788,22 +789,18 @@ export async function completeVideoJob(
   const job = await reloadJob(supabase, params.jobId);
   const attempt = await loadLatestAttempt(supabase, job.id);
 
-  // Remotion jobs must not be marked ready without a verified output asset.
-  // WF-02 may still call complete after the remotion adapter; browser path
-  // returns early so orchestration does not fake success.
-  if (
-    job.production_mode === "remotion" &&
-    !params.outputAssetId &&
-    !attempt.output_asset_id
-  ) {
+  // No production mode may be marked ready without a verified output asset.
+  // WF-02 must not fake success for fal/hybrid any more than for remotion —
+  // orchestration only acknowledges completion once a real MP4 is persisted.
+  if (!params.outputAssetId && !attempt.output_asset_id) {
     throw new AppError(
       ErrorCodes.VALIDATION_ERROR,
-      "Remotion job cannot complete without a verified outputAssetId (browser or cloud render must upload MP4 first)",
+      `${job.production_mode} job cannot complete without a verified outputAssetId (provider output must be persisted first)`,
       409,
       {
         jobId: job.id,
         productionMode: job.production_mode,
-        awaitingBrowser: true,
+        awaitingBrowser: job.production_mode === "remotion",
       },
     );
   }
@@ -864,42 +861,14 @@ export async function completeVideoJob(
   const completedJob = mapVideoJobRow(updatedJob as VideoJobRow);
 
   // Async notify linked Telegram — WF-06 delivers; chat does not wait on render.
-  const { data: telegramLink } = await supabase
-    .from("telegram_links")
-    .select("id, telegram_chat_id, notifications_enabled")
-    .eq("owner_id", completedJob.ownerId)
-    .is("revoked_at", null)
-    .maybeSingle();
-
-  if (
-    telegramLink &&
-    telegramLink.notifications_enabled !== false &&
-    telegramLink.telegram_chat_id
-  ) {
-    const appUrl = (
-      process.env.ACS_API_BASE_URL ||
-      process.env.NEXT_PUBLIC_APP_URL ||
-      ""
-    ).replace(/\/$/, "");
-    const deepLink = appUrl
-      ? `${appUrl}/videos/${completedAttempt.id}`
-      : `/videos/${completedAttempt.id}`;
-
-    await supabase.from("notifications").insert({
-      owner_id: completedJob.ownerId,
-      project_id: completedJob.projectId,
-      channel: "telegram",
-      template: "video_ready_for_review",
-      payload: {
-        jobId: completedJob.id,
-        attemptId: completedAttempt.id,
-        chatId: telegramLink.telegram_chat_id,
-        previewText: "Your video is ready for review.",
-        deepLink,
-      },
-      delivery_state: "pending",
-    });
-  }
+  await queueTelegramNotification(supabase, {
+    ownerId: completedJob.ownerId,
+    projectId: completedJob.projectId,
+    template: "video_ready_for_review",
+    previewText: "Your video is ready for review.",
+    deepLinkPath: `/videos/${completedAttempt.id}`,
+    payload: { jobId: completedJob.id, attemptId: completedAttempt.id },
+  });
 
   return {
     job: completedJob,
@@ -914,6 +883,83 @@ export interface FailVideoJobParams {
   correlationId?: string;
 }
 
+export interface StaleQueuedVideoJob {
+  jobId: string;
+  projectId: string;
+  conceptVersionId: string;
+  productionMode: string;
+  consentId: string | null;
+  idempotencyKey: string;
+  queuedAt: string;
+}
+
+export interface ListStaleQueuedVideoJobsParams {
+  /** Grace period so the webhook fast path gets first go. Default 2 min. */
+  olderThanMs?: number;
+  /** Never auto-start paid work queued longer ago than this. Default 24 h. */
+  maxAgeMs?: number;
+  limit?: number;
+  now?: Date;
+}
+
+/**
+ * Safety-net sweep for WF-02S: `queued` video jobs the webhook dispatch
+ * never picked up (lost fire-and-forget call, n8n down, regenerate).
+ * Read-only — WF-02's `jobs/claim` performs the atomic queued→preparing
+ * transition, so overlapping sweeps or a racing webhook cannot double-run.
+ */
+export async function listStaleQueuedVideoJobs(
+  supabase: VideoDbClient,
+  params: ListStaleQueuedVideoJobsParams = {},
+): Promise<StaleQueuedVideoJob[]> {
+  const now = params.now ?? new Date();
+  const olderThan = new Date(
+    now.getTime() - (params.olderThanMs ?? 2 * 60 * 1000),
+  ).toISOString();
+  const notBefore = new Date(
+    now.getTime() - (params.maxAgeMs ?? 24 * 60 * 60 * 1000),
+  ).toISOString();
+
+  const { data, error } = await supabase
+    .from("video_jobs")
+    .select(
+      "id, project_id, concept_version_id, production_mode, consent_id, idempotency_key, updated_at",
+    )
+    .eq("status", "queued")
+    .lte("updated_at", olderThan)
+    .gte("updated_at", notBefore)
+    .order("updated_at", { ascending: true })
+    .limit(params.limit ?? 10);
+
+  if (error) {
+    throw new AppError(
+      ErrorCodes.INTERNAL_ERROR,
+      "Failed to list stale queued video jobs",
+      500,
+    );
+  }
+
+  return ((data ?? []) as Array<Record<string, string | null>>).map((row) => ({
+    jobId: row.id as string,
+    projectId: row.project_id as string,
+    conceptVersionId: row.concept_version_id as string,
+    productionMode: row.production_mode as string,
+    consentId: row.consent_id ?? null,
+    idempotencyKey: row.idempotency_key as string,
+    queuedAt: row.updated_at as string,
+  }));
+}
+
+const FAILABLE_VIDEO_JOB_STATUSES: VideoJobStatus[] = [
+  "queued",
+  "preparing",
+  "generating",
+  "rendering",
+  "validating",
+  "reconciling",
+  "blocked",
+];
+
 /** Marks job/attempt failed with worker-supplied error context. */
 export async function failVideoJob(
   supabase: VideoDbClient,
@@ -924,10 +970,22 @@ export async function failVideoJob(
   const now = new Date().toISOString();
   const errorCode = params.category ?? "PROVIDER_FAILED";
 
+  // Only in-flight work can fail. A duplicate or late worker must never
+  // overwrite a finished (ready_for_review) or cancelled job.
+  if (!FAILABLE_VIDEO_JOB_STATUSES.includes(job.status)) {
+    throw new AppError(
+      ErrorCodes.VALIDATION_ERROR,
+      `Video job in status "${job.status}" cannot be marked failed`,
+      409,
+      { correlationId: params.correlationId, status: job.status },
+    );
+  }
+
   const { data: updatedJob, error: jobError } = await supabase
     .from("video_jobs")
     .update({ status: "failed" })
     .eq("id", job.id)
+    .in("status", FAILABLE_VIDEO_JOB_STATUSES)
     .select("*")
     .single();
 
