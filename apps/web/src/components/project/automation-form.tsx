@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { api } from "@/lib/client/api";
+import { Spinner } from "@/components/ui/spinner";
 
 export function AutomationForm({ projectId, enabled, everyDays }: { projectId: string; enabled: boolean; everyDays: number }) {
   const router = useRouter();
@@ -46,6 +47,7 @@ export function AutomationForm({ projectId, enabled, everyDays }: { projectId: s
           {[3, 7, 14, 30].map((d) => <option key={d} value={d}>{d} days</option>)}
         </select>
       </div>
+      {pending && <div className="xs muted row"><Spinner size={12} /> Saving…</div>}
       {error && <div className="err">{error}</div>}
     </div>
   );

@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { api } from "@/lib/client/api";
+import { Spinner } from "@/components/ui/spinner";
 
 function useSave() {
   const router = useRouter();
@@ -40,7 +41,7 @@ export function ProfileForm({ displayName, timezone, email }: { displayName: str
         </div>
       </div>
       <div className="row">
-        <button className="btn primary" disabled={pending} onClick={() => run(() => api("/api/profile", "PATCH", { displayName: name, timezone: tz }), "Saved")}>Save</button>
+        <button className="btn primary" disabled={pending} onClick={() => run(() => api("/api/profile", "PATCH", { displayName: name, timezone: tz }), "Saved")}>{pending ? <><Spinner /> Saving…</> : "Save"}</button>
         {note}
       </div>
     </div>
@@ -63,7 +64,7 @@ export function TelegramForm({ linked, telegramUserId, notificationsEnabled }: {
             onClick={() => run(() => api("/api/integrations/telegram", "PATCH", { notificationsEnabled: !notificationsEnabled }), "Updated")} />
         </div>
         <div className="row">
-          <button className="btn" disabled={pending} onClick={() => run(() => api("/api/integrations/telegram", "DELETE"), "Unlinked")}>Unlink Telegram</button>
+          <button className="btn" disabled={pending} onClick={() => run(() => api("/api/integrations/telegram", "DELETE"), "Unlinked")}>{pending ? <Spinner /> : null} Unlink Telegram</button>
           {note}
         </div>
       </div>
@@ -74,7 +75,7 @@ export function TelegramForm({ linked, telegramUserId, notificationsEnabled }: {
       <div className="note">Message the Studio bot on Telegram — it replies with your numeric user ID. Paste it here, then send the bot an idea to start a project from your phone.</div>
       <div className="field"><label>Telegram user ID</label><input inputMode="numeric" value={id} onChange={(e) => setId(e.target.value.trim())} placeholder="e.g. 9172850538" /></div>
       <div className="row">
-        <button className="btn primary" disabled={pending || !id} onClick={() => run(() => api("/api/integrations/telegram", "POST", { telegramUserId: id }), "Linked")}>Link Telegram</button>
+        <button className="btn primary" disabled={pending || !id} onClick={() => run(() => api("/api/integrations/telegram", "POST", { telegramUserId: id }), "Linked")}>{pending ? <><Spinner /> Linking…</> : "Link Telegram"}</button>
         {note}
       </div>
     </div>

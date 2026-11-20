@@ -7,7 +7,7 @@ import { LiveRefresh } from "@/components/ui/live-refresh";
 import { VideoBox } from "@/components/ui/video-player";
 import { pillClass, timeAgo } from "@/lib/format";
 import type { RenderRow } from "@/lib/server/rows";
-import { signedVideoUrl } from "@/lib/server/renders";
+import { signVideos } from "@/lib/server/queries";
 import { requireUser } from "@/lib/server/session";
 
 export default async function VideosPage() {
@@ -18,7 +18,8 @@ export default async function VideosPage() {
     .order("created_at", { ascending: false })
     .limit(60);
   const rows = (data ?? []) as (RenderRow & { contents: { options: never; selection: never } | null; projects: { title: string } | null })[];
-  const withUrls = await Promise.all(rows.map(async (r) => ({ ...r, url: r.status === "ready" ? await signedVideoUrl(r.storage_path) : null })));
+  const urls = await signVideos(rows.filter((r) => r.status === "ready" && r.storage_path).map((r) => r.storage_path!));
+  const withUrls = rows.map((r) => ({ ...r, url: r.storage_path ? urls.get(r.storage_path) ?? null : null }));
   const counts = (s: string) => rows.filter((r) => r.status === s).length;
 
   return (

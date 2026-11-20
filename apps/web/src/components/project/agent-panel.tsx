@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import { Send, Sparkles, X } from "lucide-react";
 import { api } from "@/lib/client/api";
+import { Spinner } from "@/components/ui/spinner";
 import type { MessageRow } from "@/lib/server/rows";
 
 export function AgentPanel({
@@ -77,7 +78,7 @@ export function AgentPanel({
           />
           <div className="row between">
             <span className="tiny faint">Project-linked conversation</span>
-            <button className="btn primary small" onClick={send} disabled={!draft.trim()} aria-label="Send"><Send size={13} /></button>
+            <button className="btn primary small" onClick={send} disabled={!draft.trim() || busy} aria-label="Send">{busy ? <Spinner size={13} /> : <Send size={13} />}</button>
           </div>
         </div>
         {error && <div className="err">{error}</div>}

@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { WEEKDAYS, type Schedule } from "@acs/domain";
 import { api } from "@/lib/client/api";
+import { Spinner } from "@/components/ui/spinner";
 
 const LABEL: Record<string, string> = { mon: "Mon", tue: "Tue", wed: "Wed", thu: "Thu", fri: "Fri", sat: "Sat", sun: "Sun" };
 
@@ -61,7 +62,7 @@ export function ScheduleForm({ projectId, initial, timezone }: { projectId: stri
         <div className="field"><label>Destination</label><input value="YouTube Shorts" disabled /></div>
       </div>
       <div className="row">
-        <button className="btn primary" onClick={save} disabled={pending || !days.length}>{pending ? "Saving…" : "Save schedule"}</button>
+        <button className="btn primary" onClick={save} disabled={pending || !days.length}>{pending ? <><Spinner /> Saving…</> : "Save schedule"}</button>
         {msg && <span className={msg.ok ? "xs" : "err"} style={msg.ok ? { color: "var(--green)" } : undefined}>{msg.text}</span>}
       </div>
     </div>

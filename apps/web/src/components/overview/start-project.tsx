@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useRef, useState, useTransition } from "react";
 import { ImagePlus, Plus, Send, X } from "lucide-react";
 import { api } from "@/lib/client/api";
+import { Spinner } from "@/components/ui/spinner";
 import { ACCEPT, uploadReference } from "@/lib/client/upload";
 
 const QUICK = [
@@ -80,7 +81,7 @@ export function StartProject() {
             </select>
           </label>
           <button className="btn primary" disabled={pending || !prompt.trim()} onClick={submit}>
-            <Send size={14} /> {pending ? status ?? "Starting…" : "Send"}
+            {pending ? <Spinner /> : <Send size={14} />} {pending ? status ?? "Creating project…" : "Send"}
           </button>
         </div>
       </div>

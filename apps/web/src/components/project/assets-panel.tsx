@@ -6,6 +6,7 @@ import { ImagePlus, Trash2 } from "lucide-react";
 import { VISUAL_MODES, VISUAL_MODE_LABELS, type VisualMode } from "@acs/domain";
 import { api } from "@/lib/client/api";
 import { ACCEPT, uploadReference } from "@/lib/client/upload";
+import { Spinner } from "@/components/ui/spinner";
 
 const MODE_HELP: Record<VisualMode, string> = {
   ai: "Every scene image is generated in the Creative Kit's art style (OpenAI images, fal as backup; otherwise your references or a styled background).",
@@ -69,7 +70,7 @@ export function AssetsPanel({
           {editable && (
             <>
               <input ref={input} type="file" accept={ACCEPT} multiple hidden onChange={(e) => { upload(e.target.files); e.target.value = ""; }} />
-              <button className="btn primary" disabled={pending} onClick={() => input.current?.click()}><ImagePlus size={14} /> Upload</button>
+              <button className="btn primary" disabled={pending} onClick={() => input.current?.click()}>{pending ? <Spinner /> : <ImagePlus size={14} />} {pending ? "Uploading…" : "Upload"}</button>
             </>
           )}
         </div>

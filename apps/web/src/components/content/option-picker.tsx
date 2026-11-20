@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { OPTION_FIELD_LABELS, type OptionField } from "@acs/domain";
 import { api } from "@/lib/client/api";
+import { Spinner } from "@/components/ui/spinner";
 
 /** Pick one of the AI-generated alternatives for a field (no free text). */
 export function OptionPicker({
@@ -47,7 +48,7 @@ export function OptionPicker({
       <label>
         <span>{OPTION_FIELD_LABELS[field]}</span>
         <span className="faint" style={{ letterSpacing: 0, textTransform: "none" }}>
-          {pending ? "Saving…" : `${options.length} options`}
+          {pending ? <><Spinner size={11} /> Saving…</> : `${options.length} options`}
         </span>
       </label>
       <select

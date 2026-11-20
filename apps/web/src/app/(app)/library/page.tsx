@@ -5,7 +5,7 @@ import { EmptyState, PageHead } from "@/components/ui/empty";
 import { VideoBox } from "@/components/ui/video-player";
 import { fmtDate } from "@/lib/format";
 import type { RenderRow } from "@/lib/server/rows";
-import { signedVideoUrl } from "@/lib/server/renders";
+import { signVideos } from "@/lib/server/queries";
 import { requireUser } from "@/lib/server/session";
 
 export default async function LibraryPage({ searchParams }: { searchParams: Promise<{ project?: string }> }) {
@@ -15,12 +15,9 @@ export default async function LibraryPage({ searchParams }: { searchParams: Prom
   let q = supabase.from("video_renders").select("*, contents(options, selection), projects(title)").eq("status", "ready").order("finished_at", { ascending: false }).limit(60);
   if (project) q = q.eq("project_id", project);
   const { data } = await q;
-  const rows = await Promise.all(
-    ((data ?? []) as (RenderRow & { contents: { options: never; selection: never } | null; projects: { title: string } | null })[]).map(async (r) => ({
-      ...r,
-      url: await signedVideoUrl(r.storage_path),
-    })),
-  );
+  const raw = (data ?? []) as (RenderRow & { contents: { options: never; selection: never } | null; projects: { title: string } | null })[];
+  const urls = await signVideos(raw.map((r) => r.storage_path).filter((x): x is string => Boolean(x)));
+  const rows = raw.map((r) => ({ ...r, url: r.storage_path ? urls.get(r.storage_path) ?? null : null }));
   return (
     <main className="page">
       <PageHead eyebrow="MANAGE" title="Asset Library" text="Every finished video, private to your workspace, with the project it came from." />

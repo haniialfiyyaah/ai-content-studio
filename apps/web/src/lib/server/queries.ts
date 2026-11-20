@@ -3,7 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { notFound } from "next/navigation";
 import { listAssets } from "./assets";
 import { projectReadiness } from "./projects";
-import { signedVideoUrl } from "./renders";
+import { createAdminClient } from "@/lib/supabase/admin";
 import type { ActivityRow, ContentRow, MessageRow, ProjectRow, PublishJobRow, RenderRow, RunRow } from "./rows";
 
 export type RenderView = RenderRow & { url: string | null };
@@ -17,11 +17,25 @@ export async function latestRenders(supabase: SupabaseClient, contentIds: string
     .select("*")
     .in("content_id", contentIds)
     .order("created_at", { ascending: false });
+  const latest: RenderRow[] = [];
+  const seen = new Set<string>();
   for (const r of (data ?? []) as RenderRow[]) {
-    if (map.has(r.content_id)) continue;
-    map.set(r.content_id, { ...r, url: r.status === "ready" ? await signedVideoUrl(r.storage_path) : null });
+    if (seen.has(r.content_id)) continue;
+    seen.add(r.content_id);
+    latest.push(r);
   }
+  const urls = await signVideos(latest.filter((r) => r.status === "ready" && r.storage_path).map((r) => r.storage_path!));
+  for (const r of latest) map.set(r.content_id, { ...r, url: r.storage_path ? urls.get(r.storage_path) ?? null : null });
   return map;
+}
+
+/** One batched signing call instead of one request per video. */
+export async function signVideos(paths: string[], seconds = 3600): Promise<Map<string, string>> {
+  const out = new Map<string, string>();
+  if (!paths.length) return out;
+  const { data } = await createAdminClient().storage.from("renders").createSignedUrls(paths, seconds);
+  for (const d of data ?? []) if (d.path && d.signedUrl) out.set(d.path, d.signedUrl);
+  return out;
 }
 
 export async function loadWorkspace(supabase: SupabaseClient, userId: string, projectId: string) {
@@ -53,9 +67,9 @@ export async function loadWorkspace(supabase: SupabaseClient, userId: string, pr
     jobs: new Map(((jobs ?? []) as PublishJobRow[]).map((j) => [j.content_id, j])),
     activity: (activity ?? []) as ActivityRow[],
     research: ((research?.payload as { angles?: { title: string; why: string }[] } | undefined)?.angles ?? []),
-    renders: await latestRenders(supabase, list.map((c) => c.id)),
-    readiness: await projectReadiness(userId, p),
-    assets: await listAssets(p.id),
+    ...(await Promise.all([latestRenders(supabase, list.map((c) => c.id)), projectReadiness(userId, p), listAssets(p.id)]).then(
+      ([renders, readiness, assets]) => ({ renders, readiness, assets }),
+    )),
     timezone: (profile?.timezone as string | undefined) ?? "Asia/Jakarta",
   };
 }

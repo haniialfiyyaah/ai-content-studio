@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { api } from "@/lib/client/api";
+import { Spinner } from "./spinner";
 
 /** Button that calls an API route, then refreshes the page (or navigates). */
 export function ActionButton({
@@ -35,6 +36,7 @@ export function ActionButton({
       <button
         className={className}
         disabled={disabled || pending}
+        aria-busy={pending}
         title={title}
         onClick={() => {
           if (confirm && !window.confirm(confirm)) return;
@@ -50,7 +52,7 @@ export function ActionButton({
           });
         }}
       >
-        {pending ? "Working…" : children}
+        {pending ? <><Spinner /> {children}</> : children}
       </button>
       {error && <span className="err">{error}</span>}
     </span>
