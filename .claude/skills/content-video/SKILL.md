@@ -117,6 +117,14 @@ Always append: the style string, palette, recurring subject (when the beat
 features it), "vertical 9:16", and "no text, no letters, no numbers, no logos,
 no UI, no watermark".
 
+**Character reference (automatic):** when `recurringSubject` is set, the app
+generates a clean full-body reference sheet once (after project setup, or on
+the first render for older projects) and stores it as project reference #1
+(`★ Main character (AI)`, `apps/web/src/lib/server/identity.ts`). Scene images
+are then image-conditioned on it (OpenAI edits / Kontext) so the subject stays
+identical across beats and videos. Users can only *regenerate* it (Assets tab)
+or replace it by uploading their own reference.
+
 **Model:** one primary model per project for consistency (OpenAI
 `gpt-image-1` family *or* fal Flux); the other is fallback only. Reference
 uploads → image-conditioned generation (OpenAI edits / Flux Kontext).

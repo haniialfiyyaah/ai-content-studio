@@ -19,12 +19,16 @@ export function AssetsPanel({
   mode,
   assets,
   editable,
+  subject,
 }: {
   projectId: string;
   mode: VisualMode;
   assets: { id: string; label: string; url: string | null }[];
   editable: boolean;
+  /** Creative Kit recurring subject; enables AI character generation. */
+  subject?: string;
 }) {
+  const hasIdentity = assets.some((a) => a.label.startsWith("★"));
   const router = useRouter();
   const input = useRef<HTMLInputElement>(null);
   const [status, setStatus] = useState<string | null>(null);
@@ -68,10 +72,26 @@ export function AssetsPanel({
         <div className="section">
           <div><h2>References</h2><p>Product photos, characters, logos or style examples (JPG/PNG/WebP, up to 10 MB).</p></div>
           {editable && (
-            <>
+            <div className="actions">
+              {subject && hasIdentity ? (
+                <button
+                  className="btn soft"
+                  disabled={pending}
+                  title={subject}
+                  onClick={() => {
+                    setStatus("Drawing your character… (~30 s)");
+                    run(async () => {
+                      await api(`/api/projects/${projectId}/identity`, "POST");
+                      setStatus(null);
+                    });
+                  }}
+                >
+                  {pending ? <Spinner /> : "✨"} Regenerate character
+                </button>
+              ) : null}
               <input ref={input} type="file" accept={ACCEPT} multiple hidden onChange={(e) => { upload(e.target.files); e.target.value = ""; }} />
               <button className="btn primary" disabled={pending} onClick={() => input.current?.click()}>{pending ? <Spinner /> : <ImagePlus size={14} />} {pending ? "Uploading…" : "Upload"}</button>
-            </>
+            </div>
           )}
         </div>
         {status && <div className="note pulse" style={{ marginBottom: 12 }}>{status}</div>}

@@ -19,6 +19,7 @@ import {
 } from "@acs/integrations";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { listAssets } from "./assets";
+import { IDENTITY_LABEL, generateIdentityReference } from "./identity";
 import { logActivity, notifyTelegram } from "./events";
 import type { ContentRow, ProjectRow, RenderRow } from "./rows";
 import { appUrl } from "./session";
@@ -93,6 +94,19 @@ export async function startRender(renderId: string) {
     const p = project as ProjectRow & { visual_mode: "ai" | "ai_with_references" | "references" };
     const picked = resolveContent(c.options, c.selection);
     const scenes: Scene[] = (c.scenes?.length ? c.scenes : [{ heading: picked.title } as Scene]).slice(0, 6);
+    // Older projects: create the character reference on first render (consistency across scenes).
+    if (p.visual_mode !== "references" && p.creative_kit?.recurringSubject?.trim()) {
+      const { count } = await db.from("project_assets").select("id", { count: "exact", head: true }).eq("project_id", p.id).eq("label", IDENTITY_LABEL);
+      if (!count) {
+        try {
+          await generateIdentityReference(p.id);
+          p.visual_mode = p.visual_mode === "ai" ? "ai_with_references" : p.visual_mode;
+        } catch (e) {
+          console.warn("[render] character reference skipped", e instanceof Error ? e.message : e);
+        }
+      }
+    }
+
     // Provider chain per scene: OpenAI images → fal → user's reference → gradient.
     const refs = await listAssets(p.id, 6 * 3600);
     const refFor = (s: Scene, i: number) =>

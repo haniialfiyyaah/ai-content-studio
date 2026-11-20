@@ -334,7 +334,7 @@ export default async function ProjectPage({
           )}
 
           {tab === "assets" && (
-            <AssetsPanel projectId={p.id} mode={p.visual_mode} assets={ws.assets} editable={editable} />
+            <AssetsPanel projectId={p.id} mode={p.visual_mode} assets={ws.assets} editable={editable} subject={kit.recurringSubject} />
           )}
 
           {tab === "schedule" && (

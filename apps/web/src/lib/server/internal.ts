@@ -1,4 +1,5 @@
 import "server-only";
+import { after } from "next/server";
 import {
   AppError,
   ErrorCodes,
@@ -12,6 +13,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { logActivity, notifyTelegram, postAssistantMessage } from "./events";
 import { generateMore, reviseContents } from "./projects";
 import { failRender } from "./renders";
+import { generateIdentityReference } from "./identity";
 import type { ContentRow, ProjectRow, RunRow } from "./rows";
 
 const admin = () => createAdminClient();
@@ -195,6 +197,16 @@ export async function generationComplete(raw: unknown) {
 
   const newIds = (inserted ?? []).map((x) => x.id as string);
   if (r.kind === "project_setup") {
+    // Character/subject reference for consistent scene images (best effort, after the response).
+    if (payload.project?.creativeKit.recurringSubject?.trim()) {
+      after(async () => {
+        try {
+          await generateIdentityReference(p.id);
+        } catch (e) {
+          console.warn("[identity] skipped", e instanceof Error ? e.message : e);
+        }
+      });
+    }
     await logActivity(db, { ownerId: p.owner_id, projectId: p.id, kind: "generation.done", message: `Generated ${n} content ideas` });
     await postAssistantMessage(
       db,
