@@ -391,3 +391,39 @@ ALTER TABLE public.video_renders
   ADD COLUMN steps jsonb NOT NULL DEFAULT '[]'::jsonb,
   ADD COLUMN compose_request_id text,
   ADD COLUMN narration_path text;
+
+-- ---------------------------------------------------------------------------
+-- references + Remotion renderer (2026-11-20, second pass)
+-- ---------------------------------------------------------------------------
+ALTER TABLE public.projects
+  ADD COLUMN visual_mode text NOT NULL DEFAULT 'ai'
+    CHECK (visual_mode IN ('ai', 'ai_with_references', 'references'));
+
+CREATE TABLE public.project_assets (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  owner_id uuid NOT NULL REFERENCES auth.users (id) ON DELETE CASCADE,
+  project_id uuid NOT NULL REFERENCES public.projects (id) ON DELETE CASCADE,
+  storage_path text NOT NULL,
+  label text NOT NULL DEFAULT '',
+  mime_type text NOT NULL DEFAULT 'image/jpeg',
+  size_bytes bigint,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX project_assets_project_idx ON public.project_assets (project_id, created_at);
+ALTER TABLE public.project_assets ENABLE ROW LEVEL SECURITY;
+CREATE POLICY project_assets_read_own ON public.project_assets FOR SELECT TO authenticated USING (owner_id = auth.uid());
+ALTER PUBLICATION supabase_realtime ADD TABLE public.project_assets;
+
+-- phases: assets (scene images + narration) → compose (Remotion renderer) → done
+ALTER TABLE public.video_renders DROP CONSTRAINT IF EXISTS video_renders_phase_check;
+ALTER TABLE public.video_renders ALTER COLUMN phase SET DEFAULT 'assets';
+ALTER TABLE public.video_renders ADD CONSTRAINT video_renders_phase_check CHECK (phase IN ('assets', 'compose', 'done'));
+-- word timings for burned-in captions: [{ text, start, end }] (seconds)
+ALTER TABLE public.video_renders ADD COLUMN captions jsonb NOT NULL DEFAULT '[]'::jsonb;
+
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES ('assets', 'assets', false, 10485760, ARRAY['image/jpeg', 'image/png', 'image/webp'])
+ON CONFLICT (id) DO NOTHING;
+CREATE POLICY storage_assets_select_own ON storage.objects
+  FOR SELECT TO authenticated
+  USING (bucket_id = 'assets' AND (storage.foldername(name))[1] = auth.uid()::text);

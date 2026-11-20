@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Download } from "lucide-react";
 import { resolveContent } from "@acs/domain";
 import { ActionButton } from "@/components/ui/action-button";
 import { EmptyState, PageHead } from "@/components/ui/empty";
@@ -23,7 +24,7 @@ export default async function VideosPage() {
   return (
     <main className="page">
       <LiveRefresh sources={[{ table: "video_renders" }]} />
-      <PageHead eyebrow="WORKSPACE" title="Videos" text="Rendered automatically from approved content — each scene is generated, then composed into one Short. Updates live." />
+      <PageHead eyebrow="WORKSPACE" title="Videos" text="Each scene gets an image, then everything is composed into a captioned, narrated Short. Download any finished video. Updates live." />
       <div className="manage-metrics">
         {[["Ready", counts("ready")], ["Rendering", counts("rendering")], ["Queued", counts("queued")], ["Failed", counts("failed")]].map(([l, v]) => (
           <div key={l} className="manage-metric"><span className="xs muted">{l}</span><strong>{v}</strong><small>videos</small></div>
@@ -42,6 +43,7 @@ export default async function VideosPage() {
               <div className="row between">
                 <span className="tiny faint">{timeAgo(r.updated_at)}</span>
                 {r.status === "failed" && <ActionButton path={`/api/renders/${r.id}/retry`} className="btn small soft">Retry</ActionButton>}
+                {r.status === "ready" && <a className="btn small primary" href={`/api/renders/${r.id}/download`}><Download size={13} /> Download</a>}
               </div>
             </div>
           ))}

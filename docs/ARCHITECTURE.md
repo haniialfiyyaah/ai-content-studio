@@ -10,7 +10,8 @@ Overview prompt ──► project (generating) + its own conversation + generati
 Review (dropdowns) ──► Approve all ──► Schedule (days/time/tz → slot per content)
                      ▼  readiness: generated · all approved · scheduled · YouTube connected
 Activate ──► video_renders (queued) + publish_jobs (scheduled)
-                     │  WF-02 render: 1 fal clip per scene → fal compose (+ElevenLabs narration) → Storage
+                     │  WF-02 render: scene images (fal: AI / reference-guided / your uploads) + ElevenLabs narration
+                     │               → Railway Remotion renderer (motion, captions, hook) → Storage → Download
                      │  WF-03 every 5 min: due jobs → YouTube resumable upload (3 attempts)
                      ▼  WF-06 every 1 min: Telegram notifications · UI updates via Supabase Realtime
 ```
@@ -50,3 +51,15 @@ so webhook + scheduler can race safely. Stuck work is failed server-side
 n8n variables: `ACS_API_BASE_URL`, `ACS_INTERNAL_SERVICE_TOKEN`.
 OpenAI runs on n8n's OpenAI credential (currently n8n gateway credits; swap to the Studio key in the
 `OpenAI (plan|content|agent)` nodes for production volume).
+
+## Video pipeline (Remotion on Railway)
+
+1. `renders/start` (claim) → one image per scene: the user's reference (`visual_mode=references`),
+   fal reference-guided (`ai_with_references`, Kontext) or fal text-to-image (`ai`, Flux). Narration via
+   ElevenLabs with word timings → captions (even timing when no voice).
+2. `renders/poll` advances images (one fallback to Flux Schnell; a scene that still fails becomes a gradient).
+3. When images are settled the app POSTs the job to `RENDERER_URL/render` with a signed upload URL.
+4. `apps/renderer` renders the `Short` composition (1080×1920, Ken Burns, crossfades, hook card,
+   word-by-word captions, progress bar), uploads the MP4 and calls `/api/internal/renders/callback`.
+5. Any approved content can be rendered on demand (`POST /api/contents/:id/render`) and downloaded
+   (`GET /api/renders/:id/download`); YouTube upload still requires schedule + activation.

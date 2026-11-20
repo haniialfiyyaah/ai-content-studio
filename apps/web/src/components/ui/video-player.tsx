@@ -2,7 +2,7 @@ import { Film } from "lucide-react";
 
 const STATE_TEXT: Record<string, string> = {
   queued: "Queued for rendering",
-  rendering: "Rendering scenes…",
+  rendering: "Creating scene images…",
   failed: "Render failed",
   cancelled: "Cancelled",
 };

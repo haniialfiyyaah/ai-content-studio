@@ -37,6 +37,8 @@ export const SceneSchema = z.object({
   onScreenText: z.string().default(""),
   motion: z.string().default(""),
   seconds: z.coerce.number().min(1).max(60).default(5),
+  /** Index into the project's reference uploads to use for this scene; -1 = none. */
+  referenceIndex: z.coerce.number().int().min(-1).max(50).default(-1),
 });
 export type Scene = z.infer<typeof SceneSchema>;
 
@@ -99,3 +101,11 @@ export const ScheduleSchema = z.object({
 export type Schedule = z.infer<typeof ScheduleSchema>;
 
 export type Selection = Partial<Record<OptionField, number>>;
+
+export const VISUAL_MODES = ["ai", "ai_with_references", "references"] as const;
+export type VisualMode = (typeof VISUAL_MODES)[number];
+export const VISUAL_MODE_LABELS: Record<VisualMode, string> = {
+  ai: "AI generate",
+  ai_with_references: "AI + my references",
+  references: "Use my images",
+};

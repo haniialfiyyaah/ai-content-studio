@@ -44,6 +44,8 @@ export async function generationContext(runId: string) {
   const p = project as ProjectRow;
   const { data: existing } = await db.from("contents").select("options, selection").eq("project_id", p.id);
   const existingTitles = (existing ?? []).map((c) => resolveContent(c.options, c.selection).title).filter(Boolean);
+  const { data: refs } = await db.from("project_assets").select("label").eq("project_id", p.id).order("created_at");
+  const references = (refs ?? []).map((r, index) => ({ index, label: r.label || `Reference ${index + 1}` }));
 
   return {
     runId,
@@ -55,6 +57,8 @@ export async function generationContext(runId: string) {
     title: p.title,
     creativeKit: p.creative_kit,
     existingTitles,
+    visualMode: p.visual_mode,
+    references,
   };
 }
 

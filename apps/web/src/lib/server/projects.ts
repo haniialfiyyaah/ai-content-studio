@@ -44,6 +44,8 @@ export async function startProject(input: {
   prompt: string;
   contentCount?: number;
   channel?: "web" | "telegram";
+  /** Client uploads references first, then calls kickGeneration (scheduler is the backstop). */
+  deferGeneration?: boolean;
 }) {
   const db = admin();
   const prompt = input.prompt.trim();
@@ -80,7 +82,7 @@ export async function startProject(input: {
     ]);
   }
 
-  const run = await queueGeneration(input.ownerId, project.id, "project_setup", input.contentCount ?? 4);
+  const run = await queueGeneration(input.ownerId, project.id, "project_setup", input.contentCount ?? 4, !input.deferGeneration);
   await logActivity(db, {
     ownerId: input.ownerId,
     projectId: project.id,
@@ -95,6 +97,7 @@ export async function queueGeneration(
   projectId: string,
   kind: "project_setup" | "ideation",
   contentCount: number,
+  dispatch = true,
 ) {
   const { data: run, error } = await admin()
     .from("generation_runs")
@@ -108,8 +111,55 @@ export async function queueGeneration(
     .select("id")
     .single();
   if (error || !run) throw new AppError(ErrorCodes.INTERNAL_ERROR, "Could not queue generation", 500);
-  dispatchToN8n("generate", { runId: run.id });
+  if (dispatch) dispatchToN8n("generate", { runId: run.id });
   return run as { id: string };
+}
+
+/** Starts a deferred project_setup run once reference uploads are done. */
+export async function kickGeneration(ownerId: string, projectId: string) {
+  await loadOwnedProject(ownerId, projectId);
+  const { data: run } = await admin()
+    .from("generation_runs")
+    .select("id")
+    .eq("project_id", projectId)
+    .eq("status", "queued")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (run) dispatchToN8n("generate", { runId: run.id });
+  return { runId: run?.id ?? null };
+}
+
+/**
+ * Render (or re-render) one approved content now — independent of scheduling,
+ * so videos can be downloaded before (or without) activating the project.
+ */
+export async function requestRender(ownerId: string, contentId: string) {
+  const db = admin();
+  const { data: content } = await db
+    .from("contents")
+    .select("id, project_id, status, video_prompt")
+    .eq("id", contentId)
+    .eq("owner_id", ownerId)
+    .maybeSingle();
+  if (!content) throw notFound("Content");
+  if (content.status !== "approved") throw conflict("Approve the content before rendering");
+  const { data: active } = await db
+    .from("video_renders")
+    .select("id")
+    .eq("content_id", contentId)
+    .in("status", ["queued", "rendering"])
+    .maybeSingle();
+  if (active) return { renderId: active.id as string, alreadyRunning: true };
+  const { data: created } = await db
+    .from("video_renders")
+    .insert({ owner_id: ownerId, project_id: content.project_id, content_id: contentId, prompt: content.video_prompt })
+    .select("id")
+    .single();
+  if (!created) throw new AppError(ErrorCodes.INTERNAL_ERROR, "Could not queue render", 500);
+  dispatchToN8n("render", { renderId: created.id });
+  await logActivity(db, { ownerId, projectId: content.project_id, kind: "render.requested", message: "Video render started" });
+  return { renderId: created.id as string, alreadyRunning: false };
 }
 
 export async function retryGeneration(ownerId: string, projectId: string) {

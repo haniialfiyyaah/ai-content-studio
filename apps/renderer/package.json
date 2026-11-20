@@ -1,0 +1,27 @@
+{
+  "name": "acs-renderer",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Remotion render service for AI Content Studio (deployed on Railway)",
+  "scripts": {
+    "start": "node server.mjs",
+    "studio": "remotion studio src/remotion/index.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@remotion/bundler": "4.0.544",
+    "@remotion/renderer": "4.0.544",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "remotion": "4.0.544"
+  },
+  "devDependencies": {
+    "@remotion/cli": "4.0.544",
+    "@types/react": "^19",
+    "typescript": "^5"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

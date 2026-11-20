@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { ArrowLeft, Check } from "lucide-react";
 import { OPTION_FIELDS, resolveContent } from "@acs/domain";
 import { OptionPicker } from "@/components/content/option-picker";
+import { RenderControls } from "@/components/content/render-controls";
 import { ActionButton } from "@/components/ui/action-button";
 import { LiveRefresh } from "@/components/ui/live-refresh";
 import { VideoBox } from "@/components/ui/video-player";
@@ -146,13 +147,18 @@ export default async function ContentDetail({
             <div className="section"><h2>Render</h2>{render && <span className={pillClass(render.status)}>{render.status}</span>}</div>
             {render ? (
               <>
-                <div className="kv"><label>Scenes generated</label><strong>{render.steps.filter((s) => s.status === "completed").length} / {render.steps.length || c.scenes.length}</strong></div>
-                <div className="kv"><label>Stage</label><strong>{render.phase === "compose" ? "Composing final cut" : render.phase === "done" ? "Done" : "Generating scenes"}</strong></div>
+                <div style={{ margin: "4px 0 12px" }}><RenderControls contentId={c.id} approved={c.status === "approved"} render={render} /></div>
+                <div className="kv"><label>Scene images</label><strong>{render.steps.filter((s) => s.status === "completed").length} / {render.steps.length || c.scenes.length}</strong></div>
+                <div className="kv"><label>Stage</label><strong>{render.phase === "compose" ? "Composing final cut" : render.phase === "done" ? "Done" : "Creating scene images"}</strong></div>
                 <div className="kv"><label>Model</label><strong>{render.model ?? "—"}</strong></div>
                 {render.error && <div className="note amber">{render.error}</div>}
-                {render.status === "failed" && <ActionButton path={`/api/renders/${render.id}/retry`} className="btn primary">Retry render</ActionButton>}
               </>
-            ) : <p className="small muted">The video renders automatically after the project is activated.</p>}
+            ) : (
+              <div className="stack">
+                <p className="small muted">Render this content now to preview and download it — publishing only happens when the project is scheduled and active.</p>
+                <RenderControls contentId={c.id} approved={c.status === "approved"} render={null} />
+              </div>
+            )}
           </div>
         </div>
       )}

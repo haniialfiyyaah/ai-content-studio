@@ -1,6 +1,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { notFound } from "next/navigation";
+import { listAssets } from "./assets";
 import { projectReadiness } from "./projects";
 import { signedVideoUrl } from "./renders";
 import type { ActivityRow, ContentRow, MessageRow, ProjectRow, PublishJobRow, RenderRow, RunRow } from "./rows";
@@ -54,6 +55,7 @@ export async function loadWorkspace(supabase: SupabaseClient, userId: string, pr
     research: ((research?.payload as { angles?: { title: string; why: string }[] } | undefined)?.angles ?? []),
     renders: await latestRenders(supabase, list.map((c) => c.id)),
     readiness: await projectReadiness(userId, p),
+    assets: await listAssets(p.id),
     timezone: (profile?.timezone as string | undefined) ?? "Asia/Jakarta",
   };
 }

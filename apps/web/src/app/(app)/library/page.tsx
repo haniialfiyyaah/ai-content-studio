@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Download } from "lucide-react";
 import { resolveContent } from "@acs/domain";
 import { EmptyState, PageHead } from "@/components/ui/empty";
 import { VideoBox } from "@/components/ui/video-player";
@@ -33,7 +34,8 @@ export default async function LibraryPage({ searchParams }: { searchParams: Prom
             <div key={r.id} className="video-card">
               <VideoBox url={r.url} status="ready" />
               <div className="small semibold">{resolveContent(r.contents?.options, r.contents?.selection).title}</div>
-              <div className="xs muted">{r.projects?.title} · {fmtDate(r.finished_at)} · {r.steps.length} scenes · {r.model}</div>
+              <div className="xs muted">{r.projects?.title} · {fmtDate(r.finished_at)} · {r.steps.length} scenes</div>
+              <a className="btn small" href={`/api/renders/${r.id}/download`}><Download size={13} /> Download</a>
             </div>
           ))}
         </div>

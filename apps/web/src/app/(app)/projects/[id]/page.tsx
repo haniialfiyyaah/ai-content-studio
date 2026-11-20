@@ -2,6 +2,8 @@ import Link from "next/link";
 import { ArrowRight, Check, Clock, Pause, Play, Square } from "lucide-react";
 import { OPTION_FIELDS, describeSchedule, resolveContent } from "@acs/domain";
 import { OptionPicker } from "@/components/content/option-picker";
+import { RenderControls } from "@/components/content/render-controls";
+import { AssetsPanel } from "@/components/project/assets-panel";
 import { AgentPanel } from "@/components/project/agent-panel";
 import { AutomationForm } from "@/components/project/automation-form";
 import { GeneratingView } from "@/components/project/generating-view";
@@ -18,6 +20,7 @@ const TABS = [
   ["overview", "Overview"],
   ["content", "Content"],
   ["kit", "Creative Kit"],
+  ["assets", "Assets"],
   ["schedule", "Schedule"],
   ["videos", "Videos"],
   ["activity", "Activity"],
@@ -228,6 +231,7 @@ export default async function ProjectPage({
                       </div>
                       <div className="row">
                         <span className={pillClass(c.status)}>{c.status === "approved" ? "Approved" : "Pending"}</span>
+                        <RenderControls contentId={c.id} approved={c.status === "approved"} render={ws.renders.get(c.id)} />
                         <Link href={`/projects/${p.id}/content/${c.id}`} className="btn small">Details →</Link>
                       </div>
                     </div>
@@ -280,6 +284,10 @@ export default async function ProjectPage({
             </div>
           )}
 
+          {tab === "assets" && (
+            <AssetsPanel projectId={p.id} mode={p.visual_mode} assets={ws.assets} editable={editable} />
+          )}
+
           {tab === "schedule" && (
             <div className="grid" style={{ gridTemplateColumns: "minmax(0,1.1fr) minmax(0,.9fr)" }}>
               <div className="card pad">
@@ -310,9 +318,10 @@ export default async function ProjectPage({
 
           {tab === "videos" && (
             <>
-              {p.status !== "active" && p.status !== "paused" && (
-                <div className="note" style={{ marginBottom: 16 }}>Videos render automatically after you activate the project.</div>
-              )}
+              <div className="note" style={{ marginBottom: 16 }}>
+                Render any approved content now and download it. Uploads to YouTube happen only for scheduled content in an active project
+                {p.status === "active" ? " — this project is active, so missing videos render automatically." : "."}
+              </div>
               <div className="videogrid">
                 {contents.filter((c) => c.status === "approved").map((c) => {
                   const r = ws.renders.get(c.id);
@@ -321,15 +330,16 @@ export default async function ProjectPage({
                     <div key={c.id} className="video-card">
                       <VideoBox url={r?.url} status={r?.status} phase={r?.phase} />
                       <div className="small semibold">{resolveContent(c.options, c.selection).title}</div>
-                      <div className="row between">
-                        <span className="xs muted">{j?.status === "published" ? "Published" : `Uploads ${fmtDateTime(j?.scheduled_for ?? c.scheduled_for, p.schedule.timezone)}`}</span>
-                        {r?.status === "failed" && <ActionButton path={`/api/renders/${r.id}/retry`} className="btn small soft">Retry</ActionButton>}
-                        {j?.external_url && <a className="linklike" href={j.external_url} target="_blank" rel="noreferrer">YouTube →</a>}
+                      <div className="xs muted">
+                        {j?.status === "published" ? "Published" : j ? `Uploads ${fmtDateTime(j.scheduled_for, p.schedule.timezone)}` : "Not scheduled"}
+                        {j?.external_url && <> · <a className="linklike" href={j.external_url} target="_blank" rel="noreferrer">YouTube →</a></>}
                       </div>
+                      <RenderControls contentId={c.id} approved render={r} />
                       {r?.status === "failed" && r.error && <span className="err">{r.error}</span>}
                     </div>
                   );
                 })}
+                {!approved && <p className="small muted">Approve content to render videos.</p>}
               </div>
             </>
           )}

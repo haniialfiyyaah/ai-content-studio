@@ -1,157 +1,259 @@
 import "server-only";
 import { AppError, ErrorCodes, notFound, resolveContent, type Scene } from "@acs/domain";
 import {
-  FAL_COMPOSE_MODEL,
-  composeInput,
-  extractVideoUrl,
+  FAL_IMAGE_FALLBACK_MODEL,
+  evenCaptions,
+  extractImageUrl,
+  falImageModel,
   falPoll,
+  falReferenceModel,
   falSubmit,
-  falVideoModel,
-  sceneVideoInput,
-  scenePrompt,
+  referenceImageInput,
+  sceneImagePrompt,
   synthesizeNarration,
+  textToImageInput,
+  type CaptionWord,
 } from "@acs/integrations";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { listAssets } from "./assets";
 import { logActivity, notifyTelegram } from "./events";
-import type { ContentRow, ProjectRow, RenderRow, RenderStep } from "./rows";
+import type { ContentRow, ProjectRow, RenderRow } from "./rows";
+import { appUrl } from "./session";
 
 const admin = () => createAdminClient();
 const BUCKET = "renders";
+const ACCENTS = ["#e8735a", "#7056d9", "#3b3550", "#2a886b"];
+
+/**
+ * Scene step: `source` says where the image comes from.
+ *  - reference: the user's upload is the scene image (no generation)
+ *  - fal: a generated image (`requestId` on `model`), may fall back once
+ *  - none: gradient fallback rendered by Remotion
+ */
+export interface SceneStep {
+  scene: number;
+  source: "reference" | "fal" | "none";
+  model?: string;
+  requestId?: string;
+  referencePath?: string;
+  status: "queued" | "in_progress" | "completed" | "failed";
+  url: string | null;
+  retried?: boolean;
+}
+
+type LoadedRender = Omit<RenderRow, "steps"> & { steps: SceneStep[]; captions: CaptionWord[] };
 
 async function loadRender(renderId: string) {
   const { data } = await admin().from("video_renders").select("*").eq("id", renderId).maybeSingle();
   if (!data) throw notFound("Render");
-  return data as RenderRow;
+  return data as LoadedRender;
+}
+
+export function rendererConfigured() {
+  return Boolean(process.env.RENDERER_URL?.trim() && process.env.RENDERER_TOKEN?.trim());
 }
 
 /**
- * Claim (queued → rendering, compare-and-set) and submit one fal clip per
- * scene. Optional ElevenLabs narration is stored for the compose step.
- * A lost race returns { claimed:false } — the caller simply stops.
+ * Claim (queued → rendering, CAS) then prepare assets: one image per scene
+ * (reference upload, fal generation, or reference-guided generation) and the
+ * narration + word timings. A lost race returns { claimed:false }.
  */
 export async function startRender(renderId: string) {
   const db = admin();
   const { data: claimed } = await db
     .from("video_renders")
-    .update({ status: "rendering", phase: "scenes", started_at: new Date().toISOString(), error: null })
+    .update({ status: "rendering", phase: "assets", started_at: new Date().toISOString(), error: null })
     .eq("id", renderId)
     .eq("status", "queued")
     .select("*")
     .maybeSingle();
   if (!claimed) return { claimed: false, status: (await loadRender(renderId)).status };
-  const render = claimed as RenderRow;
+  const render = claimed as unknown as LoadedRender;
 
   try {
+    if (!rendererConfigured()) {
+      throw new AppError(ErrorCodes.NOT_CONFIGURED, "Video renderer is not configured (RENDERER_URL / RENDERER_TOKEN)", 503);
+    }
     const [{ data: content }, { data: project }] = await Promise.all([
       db.from("contents").select("*").eq("id", render.content_id).single(),
       db.from("projects").select("*").eq("id", render.project_id).single(),
     ]);
     const c = content as ContentRow;
-    const p = project as ProjectRow;
-    const scenes: Scene[] = (c.scenes ?? []).slice(0, 6);
-    const model = falVideoModel();
-    const fallback = c.video_prompt || resolveContent(c.options, c.selection).title;
-    const prompts = (scenes.length ? scenes : [{ heading: fallback } as Scene]).map((s) =>
-      scenePrompt({ visualStyle: p.creative_kit?.visualStyle, visual: s.visual, motion: s.motion, heading: s.heading, fallback }),
-    );
+    const p = project as ProjectRow & { visual_mode: "ai" | "ai_with_references" | "references" };
+    const picked = resolveContent(c.options, c.selection);
+    const scenes: Scene[] = (c.scenes?.length ? c.scenes : [{ heading: picked.title } as Scene]).slice(0, 6);
+    const refs = p.visual_mode === "ai" ? [] : await listAssets(p.id, 6 * 3600);
 
-    const steps: RenderStep[] = [];
-    for (const [i, prompt] of prompts.entries()) {
-      steps.push({ scene: i, requestId: await falSubmit(model, sceneVideoInput(prompt)), status: "queued", url: null });
+    const steps: SceneStep[] = [];
+    for (const [i, s] of scenes.entries()) {
+      const ref = refs.length ? refs[s.referenceIndex >= 0 && s.referenceIndex < refs.length ? s.referenceIndex : i % refs.length] : null;
+      if (ref && p.visual_mode === "references") {
+        steps.push({ scene: i, source: "reference", referencePath: ref.storage_path, status: "completed", url: ref.url });
+        continue;
+      }
+      const prompt = sceneImagePrompt({
+        visual: s.visual,
+        heading: s.heading,
+        visualStyle: p.creative_kit?.visualStyle,
+        fallback: c.video_prompt || picked.title,
+      });
+      const model = ref?.url ? falReferenceModel() : falImageModel();
+      const input = ref?.url ? referenceImageInput(prompt, ref.url) : textToImageInput(prompt);
+      steps.push({ scene: i, source: "fal", model, requestId: await falSubmit(model, input), status: "queued", url: null });
     }
 
+    // Narration with word timings; captions fall back to even timing.
     let narrationPath: string | null = null;
-    const audio = await synthesizeNarration(resolveContent(c.options, c.selection).script);
-    if (audio) {
-      narrationPath = `${render.owner_id}/${render.id}/narration.mp3`;
-      await db.storage.from(BUCKET).upload(narrationPath, audio, { contentType: "audio/mpeg", upsert: true });
+    let captions: CaptionWord[] = evenCaptions(picked.script);
+    try {
+      const voice = await synthesizeNarration(picked.script);
+      if (voice) {
+        narrationPath = `${render.owner_id}/${render.id}/narration.mp3`;
+        await db.storage.from(BUCKET).upload(narrationPath, voice.audio, { contentType: "audio/mpeg", upsert: true });
+        if (voice.words.length) captions = voice.words;
+      }
+    } catch (e) {
+      console.warn("[render] narration skipped", e);
     }
 
     await db
       .from("video_renders")
       .update({
         steps,
-        model,
-        provider: "fal",
+        captions,
         narration_path: narrationPath,
-        prompt: prompts.join("\n---\n"),
+        provider: "fal+remotion",
+        model: [...new Set(steps.map((s) => s.model ?? s.source))].join(", "),
+        prompt: c.video_prompt,
         attempts: render.attempts + 1,
       })
       .eq("id", render.id);
     return { claimed: true, status: "rendering", scenes: steps.length };
   } catch (error) {
     await failRender(render.id, error instanceof Error ? error.message : "Render failed to start");
-    throw error;
+    return { claimed: true, status: "failed" };
   }
 }
 
-/** Advance the render state machine one step. Returns the current status. */
+/** Advance one step: poll scene images; when all are settled hand off to the renderer. */
 export async function pollRender(renderId: string) {
   const db = admin();
   const render = await loadRender(renderId);
   if (render.status !== "rendering") return { status: render.status, phase: render.phase };
+  if (render.phase === "compose") return { status: "rendering", phase: "compose" };
 
-  if (render.phase === "scenes") {
-    const steps = await Promise.all(
-      render.steps.map(async (s) => {
-        if (s.status === "completed" || s.status === "failed") return s;
-        const { status, result } = await falPoll(render.model ?? falVideoModel(), s.requestId);
-        return { ...s, status, url: status === "completed" ? extractVideoUrl(result) : null };
-      }),
-    );
-    if (steps.some((s) => s.status === "failed" || (s.status === "completed" && !s.url))) {
-      await db.from("video_renders").update({ steps }).eq("id", render.id);
-      await failRender(render.id, "A scene clip failed to generate");
-      return { status: "failed", phase: "scenes" };
-    }
-    if (!steps.every((s) => s.status === "completed")) {
-      await db.from("video_renders").update({ steps }).eq("id", render.id);
-      return { status: "rendering", phase: "scenes", done: steps.filter((s) => s.status === "completed").length, total: steps.length };
-    }
-
-    let narrationUrl: string | null = null;
-    if (render.narration_path) {
-      const { data } = await db.storage.from(BUCKET).createSignedUrl(render.narration_path, 3600);
-      narrationUrl = data?.signedUrl ?? null;
-    }
-    const clips = steps.map((s) => s.url!) as string[];
-    const composeId = await falSubmit(FAL_COMPOSE_MODEL, composeInput(clips, narrationUrl));
-    await db.from("video_renders").update({ steps, phase: "compose", compose_request_id: composeId }).eq("id", render.id);
-    return { status: "rendering", phase: "compose" };
+  const steps = await Promise.all(
+    render.steps.map(async (s): Promise<SceneStep> => {
+      if (s.source !== "fal" || s.status === "completed" || s.status === "failed") return s;
+      try {
+        const { status, result } = await falPoll(s.model!, s.requestId!);
+        if (status === "completed") {
+          const url = extractImageUrl(result);
+          return { ...s, status: url ? "completed" : "failed", url };
+        }
+        if (status === "failed" && !s.retried) {
+          // one fallback attempt on the cheap text-to-image model
+          const prompt = (render.prompt || "stylized illustration").slice(0, 1500);
+          return {
+            ...s,
+            retried: true,
+            model: FAL_IMAGE_FALLBACK_MODEL,
+            requestId: await falSubmit(FAL_IMAGE_FALLBACK_MODEL, textToImageInput(prompt)),
+            status: "queued",
+          };
+        }
+        return { ...s, status };
+      } catch {
+        return s; // transient: try again next pass
+      }
+    }),
+  );
+  // Scenes that still failed fall back to a branded gradient (never blocks the video).
+  const settled = steps.map((s) => (s.status === "failed" ? { ...s, source: "none" as const, url: null } : s));
+  const pending = settled.some((s) => s.source === "fal" && s.status !== "completed");
+  await db.from("video_renders").update({ steps: settled }).eq("id", render.id);
+  if (pending) {
+    return { status: "rendering", phase: "assets", done: settled.filter((s) => s.status === "completed").length, total: settled.length };
   }
 
-  // compose phase
-  const { status, result } = await falPoll(FAL_COMPOSE_MODEL, render.compose_request_id!);
-  if (status === "failed") {
-    await failRender(render.id, "Video composition failed");
-    return { status: "failed", phase: "compose" };
-  }
-  if (status !== "completed") return { status: "rendering", phase: "compose" };
-  const url = extractVideoUrl(result);
-  if (!url) {
-    await failRender(render.id, "Composer returned no video");
-    return { status: "failed", phase: "compose" };
-  }
-  await finishRender(render, url);
-  return { status: "ready", phase: "done" };
+  await dispatchToRenderer({ ...render, steps: settled });
+  return { status: "rendering", phase: "compose" };
 }
 
-async function finishRender(render: RenderRow, url: string) {
+async function dispatchToRenderer(render: LoadedRender) {
   const db = admin();
-  const res = await fetch(url);
-  if (!res.ok) throw new AppError(ErrorCodes.PROVIDER_ERROR, `Download failed (${res.status})`, 502);
-  const bytes = await res.arrayBuffer();
-  const path = `${render.owner_id}/${render.id}/video.mp4`;
-  const { error } = await db.storage.from(BUCKET).upload(path, bytes, { contentType: "video/mp4", upsert: true });
-  if (error) throw new AppError(ErrorCodes.INTERNAL_ERROR, `Storage upload failed: ${error.message}`, 500);
+  const [{ data: content }, { data: project }] = await Promise.all([
+    db.from("contents").select("*").eq("id", render.content_id).single(),
+    db.from("projects").select("cover_tone").eq("id", render.project_id).single(),
+  ]);
+  const c = content as ContentRow;
+  const picked = resolveContent(c.options, c.selection);
+  const scenes = (c.scenes?.length ? c.scenes : [{ heading: picked.title, seconds: 5 } as Scene]).slice(0, render.steps.length);
 
+  // Scene durations follow the narration length, split by each scene's share of words.
+  const voiceEnd = render.captions.length ? render.captions[render.captions.length - 1].end + 0.6 : 0;
+  const base = scenes.map((s) => s.seconds || 5);
+  const weights = scenes.map((s) => Math.max(1, (s.narration || "").split(/\s+/).filter(Boolean).length));
+  const totalWeight = weights.reduce((a, b) => a + b, 0);
+  const durations = voiceEnd
+    ? weights.map((w) => Math.max(2, (voiceEnd * w) / totalWeight))
+    : base;
+
+  const signedRef = async (path?: string) =>
+    path ? (await db.storage.from("assets").createSignedUrl(path, 6 * 3600)).data?.signedUrl ?? null : null;
+  const sceneProps = await Promise.all(
+    scenes.map(async (s, i) => {
+      const step = render.steps[i];
+      const imageUrl = step?.source === "reference" ? await signedRef(step.referencePath) : step?.url ?? null;
+      return { imageUrl, seconds: Number(durations[i].toFixed(2)), onScreenText: s.onScreenText || "", motion: s.motion || "" };
+    }),
+  );
+  const narrationUrl = render.narration_path
+    ? (await db.storage.from(BUCKET).createSignedUrl(render.narration_path, 6 * 3600)).data?.signedUrl ?? null
+    : null;
+
+  const path = `${render.owner_id}/${render.id}/video.mp4`;
+  const { data: upload, error } = await db.storage.from(BUCKET).createSignedUploadUrl(path, { upsert: true });
+  if (error || !upload) throw new AppError(ErrorCodes.INTERNAL_ERROR, "Could not prepare video upload", 500);
+
+  const res = await fetch(`${process.env.RENDERER_URL!.replace(/\/$/, "")}/render`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${process.env.RENDERER_TOKEN}` },
+    body: JSON.stringify({
+      renderId: render.id,
+      uploadUrl: upload.signedUrl,
+      callbackUrl: `${appUrl()}/api/internal/renders/callback`,
+      props: {
+        title: picked.title,
+        hook: picked.hook,
+        accent: ACCENTS[(project?.cover_tone ?? 1) % ACCENTS.length],
+        scenes: sceneProps,
+        narrationUrl,
+        words: render.captions,
+      },
+    }),
+    signal: AbortSignal.timeout(20_000),
+  });
+  if (!res.ok) {
+    await failRender(render.id, `Renderer rejected the job (${res.status})`);
+    return;
+  }
+  await db.from("video_renders").update({ phase: "compose", storage_path: path }).eq("id", render.id);
+}
+
+/** Renderer callback: the MP4 is already uploaded to `storage_path`. */
+export async function rendererCallback(input: { renderId: string; ok: boolean; error?: string; durationSeconds?: number }) {
+  const render = await loadRender(input.renderId);
+  if (render.status !== "rendering") return { ok: true, ignored: render.status };
+  if (!input.ok) return failRender(render.id, input.error || "Renderer failed");
+
+  const db = admin();
   await db
     .from("video_renders")
     .update({
       status: "ready",
       phase: "done",
-      storage_path: path,
-      duration_seconds: render.steps.length * 5,
+      duration_seconds: input.durationSeconds ?? null,
       finished_at: new Date().toISOString(),
     })
     .eq("id", render.id);
@@ -164,9 +266,10 @@ async function finishRender(render: RenderRow, url: string) {
     ownerId: render.owner_id,
     projectId: render.project_id,
     template: "render.ready",
-    text: `🎬 Video ready: "${title}". It will be uploaded at its scheduled time.`,
+    text: `🎬 Video ready: "${title}". Download it in Studio — it uploads to YouTube only if the project is scheduled and active.`,
     path: `/videos?render=${render.id}`,
   });
+  return { ok: true };
 }
 
 export async function failRender(renderId: string, message: string) {
@@ -184,15 +287,29 @@ export async function failRender(renderId: string, message: string) {
       ownerId: data.owner_id,
       projectId: data.project_id,
       template: "render.failed",
-      text: `⚠️ A video render failed (${message}). You can retry it from Videos.`,
+      text: `⚠️ A video render failed (${message}). Its upload is on hold — retry it from Videos.`,
       path: "/videos",
     });
   }
   return { ok: true };
 }
 
-export async function signedVideoUrl(path: string | null, seconds = 3600): Promise<string | null> {
+export async function signedVideoUrl(path: string | null, seconds = 3600, download?: string): Promise<string | null> {
   if (!path) return null;
-  const { data } = await admin().storage.from(BUCKET).createSignedUrl(path, seconds);
+  const { data } = await admin().storage.from(BUCKET).createSignedUrl(path, seconds, download ? { download } : undefined);
   return data?.signedUrl ?? null;
+}
+
+/** Owner-checked download link (Content-Disposition: attachment). */
+export async function downloadUrl(ownerId: string, renderId: string) {
+  const { data } = await admin()
+    .from("video_renders")
+    .select("storage_path, status, contents(options, selection)")
+    .eq("id", renderId)
+    .eq("owner_id", ownerId)
+    .maybeSingle();
+  if (!data || data.status !== "ready") throw notFound("Video");
+  const c = data.contents as unknown as Pick<ContentRow, "options" | "selection"> | null;
+  const name = resolveContent(c?.options, c?.selection).title.replace(/[^\w\- ]+/g, "").trim().slice(0, 60) || "video";
+  return signedVideoUrl(data.storage_path, 600, `${name}.mp4`);
 }

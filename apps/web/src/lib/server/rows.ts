@@ -24,6 +24,7 @@ export interface ProjectRow {
   creative_kit: Partial<CreativeKit>;
   schedule: Partial<Schedule>;
   ideation_enabled: boolean;
+  visual_mode: "ai" | "ai_with_references" | "references";
   ideation_every_days: number;
   next_ideation_at: string | null;
   activated_at: string | null;
@@ -62,7 +63,7 @@ export interface ContentRow {
 
 export interface RenderStep {
   scene: number;
-  requestId: string;
+  source?: "reference" | "fal" | "none";
   status: "queued" | "in_progress" | "completed" | "failed";
   url: string | null;
 }
@@ -73,8 +74,9 @@ export interface RenderRow {
   project_id: string;
   content_id: string;
   status: RenderStatus;
-  phase: "scenes" | "compose" | "done";
+  phase: "assets" | "compose" | "done";
   steps: RenderStep[];
+  prompt: string | null;
   compose_request_id: string | null;
   narration_path: string | null;
   provider: string;

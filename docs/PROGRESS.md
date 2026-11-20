@@ -17,9 +17,17 @@ owner's simplified flow. Previous implementation is preserved on `backup/pre-v2.
 | n8n | 8 new workflows created; **unpublished until the app is deployed** (legacy 13 archived) |
 | Checks | domain 10 + integrations 4 tests pass · `tsc` clean · `next build` ok · lint 0 errors |
 
+## Renderer + references + download (2026-11-20, second pass)
+
+- `apps/renderer`: Remotion service for Railway (Dockerfile). Verified locally: real + fallback scenes
+  rendered in 53 s, uploaded to Supabase via signed URL, callback authenticated.
+- Reference uploads (Overview composer + project **Assets** tab) with 3 visual modes.
+- Render on demand + **Download** buttons (Videos, Library, project Videos tab, Content detail).
+- WF-01 now writes stylized (non-photoreal) art direction and assigns `referenceIndex` per scene.
+
 ## Go-live checklist
 
-1. Vercel env: `FAL_KEY`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `ACS_CREDENTIAL_ENCRYPTION_KEY`,
+1. Vercel env: `RENDERER_URL`, `RENDERER_TOKEN`, `FAL_KEY` (with credit), `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `ACS_CREDENTIAL_ENCRYPTION_KEY`,
    `N8N_WEBHOOK_BASE_URL`, `ACS_API_BASE_URL` (optional `ELEVENLABS_API_KEY`, `FAL_VIDEO_MODEL`).
 2. Google Cloud: enable YouTube Data API v3, OAuth redirect `${ACS_API_BASE_URL}/api/integrations/youtube/callback`
    (app in Testing mode → add your Google account as a test user).
