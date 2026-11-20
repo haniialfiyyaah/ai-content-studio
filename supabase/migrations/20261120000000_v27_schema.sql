@@ -450,3 +450,6 @@ ALTER TABLE public.contents ADD COLUMN format text NOT NULL DEFAULT 'explainer'
 ALTER TABLE public.video_renders
   ADD COLUMN download_count int NOT NULL DEFAULT 0,
   ADD COLUMN last_downloaded_at timestamptz;
+
+-- narrator voice chosen per project (matched to Creative Kit.voice), kept for the series
+ALTER TABLE public.projects ADD COLUMN voice_id text, ADD COLUMN voice_name text;

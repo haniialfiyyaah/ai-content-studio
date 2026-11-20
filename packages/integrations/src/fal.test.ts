@@ -36,3 +36,18 @@ describe("sceneImagePrompt", () => {
     expect(sceneImagePrompt({ visual: "kitten on a keyboard", layout: "hook", fallback: "x" })).toContain("Bold subject large in frame");
   });
 });
+
+import { rankVoices } from "./fal";
+
+describe("rankVoices", () => {
+  const voices = [
+    { voice_id: "m1", name: "Adam", category: "premade", labels: { gender: "male", age: "middle aged", description: "deep" } },
+    { voice_id: "f1", name: "Bella", category: "premade", labels: { gender: "female", age: "young", description: "warm" } },
+    { voice_id: "f2", name: "Grace", category: "premade", labels: { gender: "female", age: "old", description: "calm" } },
+  ];
+  it("prefers gender and descriptive matches", () => {
+    expect(rankVoices(voices, "warm friendly female narrator for kids")[0].voice_id).toBe("f1");
+    expect(rankVoices(voices, "deep confident male voice")[0].voice_id).toBe("m1");
+    expect(rankVoices(voices, "calm elderly woman storyteller")[0].voice_id).toBe("f2");
+  });
+});

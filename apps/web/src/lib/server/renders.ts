@@ -197,7 +197,15 @@ export async function startRender(renderId: string) {
     let captions: CaptionWord[] = evenCaptions(picked.script);
     try {
       if (!narrationConfigured()) throw new Error("ELEVENLABS_API_KEY is not set on the server");
-      const voice = await synthesizeNarration(picked.script);
+      const proj = p as ProjectRow & { voice_id?: string | null };
+      const voice = await synthesizeNarration(picked.script, {
+        preferredVoice: proj.voice_id,
+        description: [p.creative_kit?.voice, p.creative_kit?.audience, p.creative_kit?.tone].filter(Boolean).join(" "),
+      });
+      // Keep the series consistent: the first voice that works becomes the project's voice.
+      if (voice && voice.voice !== proj.voice_id) {
+        await db.from("projects").update({ voice_id: voice.voice, voice_name: voice.voiceName }).eq("id", p.id);
+      }
       if (voice) {
         narrationPath = `${render.owner_id}/${render.id}/narration.mp3`;
         await db.storage.from(BUCKET).upload(narrationPath, voice.audio, { contentType: "audio/mpeg", upsert: true });

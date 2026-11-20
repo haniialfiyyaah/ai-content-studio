@@ -13,7 +13,7 @@ export interface TgButton {
 
 /** One Bot API request for n8n to send: POST /bot<token>/<method> with `body`. */
 export interface TgCall {
-  method: "sendMessage" | "sendVideo" | "answerCallbackQuery" | "sendChatAction";
+  method: "sendMessage" | "sendVideo" | "answerCallbackQuery" | "sendChatAction" | "editMessageReplyMarkup";
   body: Record<string, unknown>;
 }
 
@@ -65,3 +65,9 @@ export function chunkMessages(blocks: string[], max = 3900): string[] {
   if (cur) out.push(cur);
   return out;
 }
+
+/** Replace a message's inline keyboard (pass [] to remove all buttons). */
+export const tgEditKeyboard = (chatId: string | number, messageId: number, rows: TgButton[][]): TgCall => ({
+  method: "editMessageReplyMarkup",
+  body: { chat_id: chatId, message_id: messageId, reply_markup: { inline_keyboard: keyboard(rows).reply_markup?.inline_keyboard ?? [] } },
+});

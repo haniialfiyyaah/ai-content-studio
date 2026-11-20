@@ -144,23 +144,44 @@ export function narrationConfigured(): boolean {
   return Boolean(process.env.ELEVENLABS_API_KEY?.trim());
 }
 
-let cachedVoice: string | null = null;
 
-/**
- * Voices to try, best first. Free plans can't use Voice Library voices via the
- * API (402) — those show up as category "professional" (or with sharing info),
- * so try premade defaults first, then the account's own generated/cloned ones.
- */
-async function candidateVoices(key: string): Promise<string[]> {
+export interface VoiceInfo {
+  voice_id: string;
+  name: string;
+  category?: string;
+  labels?: Record<string, string>;
+  description?: string | null;
+}
+
+/** Usable voices on this account (Voice Library "professional" voices excluded: 402 on free plans). */
+async function accountVoices(key: string): Promise<VoiceInfo[]> {
   const res = await fetch("https://api.elevenlabs.io/v1/voices", { headers: { "xi-api-key": key } });
   if (!res.ok) return [];
-  const json = (await res.json()) as { voices?: { voice_id: string; category?: string; sharing?: unknown }[] };
-  const rank = (c?: string) => (c === "premade" ? 0 : c === "generated" ? 1 : c === "cloned" ? 2 : 9);
-  return (json.voices ?? [])
-    .filter((v) => v.category !== "professional")
-    .sort((x, y) => rank(x.category) - rank(y.category))
-    .map((v) => v.voice_id)
-    .slice(0, 5);
+  const json = (await res.json()) as { voices?: VoiceInfo[] };
+  return (json.voices ?? []).filter((v) => v.category !== "professional");
+}
+
+const WORDS = (s: string) => s.toLowerCase().split(/[^a-z]+/).filter((w) => w.length > 2);
+
+/**
+ * Rank voices for a narrator description ("warm, friendly female narrator for
+ * kids"): +3 gender match, +2 per matching label/descriptive word, premade
+ * slight preference. Pure function — exported for tests.
+ */
+export function rankVoices(voices: VoiceInfo[], description = ""): VoiceInfo[] {
+  const want = new Set(WORDS(description));
+  const gender = want.has("female") || want.has("woman") || want.has("girl") ? "female" : want.has("male") || want.has("man") || want.has("boy") ? "male" : null;
+  const kidish = want.has("kids") || want.has("children") || want.has("child");
+  const score = (v: VoiceInfo) => {
+    const labels = Object.values(v.labels ?? {}).join(" ") + " " + (v.description ?? "") + " " + v.name;
+    const have = new Set(WORDS(labels));
+    let sc = v.category === "premade" ? 0.5 : 0;
+    if (gender && (v.labels?.gender ?? "").toLowerCase() === gender) sc += 3;
+    if (kidish && (have.has("young") || have.has("friendly") || have.has("animation"))) sc += 1;
+    for (const w of want) if (have.has(w)) sc += 2;
+    return sc;
+  };
+  return [...voices].sort((x, y) => score(y) - score(x));
 }
 
 async function tts(key: string, voice: string, text: string) {
@@ -171,19 +192,23 @@ async function tts(key: string, voice: string, text: string) {
   });
 }
 
-/** Returns MP3 bytes + word timings, or null when ElevenLabs isn't configured. */
-export async function synthesizeNarration(text: string): Promise<{ audio: Uint8Array; words: CaptionWord[]; voice: string } | null> {
+/**
+ * Narration + word timings. Voice order: project's saved voice → env
+ * ELEVENLABS_VOICE_ID → best match for `description` among usable voices.
+ * Returns null when ElevenLabs isn't configured.
+ */
+export async function synthesizeNarration(
+  text: string,
+  opts: { preferredVoice?: string | null; description?: string } = {},
+): Promise<{ audio: Uint8Array; words: CaptionWord[]; voice: string; voiceName: string | null } | null> {
   const key = process.env.ELEVENLABS_API_KEY?.trim();
   if (!key || !text.trim()) return null;
 
-  const configured = process.env.ELEVENLABS_VOICE_ID?.trim();
   const tried = new Set<string>();
-  const order = [configured, cachedVoice].filter((v): v is string => Boolean(v));
   let res: Response | null = null;
   let voice = "";
-
   const attempt = async (v: string) => {
-    if (tried.has(v)) return false;
+    if (!v || tried.has(v)) return false;
     tried.add(v);
     voice = v;
     res = await tts(key, v, text);
@@ -191,13 +216,14 @@ export async function synthesizeNarration(text: string): Promise<{ audio: Uint8A
   };
 
   let ok = false;
-  for (const v of order) if ((ok = await attempt(v))) break;
+  for (const v of [opts.preferredVoice, process.env.ELEVENLABS_VOICE_ID?.trim()]) if (v && (ok = await attempt(v))) break;
+  let voices: VoiceInfo[] = [];
   if (!ok) {
-    // Plan/voice refusals → walk the account's usable voices.
-    for (const v of await candidateVoices(key)) {
-      if ((ok = await attempt(v))) break;
+    voices = rankVoices(await accountVoices(key), opts.description);
+    for (const v of voices.slice(0, 5)) {
+      if ((ok = await attempt(v.voice_id))) break;
       const status = (res as Response | null)?.status ?? 0;
-      if (![402, 403, 404, 422].includes(status)) break; // other errors won't be fixed by another voice
+      if (![402, 403, 404, 422].includes(status)) break;
     }
   }
   const final = res as Response | null;
@@ -211,12 +237,16 @@ export async function synthesizeNarration(text: string): Promise<{ audio: Uint8A
     } catch {}
     throw new AppError(ErrorCodes.PROVIDER_ERROR, `ElevenLabs ${final.status} (tried ${tried.size} voice(s)): ${reason}`.slice(0, 280), 502);
   }
-  cachedVoice = voice;
   const json = (await final.json()) as {
     audio_base64: string;
     alignment?: { characters: string[]; character_start_times_seconds: number[]; character_end_times_seconds: number[] };
   };
-  return { audio: Uint8Array.from(Buffer.from(json.audio_base64, "base64")), words: wordsFromAlignment(json.alignment), voice };
+  return {
+    audio: Uint8Array.from(Buffer.from(json.audio_base64, "base64")),
+    words: wordsFromAlignment(json.alignment),
+    voice,
+    voiceName: voices.find((v) => v.voice_id === voice)?.name ?? null,
+  };
 }
 
 export function wordsFromAlignment(a?: {

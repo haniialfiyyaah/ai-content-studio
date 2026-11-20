@@ -148,7 +148,11 @@ when a layout shows a headline the captions move down to the 70 % line.
 
 ## 7. Audio
 
-- Voice: ElevenLabs `eleven_multilingual_v2`, voice from Creative Kit; the
+- Voice: ElevenLabs `eleven_multilingual_v2`. Per project, the first render
+  picks the account voice whose labels best match Creative Kit `voice` /
+  audience / tone (`rankVoices`; Voice Library voices skipped — free plans get
+  402) and saves it to `projects.voice_id` so the whole series sounds the same
+  (`ELEVENLABS_VOICE_ID` = global fallback). The
   narration of all beats concatenated → one MP3 with word timestamps; beat
   durations = their words' time span (+0.2 s padding).
 - Music: royalty-free bed (`MUSIC_URL` / library), looped, −20 dB, fades

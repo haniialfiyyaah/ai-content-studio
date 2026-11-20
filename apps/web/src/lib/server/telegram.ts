@@ -5,6 +5,7 @@ import {
   chunkMessages,
   tgAction,
   tgAnswer,
+  tgEditKeyboard,
   tgEscape as esc,
   tgMessage,
   tgVideo,
@@ -220,7 +221,16 @@ export async function completeNotification(notificationId: string, delivered: bo
 // ---------------------------------------------------------------------------
 interface TgUpdate {
   message?: { chat: { id: number; type: string }; from?: { id: number }; text?: string };
-  callback_query?: { id: string; from: { id: number }; data?: string; message?: { chat: { id: number; type: string } } };
+  callback_query?: {
+    id: string;
+    from: { id: number };
+    data?: string;
+    message?: {
+      message_id: number;
+      chat: { id: number; type: string };
+      reply_markup?: { inline_keyboard?: { text: string; callback_data?: string; url?: string }[][] };
+    };
+  };
 }
 
 const HELP = [
@@ -261,7 +271,10 @@ async function handleUpdateInner(update: TgUpdate) {
   }
 
   try {
-    if (cb) return await onCallback(link, chatId, cb.id, cb.data ?? "");
+    if (cb) {
+      acknowledgeChoice(chatId, cb);
+      return await onCallback(link, chatId, cb.id, cb.data ?? "");
+    }
     return await onText(link, chatId, (msg?.text ?? "").trim());
   } catch (e) {
     const message = e instanceof AppError ? e.message : "Something went wrong — please try again.";
@@ -270,6 +283,21 @@ async function handleUpdateInner(update: TgUpdate) {
     if (!(e instanceof AppError)) console.error("[telegram] update failed", e);
     return { ok: false };
   }
+}
+
+/**
+ * After a tap: remove the action buttons from that message (keep link buttons
+ * like "Open in Studio") and echo the choice into the chat, like a reply.
+ */
+function acknowledgeChoice(chatId: number, cb: NonNullable<TgUpdate["callback_query"]>) {
+  const msg = cb.message;
+  const rows = msg?.reply_markup?.inline_keyboard ?? [];
+  if (!msg || !rows.length) return;
+  const chosen = rows.flat().find((b) => b.callback_data === cb.data);
+  if (!chosen) return;
+  const keep = rows.map((r) => r.filter((b) => b.url).map((b) => ({ text: b.text, url: b.url }))).filter((r) => r.length);
+  push(tgEditKeyboard(chatId, msg.message_id, keep));
+  say(chatId, `▸ <b>${esc(chosen.text)}</b>`);
 }
 
 async function currentProject(link: Link) {
