@@ -147,18 +147,20 @@ export function narrationConfigured(): boolean {
 let cachedVoice: string | null = null;
 
 /**
- * A voice this account may use via the API. Free plans cannot use library
- * voices (402), so prefer the account's own/premade voices.
+ * Voices to try, best first. Free plans can't use Voice Library voices via the
+ * API (402) — those show up as category "professional" (or with sharing info),
+ * so try premade defaults first, then the account's own generated/cloned ones.
  */
-async function usableVoice(key: string): Promise<string | null> {
-  if (cachedVoice) return cachedVoice;
+async function candidateVoices(key: string): Promise<string[]> {
   const res = await fetch("https://api.elevenlabs.io/v1/voices", { headers: { "xi-api-key": key } });
-  if (!res.ok) return null;
-  const json = (await res.json()) as { voices?: { voice_id: string; category?: string }[] };
-  const voices = json.voices ?? [];
-  const rank = (c?: string) => (c === "cloned" || c === "generated" || c === "professional" ? 0 : c === "premade" ? 1 : 2);
-  cachedVoice = [...voices].sort((x, y) => rank(x.category) - rank(y.category))[0]?.voice_id ?? null;
-  return cachedVoice;
+  if (!res.ok) return [];
+  const json = (await res.json()) as { voices?: { voice_id: string; category?: string; sharing?: unknown }[] };
+  const rank = (c?: string) => (c === "premade" ? 0 : c === "generated" ? 1 : c === "cloned" ? 2 : 9);
+  return (json.voices ?? [])
+    .filter((v) => v.category !== "professional")
+    .sort((x, y) => rank(x.category) - rank(y.category))
+    .map((v) => v.voice_id)
+    .slice(0, 5);
 }
 
 async function tts(key: string, voice: string, text: string) {
@@ -173,27 +175,44 @@ async function tts(key: string, voice: string, text: string) {
 export async function synthesizeNarration(text: string): Promise<{ audio: Uint8Array; words: CaptionWord[]; voice: string } | null> {
   const key = process.env.ELEVENLABS_API_KEY?.trim();
   if (!key || !text.trim()) return null;
-  let voice = process.env.ELEVENLABS_VOICE_ID?.trim() || (await usableVoice(key)) || "JBFqnCBsd6RMkjVDRZzb";
-  let res = await tts(key, voice, text);
-  if (res.status === 402 || res.status === 403 || res.status === 404) {
-    // Configured voice not allowed on this plan → fall back to one the account can use.
-    const fallback = await usableVoice(key);
-    if (fallback && fallback !== voice) {
-      voice = fallback;
-      res = await tts(key, voice, text);
+
+  const configured = process.env.ELEVENLABS_VOICE_ID?.trim();
+  const tried = new Set<string>();
+  const order = [configured, cachedVoice].filter((v): v is string => Boolean(v));
+  let res: Response | null = null;
+  let voice = "";
+
+  const attempt = async (v: string) => {
+    if (tried.has(v)) return false;
+    tried.add(v);
+    voice = v;
+    res = await tts(key, v, text);
+    return res.ok;
+  };
+
+  let ok = false;
+  for (const v of order) if ((ok = await attempt(v))) break;
+  if (!ok) {
+    // Plan/voice refusals → walk the account's usable voices.
+    for (const v of await candidateVoices(key)) {
+      if ((ok = await attempt(v))) break;
+      const status = (res as Response | null)?.status ?? 0;
+      if (![402, 403, 404, 422].includes(status)) break; // other errors won't be fixed by another voice
     }
   }
-  if (!res.ok) {
-    // Surface ElevenLabs' own reason (e.g. plan limits, quota, bad voice id).
-    const body = await res.text().catch(() => "");
+  const final = res as Response | null;
+  if (!final) throw new AppError(ErrorCodes.PROVIDER_ERROR, "ElevenLabs: no usable voice found on this account", 502);
+  if (!final.ok) {
+    const body = await final.text().catch(() => "");
     let reason = body.slice(0, 200);
     try {
       const j = JSON.parse(body) as { detail?: { message?: string; status?: string } | string };
       reason = typeof j.detail === "string" ? j.detail : j.detail?.message ?? j.detail?.status ?? reason;
     } catch {}
-    throw new AppError(ErrorCodes.PROVIDER_ERROR, `ElevenLabs ${res.status}: ${reason}`.slice(0, 280), 502);
+    throw new AppError(ErrorCodes.PROVIDER_ERROR, `ElevenLabs ${final.status} (tried ${tried.size} voice(s)): ${reason}`.slice(0, 280), 502);
   }
-  const json = (await res.json()) as {
+  cachedVoice = voice;
+  const json = (await final.json()) as {
     audio_base64: string;
     alignment?: { characters: string[]; character_start_times_seconds: number[]; character_end_times_seconds: number[] };
   };
