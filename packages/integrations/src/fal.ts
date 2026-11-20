@@ -66,13 +66,39 @@ export function extractImageUrl(result: unknown): string | null {
   return r?.images?.[0]?.url ?? r?.image?.url ?? null;
 }
 
-/** Prompt for one scene image: subject/composition from the scene + the project's style. */
-export function sceneImagePrompt(input: { visual?: string; heading?: string; visualStyle?: string; fallback: string }) {
+const OVERLAY_LAYOUTS = new Set(["points", "code", "compare", "stat", "statement", "quote"]);
+
+/**
+ * Layout-aware scene image prompt (content-video skill §5): the image is a
+ * background under the overlay, in one consistent visual identity.
+ */
+export function sceneImagePrompt(input: {
+  visual?: string;
+  heading?: string;
+  layout?: string;
+  visualStyle?: string;
+  palette?: string;
+  recurringSubject?: string;
+  fallback: string;
+}) {
+  const layout = input.layout ?? "image";
+  const subject = input.visual || input.heading || input.fallback;
+  const composition = OVERLAY_LAYOUTS.has(layout)
+    ? "Calm, low-detail background illustration. Main subject small in the lower third; the upper half is mostly empty soft space for overlaid text."
+    : layout === "product"
+      ? "Clean product hero shot, centered, simple uncluttered background."
+      : layout === "cta"
+        ? "Soft celebratory background, subject looking at the camera, lots of empty space in the upper half."
+        : "Bold subject large in frame, dynamic angle, subject in the lower 60 percent of the frame.";
   return [
-    input.visual || input.heading || input.fallback,
-    input.visualStyle ? `Art style: ${input.visualStyle}.` : "Art style: polished stylized illustration.",
-    "Vertical 9:16 composition, clear focal subject, vibrant, no text, no letters, no watermark.",
+    `Scene: ${subject}.`,
+    composition,
+    input.recurringSubject ? `Recurring character/subject (keep identical across scenes when present): ${input.recurringSubject}.` : "",
+    `Art style: ${input.visualStyle || "polished flat vector illustration, thick outlines, soft shading"}.`,
+    input.palette ? `Color palette: ${input.palette}.` : "",
+    "Vertical 9:16. No text, no letters, no numbers, no logos, no UI screens, no watermark.",
   ]
+    .filter(Boolean)
     .join(" ")
     .slice(0, 1800);
 }

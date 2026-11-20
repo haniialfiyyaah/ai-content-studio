@@ -111,7 +111,15 @@ export async function startRender(renderId: string) {
     }
 
     const prompts = scenes.map((s) =>
-      sceneImagePrompt({ visual: s.visual, heading: s.heading, visualStyle: p.creative_kit?.visualStyle, fallback: c.video_prompt || picked.title }),
+      sceneImagePrompt({
+        visual: s.visual,
+        heading: s.heading,
+        layout: s.layout,
+        visualStyle: p.creative_kit?.visualStyle,
+        palette: p.creative_kit?.palette,
+        recurringSubject: p.creative_kit?.recurringSubject,
+        fallback: c.video_prompt || picked.title,
+      }),
     );
 
     // 1) OpenAI, all scenes in parallel (synchronous API → stored immediately)

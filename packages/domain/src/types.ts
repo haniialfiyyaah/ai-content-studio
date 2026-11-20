@@ -83,6 +83,9 @@ export const CreativeKitSchema = z.object({
   voice: z.string().default(""),
   pillars: z.array(z.string()).default([]),
   guardrails: z.array(z.string()).default([]),
+  /** Visual identity (content-video skill §5). */
+  palette: z.string().default(""),
+  recurringSubject: z.string().default(""),
 });
 export type CreativeKit = z.infer<typeof CreativeKitSchema>;
 

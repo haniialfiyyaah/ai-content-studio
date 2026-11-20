@@ -311,6 +311,8 @@ export default async function ProjectPage({
                     ["Language", kit.language],
                     ["Voice", kit.voice],
                     ["Visual style", kit.visualStyle],
+                    ["Palette", kit.palette],
+                    ["Recurring subject", kit.recurringSubject],
                   ] as const
                 ).map(([k, v]) => (
                   <div key={k} className="kv"><label>{k}</label><span className="small" style={{ textAlign: "right" }}>{v || "—"}</span></div>

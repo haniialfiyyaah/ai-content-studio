@@ -21,3 +21,18 @@ describe("captions", () => {
     expect(words[1].start).toBeGreaterThan(words[0].start);
   });
 });
+
+import { sceneImagePrompt } from "./fal";
+
+describe("sceneImagePrompt", () => {
+  it("keeps overlay layouts calm with space for text, and anchors identity", () => {
+    const p = sceneImagePrompt({ visual: "two puzzle pieces that both fit", layout: "code", visualStyle: "flat vector", palette: "coral, navy", recurringSubject: "a tabby kitten", fallback: "x" });
+    expect(p).toContain("upper half is mostly empty");
+    expect(p).toContain("a tabby kitten");
+    expect(p).toContain("coral, navy");
+    expect(p).toContain("No text");
+  });
+  it("makes hook beats bold", () => {
+    expect(sceneImagePrompt({ visual: "kitten on a keyboard", layout: "hook", fallback: "x" })).toContain("Bold subject large in frame");
+  });
+});

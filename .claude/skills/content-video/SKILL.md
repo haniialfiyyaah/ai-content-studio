@@ -86,7 +86,42 @@ a darkening gradient for legibility, accent color from the project, and respect
 Transitions alternate (`slide`, `zoom`, `flash`, `wipe`, `cut`) — never the same
 transition three times in a row. Optional light-leak overlay on 1–2 cuts.
 
-## 5. Captions
+## 5. Image generation (scene backgrounds)
+
+Images are backgrounds **under** the layout, not the whole message. Bad fit =
+the picture fights the overlay or tells a different story than the narration.
+
+**Visual identity (per project, in the Creative Kit, generated once):**
+- `visualStyle` — one art direction reused verbatim in every prompt
+  (e.g. "flat vector illustration, thick outlines, soft grain").
+- `palette` — 3–5 named colors that match the project accent.
+- `recurringSubject` — the character/product/mascot that appears across
+  beats, described concretely (e.g. "a curious orange tabby kitten with a blue
+  collar"). Leave empty only for abstract topics.
+
+**Per beat `visual` (WF-01):** one concrete scene that *illustrates the beat's
+narration*: subject + action + setting + mood + camera framing. Use metaphors
+for abstract/technical ideas (two puzzle pieces that both fit = "matches both
+schemas") — never draw screens, code, charts, documents or anything with text.
+
+**Prompt builder (app, `sceneImagePrompt`) — layout aware:**
+
+| layout | composition |
+|---|---|
+| hook, image, story moments | bold subject large in frame, dramatic angle, subject in lower 60 % |
+| points, code, compare, stat, statement, quote | calm, low-detail background related to the topic; main subject small in the **lower third**; upper 55 % mostly empty/soft for the overlay |
+| product | the product hero shot, centered, clean background (reference image when available) |
+| cta | soft, celebratory background with the recurring subject waving / looking at camera, lots of empty space |
+
+Always append: the style string, palette, recurring subject (when the beat
+features it), "vertical 9:16", and "no text, no letters, no numbers, no logos,
+no UI, no watermark".
+
+**Model:** one primary model per project for consistency (OpenAI
+`gpt-image-1` family *or* fal Flux); the other is fallback only. Reference
+uploads → image-conditioned generation (OpenAI edits / Flux Kontext).
+
+## 6. Captions
 
 TikTok-style pages of 1–3 words, centered, heavy weight (900), uppercase,
 white with dark stroke; the active word scales 1.15→1 and turns the accent
@@ -94,7 +129,7 @@ color; `emphasis` words get an emoji/underline pop. Timings come from the
 ElevenLabs alignment (fallback: even timing). Never cover the beat headline —
 when a layout shows a headline the captions move down to the 70 % line.
 
-## 6. Audio
+## 7. Audio
 
 - Voice: ElevenLabs `eleven_multilingual_v2`, voice from Creative Kit; the
   narration of all beats concatenated → one MP3 with word timestamps; beat
@@ -103,7 +138,7 @@ when a layout shows a headline the captions move down to the 70 % line.
   in/out, ducked under voice.
 - SFX (optional, quiet): whoosh on slide/zoom transitions, pop on points/stat.
 
-## 7. Production constraints
+## 8. Production constraints
 
 - Render server: Railway, Remotion `renderMedia`, concurrency 1. 1080p needs
   ≥ 1.5 GB RAM; on 512 MB use `RENDER_SCALE=0.6667` (720p).
@@ -111,7 +146,7 @@ when a layout shows a headline the captions move down to the 70 % line.
   Generate in parallel; same seed/style string for consistency.
 - File: H.264, CRF ~25, AAC 128k → 3–8 MB.
 
-## 8. How to test a change
+## 9. How to test a change
 
 1. Edit the composition in `apps/renderer/src/remotion` (keep the props
    contract above; old `scenes` props must keep working).
