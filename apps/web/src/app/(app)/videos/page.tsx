@@ -36,7 +36,7 @@ export default async function VideosPage() {
           {withUrls.map((r) => (
             <div key={r.id} className="video-card">
               <VideoBox url={r.url} status={r.status} phase={r.phase} />
-              <div className="small semibold">{resolveContent(r.contents?.options, r.contents?.selection).title}</div>
+              <Link href={`/videos/${r.id}`} className="small semibold" style={{ textDecoration: "none" }}>{resolveContent(r.contents?.options, r.contents?.selection).title} →</Link>
               <div className="row between">
                 <Link href={`/projects/${r.project_id}?tab=videos`} className="xs muted">{r.projects?.title}</Link>
                 <span className={pillClass(r.status)}>{r.status}</span>

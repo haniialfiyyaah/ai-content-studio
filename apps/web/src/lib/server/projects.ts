@@ -471,7 +471,7 @@ export async function setLifecycle(ownerId: string, projectId: string, action: "
   const allowed: Record<typeof action, string[]> = {
     pause: ["active"],
     resume: ["paused"],
-    stop: ["active", "paused", "draft"],
+    stop: ["active", "paused"],
   };
   if (!allowed[action].includes(project.status)) throw conflict(`Cannot ${action} a ${project.status} project`);
   const next = { pause: "paused", resume: "active", stop: "stopped" }[action];

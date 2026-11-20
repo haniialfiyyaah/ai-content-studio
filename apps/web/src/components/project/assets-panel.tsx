@@ -67,7 +67,7 @@ export function AssetsPanel({
   }
 
   return (
-    <div className="grid" style={{ gridTemplateColumns: "minmax(0,1.4fr) minmax(260px,.8fr)" }}>
+    <div className="grid split-wide">
       <div className="card pad">
         <div className="section">
           <div><h2>References</h2><p>Product photos, characters, logos or style examples (JPG/PNG/WebP, up to 10 MB).</p></div>

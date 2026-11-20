@@ -28,7 +28,7 @@ export function LiveRefresh({ sources }: { sources: LiveSource[] }) {
         { event: "*", schema: "public", table: s.table, ...(s.filter ? { filter: s.filter } : {}) },
         () => {
           if (timer.current) clearTimeout(timer.current);
-          timer.current = setTimeout(() => router.refresh(), 250);
+          timer.current = setTimeout(() => router.refresh(), 700);
         },
       );
     }

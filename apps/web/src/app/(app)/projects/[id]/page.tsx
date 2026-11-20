@@ -127,7 +127,7 @@ export default async function ProjectPage({
               {p.status === "paused" && (
                 <ActionButton path={`/api/projects/${p.id}/lifecycle`} body={{ action: "resume" }} className="btn primary"><Play size={14} /> Resume</ActionButton>
               )}
-              {["active", "paused", "draft"].includes(p.status) && (
+              {["active", "paused"].includes(p.status) && (
                 <ActionButton
                   path={`/api/projects/${p.id}/lifecycle`}
                   body={{ action: "stop" }}
@@ -150,7 +150,7 @@ export default async function ProjectPage({
           </nav>
 
           {tab === "overview" && (
-            <div className="grid" style={{ gridTemplateColumns: "minmax(0,1.2fr) minmax(0,.9fr)" }}>
+            <div className="grid split-main">
               <div className="stack">
                 <div className="card pad">
                   <div className="section">
@@ -338,7 +338,7 @@ export default async function ProjectPage({
           )}
 
           {tab === "schedule" && (
-            <div className="grid" style={{ gridTemplateColumns: "minmax(0,1.1fr) minmax(0,.9fr)" }}>
+            <div className="grid split-main">
               <div className="card pad">
                 <div className="section"><div><h2>Publishing schedule</h2><p>Each content gets the next free slot, in order.</p></div></div>
                 {editable ? <ScheduleForm projectId={p.id} initial={p.schedule} timezone={ws.timezone} /> : <p className="small muted">Stopped projects can’t be rescheduled.</p>}
@@ -378,7 +378,11 @@ export default async function ProjectPage({
                   return (
                     <div key={c.id} className="video-card">
                       <VideoBox url={r?.url} status={r?.status} phase={r?.phase} />
-                      <div className="small semibold">{resolveContent(c.options, c.selection).title}</div>
+                      {r ? (
+                        <Link href={`/videos/${r.id}`} className="small semibold" style={{ textDecoration: "none" }}>{resolveContent(c.options, c.selection).title} →</Link>
+                      ) : (
+                        <div className="small semibold">{resolveContent(c.options, c.selection).title}</div>
+                      )}
                       <div className="xs muted">
                         {j?.status === "published" ? "Published" : j ? `Uploads ${fmtDateTime(j.scheduled_for, p.schedule.timezone)}` : "Not scheduled"}
                         {j?.external_url && <> · <a className="linklike" href={j.external_url} target="_blank" rel="noreferrer">YouTube →</a></>}

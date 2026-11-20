@@ -445,3 +445,8 @@ ALTER TABLE public.generation_runs
 -- content format (see .claude/skills/content-video) — 2026-11-20, fourth pass
 ALTER TABLE public.contents ADD COLUMN format text NOT NULL DEFAULT 'explainer'
   CHECK (format IN ('explainer', 'listicle', 'story', 'compare', 'product'));
+
+-- download tracking for the video detail page
+ALTER TABLE public.video_renders
+  ADD COLUMN download_count int NOT NULL DEFAULT 0,
+  ADD COLUMN last_downloaded_at timestamptz;

@@ -386,7 +386,7 @@ export async function rendererCallback(input: { renderId: string; ok: boolean; e
     projectId: render.project_id,
     template: "render.ready",
     text: `🎬 Video ready: "${title}"`,
-    path: `/projects/${render.project_id}?tab=videos`,
+    path: `/videos/${render.id}`,
     renderId: render.id,
   });
   return { ok: true };
@@ -431,5 +431,10 @@ export async function downloadUrl(ownerId: string, renderId: string) {
   if (!data || data.status !== "ready") throw notFound("Video");
   const c = data.contents as unknown as Pick<ContentRow, "options" | "selection"> | null;
   const name = resolveContent(c?.options, c?.selection).title.replace(/[^\w\- ]+/g, "").trim().slice(0, 60) || "video";
+  const { data: cur } = await admin().from("video_renders").select("download_count").eq("id", renderId).single();
+  await admin()
+    .from("video_renders")
+    .update({ download_count: (cur?.download_count ?? 0) + 1, last_downloaded_at: new Date().toISOString() })
+    .eq("id", renderId);
   return signedVideoUrl(data.storage_path, 600, `${name}.mp4`);
 }

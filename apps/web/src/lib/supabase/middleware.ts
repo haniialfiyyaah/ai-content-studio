@@ -51,8 +51,9 @@ export async function updateSession(request: NextRequest) {
   // Prefer getUser() over getSession() for authorization decisions.
   let user = null;
   try {
-    const { data } = await supabase.auth.getUser();
-    user = data.user;
+    // Local JWT verification (asymmetric signing keys) — no Auth round trip per request.
+    const { data } = await supabase.auth.getClaims();
+    user = data?.claims?.sub ? { id: data.claims.sub } : null;
   } catch (error) {
     console.error("supabase.auth.getUser failed in middleware", error);
     if (

@@ -41,7 +41,17 @@ function initials(name: string) {
   return name.split(/[\s@._-]+/).filter(Boolean).slice(0, 2).map((p) => p[0]?.toUpperCase()).join("") || "ME";
 }
 
-function Sidebar({ name, collapsed, onNavigate }: { name: string; collapsed?: boolean; onNavigate?: () => void }) {
+function Sidebar({
+  name,
+  className = "",
+  onNavigate,
+  onMouseLeave,
+}: {
+  name: string;
+  className?: string;
+  onNavigate?: () => void;
+  onMouseLeave?: () => void;
+}) {
   const pathname = usePathname();
   const item = (n: (typeof ALL)[number]) => (
     <Link key={n.href} href={n.href} onClick={onNavigate} className={`navitem ${isActive(pathname, n.href) ? "active" : ""}`} title={n.label}>
@@ -49,7 +59,7 @@ function Sidebar({ name, collapsed, onNavigate }: { name: string; collapsed?: bo
     </Link>
   );
   return (
-    <aside className={`sidebar ${collapsed ? "collapsed" : ""}`}>
+    <aside className={`sidebar ${className}`} onMouseLeave={onMouseLeave}>
       <div className="brand">
         <div className="brandmark"><Sparkles size={18} /></div>
         <div>
@@ -76,13 +86,17 @@ function Sidebar({ name, collapsed, onNavigate }: { name: string; collapsed?: bo
 export function AppShell({ name, children }: { name: string; children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const [nav, setNav] = usePref("acs.nav", "open");
-  const collapsed = nav === "collapsed";
+  // "auto" (default): hidden, slides in when the pointer reaches the left edge,
+  // closes when it leaves. "pinned": always visible. Mobile: drawer.
+  const [nav, setNav] = usePref("acs.nav.v2", "auto");
+  const pinned = nav === "pinned";
+  const [hover, setHover] = useState(false);
   const [drawer, setDrawer] = useState(false);
 
   function toggle() {
     if (window.matchMedia("(max-width: 850px)").matches) return setDrawer(true);
-    setNav(collapsed ? "open" : "collapsed");
+    setHover(false);
+    setNav(pinned ? "auto" : "pinned");
   }
 
   async function logout() {
@@ -95,7 +109,19 @@ export function AppShell({ name, children }: { name: string; children: React.Rea
 
   return (
     <div className="shell">
-      <Sidebar name={name} collapsed={collapsed} />
+      {pinned ? (
+        <Sidebar name={name} />
+      ) : (
+        <>
+          <div className="nav-hotzone" onMouseEnter={() => setHover(true)} aria-hidden />
+          <Sidebar
+            name={name}
+            className={`auto ${hover ? "open" : ""}`}
+            onNavigate={() => setHover(false)}
+            onMouseLeave={() => setHover(false)}
+          />
+        </>
+      )}
       {drawer && (
         <div className="mobile-drawer" onClick={() => setDrawer(false)}>
           <div onClick={(e) => e.stopPropagation()}>
@@ -106,7 +132,15 @@ export function AppShell({ name, children }: { name: string; children: React.Rea
       <div className="app">
         <header className="topbar">
           <div className="topL">
-            <button className="icbtn" onClick={toggle} aria-label="Toggle navigation"><Menu size={17} /></button>
+            <button
+              className={`icbtn ${pinned ? "on" : ""}`}
+              onClick={toggle}
+              onMouseEnter={() => !pinned && setHover(true)}
+              aria-label={pinned ? "Unpin navigation" : "Pin navigation"}
+              title={pinned ? "Unpin navigation (auto-hide)" : "Pin navigation open"}
+            >
+              <Menu size={17} />
+            </button>
             <div className="crumb">Studio / <strong>{section}</strong></div>
           </div>
           <div className="topR">

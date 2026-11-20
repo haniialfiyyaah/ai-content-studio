@@ -8,7 +8,7 @@ import { ActionButton } from "@/components/ui/action-button";
 import { LiveRefresh } from "@/components/ui/live-refresh";
 import { VideoBox } from "@/components/ui/video-player";
 import { fmtDateTime, pillClass } from "@/lib/format";
-import { latestRenders } from "@/lib/server/queries";
+import { latestRenders, sceneImageUrls } from "@/lib/server/queries";
 import type { ContentRow, ProjectRow } from "@/lib/server/rows";
 import { requireUser } from "@/lib/server/session";
 
@@ -40,6 +40,7 @@ export default async function ContentDetail({
   const c = content as ContentRow;
   const picked = resolveContent(c.options, c.selection);
   const render = (await latestRenders(supabase, [c.id])).get(c.id);
+  const sceneImages = await sceneImageUrls(render?.steps);
   const editable = p.status !== "stopped";
   const base = `/projects/${p.id}/content/${c.id}`;
   const total = c.scenes.reduce((s, x) => s + (x.seconds || 5), 0);
@@ -115,20 +116,51 @@ export default async function ContentDetail({
 
       {tab === "storyboard" && (
         <div className="stack">
-          <div className="section"><div><h2>Storyboard & scene direction</h2><p>Each scene becomes its own AI clip; clips are composed into the final Short.</p></div><span className="badge-outline">9:16 · {total} seconds</span></div>
+          <div className="section">
+            <div>
+              <h2>Storyboard</h2>
+              <p>{render ? "Images from the latest render. Design beats are drawn by the template." : "Images are generated when the video renders — each beat shows what will be drawn."}</p>
+            </div>
+            <span className="badge-outline">9:16 · {total} seconds · {c.scenes.length} beats</span>
+          </div>
           {c.scenes.map((s, i) => {
             const from = c.scenes.slice(0, i).reduce((a, x) => a + (x.seconds || 5), 0);
             return (
               <div key={i} className="scene-card">
-                <div className={`scene-visual ${TONES[i % 3]}`}><span className="ring" /><span className="bigemoji">{["🎬", "✨", "🌿", "📦", "💡", "🎯"][i % 6]}</span><span className="labelstrip">{s.onScreenText || s.heading}</span></div>
+                <div className={`scene-visual ${s.background === "design" ? "dark" : TONES[i % 3]}`}>
+                  {sceneImages[i] ? (
+                    /* eslint-disable-next-line @next/next/no-img-element */
+                    <img src={sceneImages[i]!} alt={s.heading} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />
+                  ) : (
+                    <>
+                      <span className="ring" />
+                      <span className="bigemoji">{s.background === "design" ? "🎨" : render ? "🖼️" : "⏳"}</span>
+                    </>
+                  )}
+                  <span className="labelstrip">
+                    {s.background === "design" ? "Design background" : sceneImages[i] ? s.layout ?? "image" : render ? "Image not generated" : "Generated at render"}
+                  </span>
+                </div>
                 <div className="scene-body">
-                  <div className="row between"><div className="eyebrow" style={{ margin: 0 }}>SCENE {String(i + 1).padStart(2, "0")}</div><span className="pill">{from}–{from + (s.seconds || 5)}s</span></div>
+                  <div className="row between">
+                    <div className="eyebrow" style={{ margin: 0 }}>BEAT {String(i + 1).padStart(2, "0")} · {(s.layout ?? "image").toUpperCase()}</div>
+                    <span className="pill">{from}–{from + (s.seconds || 5)}s</span>
+                  </div>
                   <h3>{s.heading}</h3>
                   <p className="scene-text">{s.narration}</p>
                   <div className="divider" />
+                  {s.headline || s.points?.length || s.code || s.left || s.stat ? (
+                    <div className="note" style={{ marginBottom: 12 }}>
+                      {s.headline && <div className="semibold">{s.headline}</div>}
+                      {s.points?.length ? <div>{s.points.map((pt, k) => <div key={k}>• {pt}</div>)}</div> : null}
+                      {s.code && <pre style={{ fontFamily: "var(--font-mono, monospace)", fontSize: 11, margin: "6px 0 0", whiteSpace: "pre-wrap" }}>{s.code}</pre>}
+                      {(s.left || s.right) && <div>❌ {s.left}<br />✅ {s.right}</div>}
+                      {s.stat && <div>{s.stat} — {s.statLabel}</div>}
+                    </div>
+                  ) : null}
                   <div className="grid g2">
-                    <div><div className="xs muted">Visuals</div><div className="small semibold">{s.visual || "—"}</div></div>
-                    <div><div className="xs muted">Motion & transitions</div><div className="small semibold">{s.motion || "—"}</div></div>
+                    <div><div className="xs muted">{s.background === "design" ? "Background" : "Image direction"}</div><div className="small semibold">{s.background === "design" ? "Code-drawn branded background" : s.visual || "—"}</div></div>
+                    <div><div className="xs muted">Motion & transition</div><div className="small semibold">{[s.motion, s.transition && s.transition !== "cut" ? `${s.transition} in` : ""].filter(Boolean).join(" · ") || "—"}</div></div>
                   </div>
                   {s.onScreenText && <div className="tagrow"><span className="tag">On-screen text: {s.onScreenText}</span><span className="tag">Narration aligned</span></div>}
                 </div>
@@ -148,7 +180,7 @@ export default async function ContentDetail({
       )}
 
       {tab === "video" && (
-        <div className="grid" style={{ gridTemplateColumns: "minmax(220px,300px) 1fr" }}>
+        <div className="grid split-media">
           <VideoBox url={render?.url} status={render?.status} phase={render?.phase} />
           <div className="card pad">
             <div className="section"><h2>Render</h2>{render && <span className={pillClass(render.status)}>{render.status}</span>}</div>

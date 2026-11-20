@@ -51,3 +51,25 @@ a.btn,a.navitem,a.newbtn,a.tab,a.manage-nav{text-decoration:none}
 @media(max-width:850px){[data-mobile-switch]{display:flex!important}}
 .skel{background:linear-gradient(90deg,#efecf6 25%,#f7f5fb 50%,#efecf6 75%);background-size:200% 100%;animation:skel 1.2s ease-in-out infinite;border-radius:12px}@keyframes skel{to{background-position:-200% 0}}
 .route-bar{position:fixed;top:0;left:0;right:0;height:3px;z-index:60;overflow:hidden}.route-bar span{display:block;height:100%;width:40%;background:var(--accent);animation:routebar 1s ease-in-out infinite}@keyframes routebar{from{transform:translateX(-100%)}to{transform:translateX(250%)}}
+
+/* ---- responsive splits (replace inline 2-column grids) ---- */
+.split-main{grid-template-columns:minmax(0,1.2fr) minmax(0,.9fr)}
+.split-wide{grid-template-columns:minmax(0,1.4fr) minmax(260px,.8fr)}
+.split-media{grid-template-columns:minmax(220px,300px) 1fr}
+@media(max-width:1100px){.split-main,.split-wide{grid-template-columns:1fr}}
+@media(max-width:700px){.split-media{grid-template-columns:1fr}.split-media .video-box{max-width:320px;margin:0 auto}}
+@media(max-width:850px){
+  .project-hero .actions{width:100%}
+  .project-hero h1{font-size:24px}
+  .workspace-main>div:first-child{padding:10px 16px 0!important}
+  .scene-card{grid-template-columns:1fr}
+  .grid.g2{grid-template-columns:1fr}
+  .tabs{margin-left:-16px;margin-right:-16px;padding-left:16px}
+}
+
+/* ---- auto-hide navigation ---- */
+.nav-hotzone{position:fixed;left:0;top:0;bottom:0;width:14px;z-index:48}
+.sidebar.auto{position:fixed;left:0;top:0;height:100vh;z-index:50;transform:translateX(-102%);transition:transform .18s ease;box-shadow:0 0 0 1px var(--border),18px 0 50px rgba(41,38,61,.12)}
+.sidebar.auto.open{transform:none}
+.icbtn.on{background:var(--lav);color:var(--accent)}
+@media(max-width:850px){.nav-hotzone,.sidebar.auto{display:none}}

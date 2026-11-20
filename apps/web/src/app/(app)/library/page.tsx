@@ -30,7 +30,7 @@ export default async function LibraryPage({ searchParams }: { searchParams: Prom
           {rows.map((r) => (
             <div key={r.id} className="video-card">
               <VideoBox url={r.url} status="ready" />
-              <div className="small semibold">{resolveContent(r.contents?.options, r.contents?.selection).title}</div>
+              <Link href={`/videos/${r.id}`} className="small semibold" style={{ textDecoration: "none" }}>{resolveContent(r.contents?.options, r.contents?.selection).title} →</Link>
               <div className="xs muted">{r.projects?.title} · {fmtDate(r.finished_at)} · {r.steps.length} scenes</div>
               <a className="btn small" href={`/api/renders/${r.id}/download`}><Download size={13} /> Download</a>
             </div>
