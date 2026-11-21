@@ -60,6 +60,11 @@ export const SceneSchema = z.object({
   transition: z.enum(BEAT_TRANSITIONS).catch("cut").default("cut"),
   /** ai = generated illustration; design = code-drawn branded background (no image cost). */
   background: z.enum(["ai", "design"]).catch("ai").default("ai"),
+  /** What the project mascot does in this beat (Mascot / Mixed visuals). */
+  mascotPose: z.string().max(20).catch("").default(""),
+  mascotExpression: z.string().max(20).catch("").default(""),
+  mascotProp: z.string().max(8).catch("").default(""),
+  mascotSetting: z.string().max(20).catch("").default(""),
 });
 export type Scene = z.infer<typeof SceneSchema>;
 
@@ -133,6 +138,15 @@ export type Schedule = z.infer<typeof ScheduleSchema>;
 
 export type Selection = Partial<Record<OptionField, number>>;
 
+/** Where scene visuals come from: AI illustrations · Mixed (AI for hook / payoff / ending, mascot elsewhere) · Mascot (code-drawn, free). */
+export const VISUAL_SOURCES = ["ai", "mixed", "mascot"] as const;
+export type VisualSource = (typeof VISUAL_SOURCES)[number];
+export const VISUAL_SOURCE_LABELS: Record<VisualSource, { label: string; help: string }> = {
+  ai: { label: "AI illustrations", help: "Every scene is a custom AI image — best looking, uses image credits." },
+  mixed: { label: "Mixed", help: "AI images for the hook, payoff and ending; your mascot in the other scenes." },
+  mascot: { label: "Mascot", help: "Your project mascot, drawn by code in every scene — free." },
+};
+
 export const IMAGE_ENGINES = ["openai", "fal"] as const;
 export type ImageEngine = (typeof IMAGE_ENGINES)[number];
 export const IMAGE_ENGINE_LABELS: Record<ImageEngine, { label: string; help: string }> = {
@@ -199,13 +213,14 @@ export function endingBrief(raw: unknown, fallbackHandle = ""): string {
 // ---------------------------------------------------------------------------
 // Guided setup (docs/FLOW.md) — Discovery → Concept → Creative Kit → Pillars
 // ---------------------------------------------------------------------------
-export const SETUP_STAGES = ["similar", "concept", "kit", "pillars", "done"] as const;
+export const SETUP_STAGES = ["similar", "concept", "kit", "pillars", "character", "done"] as const;
 export type SetupStage = (typeof SETUP_STAGES)[number];
 export const SETUP_STAGE_LABELS: Record<SetupStage, string> = {
   similar: "Your idea",
   concept: "Concept",
   kit: "Creative Kit",
   pillars: "Pillars & guardrails",
+  character: "Character & references",
   done: "Ready",
 };
 /** The stage after this one (pillars → done). */
@@ -246,7 +261,7 @@ export const SetupPillarsSchema = z.object({
 });
 export type SetupPillars = z.infer<typeof SetupPillarsSchema>;
 
-export const SETUP_TASKS = ["chat", "concept", "kit", "pillars", "plan", "scene", "renumber", "more"] as const;
+export const SETUP_TASKS = ["chat", "concept", "kit", "pillars", "character", "plan", "scene", "renumber", "more"] as const;
 export type SetupTask = (typeof SETUP_TASKS)[number];
 
 /** n8n WF-05 → /api/internal/setup/complete */
@@ -282,6 +297,16 @@ export const SetupCompleteSchema = z.object({
       seconds: z.coerce.number().min(1).max(15).catch(4),
     })
     .partial()
+    .optional(),
+  /** task "character": the project character, concrete enough to draw, + the code-drawn mascot version. */
+  character: z
+    .object({
+      description: clip(600),
+      mascot: z
+        .object({ shape: clip(20), color: clip(20), accent: clip(20), accessory: clip(20) })
+        .partial()
+        .default({}),
+    })
     .optional(),
   /** task "renumber": text-only fixes after a skip / restore in a daily or connected series. */
   patches: z
@@ -340,6 +365,7 @@ export const ProjectSettingsSchema = z
     autoApprove: z.boolean(),
     /** Create the videos automatically once every storyboard is done. */
     autoVideo: z.boolean(),
+    visualSource: z.enum(VISUAL_SOURCES),
   })
   .partial();
 export type ProjectSettings = z.infer<typeof ProjectSettingsSchema>;

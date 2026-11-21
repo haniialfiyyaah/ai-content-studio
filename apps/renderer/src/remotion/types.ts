@@ -1,3 +1,4 @@
+import type { MascotAction, MascotSpec } from "./mascot";
 // Props contract between the app (dispatchToRenderer) and the Short composition.
 // Spec: .claude/skills/content-video/SKILL.md. Beat fields are optional so
 // older jobs (image-only scenes) still render.
@@ -21,6 +22,8 @@ export interface ShortScene {
   statLabel?: string;
   emphasis?: string[];
   transition?: BeatTransition;
+  /** Mascot / Mixed visuals: the project mascot drawn by code instead of an image. */
+  mascot?: { spec: MascotSpec; action: MascotAction; palette: string[] } | null;
 }
 
 export interface CaptionWord {

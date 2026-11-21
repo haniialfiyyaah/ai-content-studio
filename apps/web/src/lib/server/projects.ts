@@ -390,6 +390,10 @@ export async function updateProjectSettings(ownerId: string, projectId: string, 
     await admin().from("projects").update({ auto_approve: input.autoApprove }).eq("id", projectId);
     out.autoApprove = input.autoApprove;
   }
+  if (input.visualSource) {
+    await admin().from("projects").update({ visual_source: input.visualSource }).eq("id", projectId);
+    out.visualSource = input.visualSource;
+  }
   if (input.autoVideo !== undefined) {
     await admin().from("projects").update({ auto_video: input.autoVideo }).eq("id", projectId);
     out.autoVideo = input.autoVideo;

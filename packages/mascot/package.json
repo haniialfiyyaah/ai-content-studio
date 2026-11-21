@@ -5,7 +5,15 @@
   "type": "module",
   "main": "./src/index.tsx",
   "types": "./src/index.tsx",
-  "exports": { ".": "./src/index.tsx" },
-  "description": "Code-drawn mascot scenes (free visuals). Source of truth — apps/renderer gets a synced copy (scripts/sync-mascot.mjs).",
-  "peerDependencies": { "react": "*" }
+  "exports": {
+    ".": "./src/index.tsx"
+  },
+  "description": "Code-drawn mascot scenes (free visuals). Source of truth \u2014 apps/renderer gets a synced copy (scripts/sync-mascot.mjs).",
+  "peerDependencies": {
+    "react": "*"
+  },
+  "devDependencies": {
+    "react": "19.3.0",
+    "@types/react": "^19"
+  }
 }

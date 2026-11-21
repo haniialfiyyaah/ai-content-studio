@@ -8,6 +8,8 @@ import { EndingForm } from "@/components/project/ending-form";
 import { LaunchPanel } from "@/components/project/launch-panel";
 import { ScheduleForm } from "@/components/project/schedule-form";
 import { SetupView } from "@/components/project/setup-view";
+import { IDENTITY_LABEL } from "@/lib/server/identity";
+import { normalizeAction, normalizeSpec, paletteHexes, type MascotExpression, type MascotPose, type MascotSetting } from "@acs/mascot";
 import { PhaseSteps } from "@/components/project/phase-steps";
 import { PlanView, type PlanCard } from "@/components/project/plan-view";
 import { ProjectBrief } from "@/components/project/project-brief";
@@ -96,9 +98,16 @@ export default async function ProjectPage({
     return (
       <>
         <LiveRefresh
-          pollMs={sp.setup_busy || ws.messages.at(-1)?.role === "user" ? 3000 : undefined}
+          pollMs={
+            sp.setup_busy ||
+            ws.messages.at(-1)?.role === "user" ||
+            (sp.setup_stage === "character" && (p.visual_source ?? "ai") !== "mascot" && !ws.assets.some((x) => x.label === IDENTITY_LABEL))
+              ? 3000
+              : undefined
+          }
           sources={[
             { table: "projects", filter: `id=eq.${p.id}` },
+            { table: "project_assets", filter: `project_id=eq.${p.id}` },
             ...(ws.conversationId ? [{ table: "messages", filter: `conversation_id=eq.${ws.conversationId}` }] : []),
           ]}
         />
@@ -137,6 +146,9 @@ export default async function ProjectPage({
               ending={(p as typeof p & { ending?: unknown }).ending}
               similar={ws.messages.at(-1)?.role === "assistant" ? ws.messages.at(-1)?.meta?.similar ?? null : null}
               auto={p.auto_approve}
+              visualSource={p.visual_source ?? "ai"}
+              sheetUrl={ws.assets.find((x) => x.label === IDENTITY_LABEL)?.url ?? null}
+              refs={ws.assets.filter((x) => x.label !== IDENTITY_LABEL).map((x) => ({ id: x.id, label: x.label, url: x.url }))}
             />
           </main>
         </WorkspaceFrame>
@@ -161,6 +173,8 @@ export default async function ProjectPage({
     });
     const ready = p.content_stage === "plan" && !cards.length && !busy;
     // Storyboards: every scene's image, signed per content (frames land live while drawing).
+    const mascotPalette = paletteHexes(p.kit?.palette);
+    const mascotSpec = normalizeSpec((p.kit as { mascot?: Parameters<typeof normalizeSpec>[0] } | undefined)?.mascot, mascotPalette);
     // Latest storyboard run per content → its writing progress (stage + %).
     const { data: sbRuns } =
       p.content_stage === "storyboard" || view === "storyboard"
@@ -192,7 +206,19 @@ export default async function ProjectPage({
                   const live = drawingNow || (f?.status === "editing" && busy);
                   if (!f) return c.script_status === "ready" && !drawingNow ? { status: "failed" as const, url: null } : undefined;
                   const st = (f.status === "drawing" || f.status === "editing") && !live ? ("failed" as const) : f.status;
-                  return { status: st, url: urls[j] ?? null };
+                  const sc = c.scenes[j];
+                  return {
+                    status: st,
+                    url: urls[j] ?? null,
+                    mascot:
+                      f.source === "mascot" && sc
+                        ? {
+                            spec: mascotSpec,
+                            palette: mascotPalette,
+                            action: normalizeAction({ pose: sc.mascotPose as MascotPose, expression: sc.mascotExpression as MascotExpression, prop: sc.mascotProp, setting: sc.mascotSetting as MascotSetting }),
+                          }
+                        : null,
+                  };
                 }),
                 // A script whose run already ended (failed / stopped) is failed, not "writing" forever.
                 status: c.script_status === "writing" && runFor(c.id) && ["failed", "succeeded"].includes(runFor(c.id)!.status as string) ? "failed" : (c.script_status ?? "none"),

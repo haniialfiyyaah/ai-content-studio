@@ -12,12 +12,15 @@ import {
   type Concept,
   type CreativeKit,
   type SetupStage,
+  type VisualSource,
 } from "@acs/domain";
 import { api } from "@/lib/client/api";
 import { compose } from "@/lib/client/compose";
 import { Spinner } from "@/components/ui/spinner";
 import { SetupSummary } from "./setup-summary";
 import { InlineAuto } from "./inline-auto";
+import { CharacterStep, type RefAsset } from "./character-step";
+import { normalizeSpec, paletteHexes } from "@acs/mascot";
 
 const STEPS = SETUP_STAGES.filter((s) => s !== "done");
 
@@ -26,6 +29,7 @@ const BUSY_TEXT: Record<SetupStage, string> = {
   concept: "Sketching the concept — niche, audience and goal…",
   kit: "Building the Creative Kit — voice, look and format…",
   pillars: "Writing pillars and guardrails…",
+  character: "Designing your character…",
   done: "Drafting your first content…",
 };
 
@@ -33,7 +37,8 @@ const NEXT_LABEL: Record<SetupStage, string> = {
   similar: "Create a different project",
   concept: "Continue to Creative Kit",
   kit: "Continue to pillars",
-  pillars: "Lock project setup",
+  pillars: "Continue to character",
+  character: "Lock project setup",
   done: "",
 };
 
@@ -49,6 +54,9 @@ export function SetupView({
   ending,
   similar,
   auto,
+  visualSource = "ai",
+  sheetUrl = null,
+  refs = [],
 }: {
   projectId: string;
   stage: SetupStage;
@@ -61,6 +69,9 @@ export function SetupView({
   /** The agent asked "continue in a similar project?" and it isn't answered yet. */
   similar?: { projectId: string; title: string } | null;
   auto?: boolean;
+  visualSource?: VisualSource;
+  sheetUrl?: string | null;
+  refs?: RefAsset[];
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
@@ -209,6 +220,23 @@ export function SetupView({
           </>
         )}
 
+        {stage === "character" && !working && hasResult(stage, concept, kit) && (
+          <>
+            <div className="eyebrow">STEP 5 · CHARACTER &amp; REFERENCES</div>
+            <h2 className="setup-title">Your character</h2>
+            <CharacterStep
+              projectId={projectId}
+              visualSource={visualSource}
+              description={kit.recurringSubject ?? ""}
+              mascot={normalizeSpec((kit as { mascot?: Parameters<typeof normalizeSpec>[0] }).mascot, paletteHexes(kit.palette))}
+              palette={paletteHexes(kit.palette)}
+              sheetUrl={sheetUrl}
+              refs={refs}
+              editable
+            />
+          </>
+        )}
+
         {needRetry && (
           <div className="note amber" style={{ marginTop: 12 }}>
             {stale ? "The agent didn’t answer in time." : "This step didn’t finish."}{" "}
@@ -248,6 +276,7 @@ export function SetupView({
 }
 
 function hasResult(stage: SetupStage, concept: Partial<Concept>, kit: Partial<CreativeKit>) {
+  if (stage === "character") return Boolean((kit as { mascot?: unknown }).mascot);
   if (stage === "concept") return Boolean(concept.title);
   if (stage === "kit") return Boolean(kit.tone);
   if (stage === "pillars") return Boolean(kit.pillars?.length);

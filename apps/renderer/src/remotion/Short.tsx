@@ -10,6 +10,7 @@ import {
   useCurrentFrame,
   useVideoConfig,
 } from "remotion";
+import { MascotScene } from "./mascot";
 import { FPS, TRANSITION_FRAMES, type CaptionWord, type EndCard, type EndCardCta, type ShortProps, type ShortScene } from "./types";
 
 // Content-video template v2 — spec: .claude/skills/content-video/SKILL.md
@@ -52,16 +53,27 @@ function Background({ scene, index, duration, accent }: { scene: ShortScene; ind
 
   return (
     <AbsoluteFill style={{ overflow: "hidden", background: "#120f1c" }}>
-      {scene.imageUrl ? (
+      {scene.mascot ? (
+        // The project mascot, drawn by code and animated (bob, blink, wave).
+        <MascotScene
+          spec={scene.mascot.spec}
+          action={scene.mascot.action}
+          palette={scene.mascot.palette}
+          t={frame / FPS}
+          style={{ width: "100%", height: "100%", display: "block", transform: `scale(${1 + (scale - 1) * 0.4})` }}
+        />
+      ) : scene.imageUrl ? (
         <Img src={scene.imageUrl} style={{ width: "100%", height: "100%", objectFit: "cover", transform: `translate(${x}px, ${y}px) scale(${scale})` }} />
       ) : (
         <DesignBackground accent={accent} index={index} />
       )}
       <AbsoluteFill
         style={{
-          background:
-            // darker where text lives (top half: layouts; ~62-80%: captions)
-            "linear-gradient(180deg, rgba(10,8,20,.72) 0%, rgba(10,8,20,.5) 38%, rgba(10,8,20,.18) 52%, rgba(10,8,20,.35) 60%, rgba(10,8,20,.7) 78%, rgba(10,8,20,.85) 100%)",
+          background: scene.mascot
+            ? // lighter for the mascot (it lives in the lower half): only the text bands darken
+              "linear-gradient(180deg, rgba(10,8,20,.55) 0%, rgba(10,8,20,.22) 34%, rgba(10,8,20,0) 48%, rgba(10,8,20,0) 70%, rgba(10,8,20,.5) 100%)"
+            : // darker where text lives (top half: layouts; ~62-80%: captions)
+              "linear-gradient(180deg, rgba(10,8,20,.72) 0%, rgba(10,8,20,.5) 38%, rgba(10,8,20,.18) 52%, rgba(10,8,20,.35) 60%, rgba(10,8,20,.7) 78%, rgba(10,8,20,.85) 100%)",
         }}
       />
     </AbsoluteFill>
@@ -499,7 +511,7 @@ const BUSY = new Set(["points", "code", "compare", "stat", "statement", "quote",
 // ---------------------------------------------------------------------------
 // captions (TikTok style)
 // ---------------------------------------------------------------------------
-function Captions({ words, accent, emphasis, lower }: { words: CaptionWord[]; accent: string; emphasis: Set<string>; lower: boolean }) {
+function Captions({ words, accent, emphasis, lower, mascot }: { words: CaptionWord[]; accent: string; emphasis: Set<string>; lower: boolean; mascot?: boolean }) {
   const frame = useCurrentFrame();
   const now = frame / FPS;
   if (!words.length) return null;
@@ -515,7 +527,8 @@ function Captions({ words, accent, emphasis, lower }: { words: CaptionWord[]; ac
   if (cur.length) pages.push(cur);
   const page = pages.find((p) => now >= p[0].start - 0.05 && now <= p[p.length - 1].end + 0.2);
   if (!page) return null;
-  const top = lower ? 1920 - SAFE_BOTTOM - 150 : 1180;
+  // Mascot scenes: the character's face sits around 1100-1300, so captions go in the free band above its head.
+  const top = lower ? 1920 - SAFE_BOTTOM - 150 : mascot ? 830 : 1180;
   return (
     <div style={{ position: "absolute", left: 50, right: 50, top, display: "flex", justifyContent: "center", flexWrap: "wrap", gap: "6px 18px" }}>
       {page.map((w, i) => {
@@ -584,7 +597,7 @@ export function Short(props: ShortProps) {
           </Sequence>
         );
       })}
-      <Captions words={props.words} accent={props.accent} emphasis={emphasis} lower={BUSY.has(current?.layout ?? "image")} />
+      <Captions words={props.words} accent={props.accent} emphasis={emphasis} lower={BUSY.has(current?.layout ?? "image")} mascot={Boolean(current?.mascot)} />
       <ProgressBar accent={props.accent} total={durationInFrames} />
       {props.narrationUrl ? <Audio src={props.narrationUrl} /> : null}
       {props.musicUrl ? (

@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  transpilePackages: ["@acs/domain", "@acs/integrations"],
+  transpilePackages: ["@acs/domain", "@acs/integrations", "@acs/mascot"],
   turbopack: {
     rules: {
       "*.css": {

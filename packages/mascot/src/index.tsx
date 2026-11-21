@@ -230,9 +230,9 @@ function arms(pose: MascotPose, t: number): { left: Pt[]; right: Pt[]; propAt: P
     case "point":
       return { left: [L, [CX - 96, CY + 40], [CX - 92, CY + 70]], right: [R, [CX + 118, CY - 30], [CX + 158, CY - 66]], propAt: [CX + 172, CY - 82] };
     case "think":
-      return { left: [L, [CX - 62, CY + 46], [CX - 10, CY + 40]], right: [R, [CX + 96, CY - 10], [CX + 46, CY - 46]], propAt: [CX + 110, CY - 150] };
+      return { left: [L, [CX - 62, CY + 46], [CX - 10, CY + 40]], right: [R, [CX + 96, CY - 10], [CX + 46, CY - 46]], propAt: [CX + 124, CY - 104] };
     case "celebrate":
-      return { left: [L, [CX - 116, CY - 60], [CX - 110 + wave * 0.5, CY - 128]], right: [R, [CX + 116, CY - 60], [CX + 110 - wave * 0.5, CY - 128]], propAt: [CX + 118, CY - 150] };
+      return { left: [L, [CX - 116, CY - 60], [CX - 110 + wave * 0.5, CY - 128]], right: [R, [CX + 116, CY - 60], [CX + 110 - wave * 0.5, CY - 128]], propAt: [CX + 146, CY - 96] };
     case "hold":
       return { left: [L, [CX - 74, CY + 46], [CX - 26, CY + 30]], right: [R, [CX + 74, CY + 46], [CX + 26, CY + 30]], propAt: [CX, CY + 16] };
     case "shrug":
@@ -355,12 +355,12 @@ function Character({ spec, action, t }: { spec: MascotSpec; action: MascotAction
       {/* prop, thought dots, sleep z's */}
       {action.pose === "think" && (
         <g fill="#fff" opacity={0.9}>
-          <circle cx={CX + 74} cy={CY - 118} r={6} />
-          <circle cx={CX + 92} cy={CY - 138} r={9} />
+          <circle cx={CX + 84} cy={CY - 80} r={5} />
+          <circle cx={CX + 98} cy={CY - 92} r={7} />
         </g>
       )}
       {action.pose === "sleep" && (
-        <text x={CX + 70} y={CY - 130 - Math.abs(Math.sin(t * 1.4)) * 8} fontSize={34} fontWeight={800} fill="#fff" opacity={0.85} fontFamily="sans-serif">
+        <text x={CX + 74} y={CY - 104 - Math.abs(Math.sin(t * 1.4)) * 8} fontSize={34} fontWeight={800} fill="#fff" opacity={0.85} fontFamily="sans-serif">
           z<tspan fontSize={24} dx={4} dy={-14}>z</tspan>
         </text>
       )}

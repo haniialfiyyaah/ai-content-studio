@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { Clapperboard, ImageOff, Plus, RotateCcw, SkipForward, Undo2 } from "lucide-react";
 import type { Scene } from "@acs/domain";
+import { MascotScene, type MascotAction, type MascotSpec } from "@acs/mascot";
 import { api } from "@/lib/client/api";
 import { compose, sentToChat } from "@/lib/client/compose";
 import { Spinner } from "@/components/ui/spinner";
@@ -11,6 +12,8 @@ import { Spinner } from "@/components/ui/spinner";
 export interface StoryboardFrameView {
   status: "completed" | "failed" | "drawing" | "editing";
   url: string | null;
+  /** drawn by code (Mascot / Mixed visuals) */
+  mascot?: { spec: MascotSpec; action: MascotAction; palette: string[] } | null;
 }
 
 export interface StoryboardItem {
@@ -249,6 +252,8 @@ function SceneImage({ s, index, frame, busy, onPick }: { s: Scene; index: number
         <span className="sb-num">{index + 1}</span>
         {back ? (
           <span className="sb-back-text">{s.visual || s.heading}</span>
+        ) : frame?.mascot ? (
+          <MascotScene spec={frame.mascot.spec} action={frame.mascot.action} palette={frame.mascot.palette} style={{ width: "100%", height: "100%", display: "block" }} />
         ) : frame?.url ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={frame.url} alt={s.visual || s.heading} />

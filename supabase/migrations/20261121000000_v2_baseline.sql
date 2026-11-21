@@ -425,3 +425,8 @@ ALTER TABLE public.projects ADD COLUMN IF NOT EXISTS archived_from text;
 ALTER TABLE public.projects ADD COLUMN IF NOT EXISTS auto_video boolean NOT NULL DEFAULT false;
 -- Stop generating (halted) / Continue generating
 ALTER TABLE public.projects ADD COLUMN IF NOT EXISTS halted boolean NOT NULL DEFAULT false;
+-- visuals: ai = AI illustrations · mixed = AI for hook/payoff/ending, mascot elsewhere · mascot = code-drawn (free)
+ALTER TABLE public.projects ADD COLUMN IF NOT EXISTS visual_source text NOT NULL DEFAULT 'ai' CHECK (visual_source IN ('ai', 'mixed', 'mascot'));
+-- setup step "character": the project character (AI sheet and/or mascot) + reference uploads
+ALTER TABLE public.projects DROP CONSTRAINT IF EXISTS projects_setup_stage_check;
+ALTER TABLE public.projects ADD CONSTRAINT projects_setup_stage_check CHECK (setup_stage IN ('similar', 'concept', 'kit', 'pillars', 'character', 'done'));

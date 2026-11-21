@@ -1,4 +1,5 @@
 import "server-only";
+import { normalizeAction, normalizeSpec, paletteHexes, type MascotExpression, type MascotPose, type MascotSetting, type MascotSpec } from "@acs/mascot";
 import { AppError, CTA_LABELS, ErrorCodes, notFound, parseEnding, resolveContent, type Scene, projectKit } from "@acs/domain";
 import {
   FAL_IMAGE_FALLBACK_MODEL,
@@ -39,7 +40,7 @@ const ACCENTS = ["#e8735a", "#7056d9", "#3b3550", "#2a886b"];
  */
 export interface SceneStep {
   scene: number;
-  source: "openai" | "reference" | "fal" | "none";
+  source: "openai" | "reference" | "fal" | "none" | "mascot";
   model?: string;
   requestId?: string;
   referencePath?: string;
@@ -331,7 +332,7 @@ async function dispatchToRenderer(render: LoadedRender) {
   const db = admin();
   const [{ data: content }, { data: project }] = await Promise.all([
     db.from("contents").select("*").eq("id", render.content_id).single(),
-    db.from("projects").select("id, cover_tone, title, ending").eq("id", render.project_id).single(),
+    db.from("projects").select("id, cover_tone, title, ending, kit").eq("id", render.project_id).single(),
   ]);
   const c = content as ContentRow;
   const picked = resolveContent(c.options, c.selection);
@@ -346,6 +347,10 @@ async function dispatchToRenderer(render: LoadedRender) {
     ? weights.map((w) => Math.max(2, (voiceEnd * w) / totalWeight))
     : base;
 
+  // Mascot scenes (Mascot / Mixed visuals) are drawn by the renderer from the project mascot.
+  const projectKitRow = ((project as { kit?: { mascot?: unknown; palette?: string } } | null)?.kit ?? {}) as { mascot?: Partial<MascotSpec>; palette?: string };
+  const palette = paletteHexes(projectKitRow.palette);
+  const mascotSpec = normalizeSpec(projectKitRow.mascot, palette);
   const signedRef = async (path?: string) =>
     path ? (await db.storage.from("assets").createSignedUrl(path, 6 * 3600)).data?.signedUrl ?? null : null;
   const sceneProps = await Promise.all(
@@ -372,6 +377,14 @@ async function dispatchToRenderer(render: LoadedRender) {
         statLabel: s.statLabel || "",
         emphasis: s.emphasis ?? [],
         transition: s.transition ?? (i === 0 ? "cut" : (["slide", "zoom", "wipe", "flash"] as const)[i % 4]),
+        mascot:
+          step?.source === "mascot"
+            ? {
+                spec: mascotSpec,
+                palette,
+                action: normalizeAction({ pose: s.mascotPose as MascotPose, expression: s.mascotExpression as MascotExpression, prop: s.mascotProp, setting: s.mascotSetting as MascotSetting }),
+              }
+            : null,
       };
     }),
   );

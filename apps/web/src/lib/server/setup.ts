@@ -21,6 +21,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { SIMILAR_STRONG, findSimilarProjects, type SimilarProject } from "./similar";
 import { dispatchToN8n } from "./dispatch";
 import { markFrame, queueSceneRedraw, queueStoryboards } from "./storyboard";
+import { generateIdentityReference } from "./identity";
+import { normalizeSpec, type MascotSpec } from "@acs/mascot";
 import { queueGeneration, requestRender } from "./projects";
 import { logActivity, postAssistantMessage } from "./events";
 import type { ProjectRow } from "./rows";
@@ -68,7 +70,7 @@ async function webConversation(projectId: string) {
 }
 
 /** New project in setup: the creator's rough idea opens a discovery chat. */
-export async function startSetup(ownerId: string, prompt: string, opts: { auto?: boolean } = {}) {
+export async function startSetup(ownerId: string, prompt: string, opts: { auto?: boolean; visualSource?: "ai" | "mixed" | "mascot" } = {}) {
   const text = prompt.trim();
   if (text.length < 4) throw new AppError(ErrorCodes.VALIDATION_ERROR, "Tell the agent a bit more about your idea", 400);
   const db = admin();
@@ -90,6 +92,7 @@ export async function startSetup(ownerId: string, prompt: string, opts: { auto?:
       status: "setup",
       setup_stage: "similar",
       auto_approve: Boolean(opts.auto),
+      visual_source: opts.visualSource ?? "ai",
     })
     .select("id")
     .single();
@@ -209,7 +212,8 @@ const CONTINUE_TEXT: Partial<Record<SetupStage, string>> = {
   similar: "Create a different project",
   concept: "✅ Concept looks good — continue to the Creative Kit",
   kit: "✅ Kit looks good — continue to pillars & guardrails",
-  pillars: "✅ Lock the project setup",
+  pillars: "✅ Pillars look good — continue to the character",
+  character: "✅ Lock the project setup",
 };
 
 async function userMessage(ownerId: string, projectId: string, content: string) {
@@ -287,6 +291,9 @@ export async function setupContext(input: { projectId: string; task: SetupTask; 
     task: input.task,
     feedback: input.feedback ?? "",
     stage: agentStage(p) ?? "done",
+    /** ai · mixed · mascot — the character step designs the AI sheet and/or the code-drawn mascot. */
+    visualSource: (p as SetupProject & { visual_source?: string }).visual_source ?? "ai",
+    mascot: (p.kit as { mascot?: unknown } | undefined)?.mascot ?? null,
     /** Language of the chat and the setup cards (the app's language). Scripts use concept.language. */
     appLanguage: "English",
     idea: p.idea,
@@ -396,6 +403,9 @@ export async function setupComplete(raw: unknown) {
     await db.from("projects").update({ kit: { ...kit, ...input.pillars } }).eq("id", p.id);
     meta.stage = "pillars";
     meta.data = input.pillars;
+  } else if (input.task === "character" && input.character) {
+    await saveCharacter(p, input.character);
+    meta.stage = "character";
   } else if (input.task === "more" && input.plan) {
     await addPlanItems(p, input.plan.items);
   } else if (input.task === "renumber" && input.patches) {
@@ -422,7 +432,7 @@ export async function setupComplete(raw: unknown) {
   const fresh = { ...p, setup_busy: false };
   // Auto: the project setup runs straight through (concept → kit → pillars → plan).
   if (input.task !== "chat") {
-    if (p.auto_approve && p.status === "setup" && ["concept", "kit", "pillars"].includes(input.task)) await advance(fresh);
+    if (p.auto_approve && p.status === "setup" && ["concept", "kit", "pillars", "character"].includes(input.task)) await advance(fresh);
     // Auto setup runs on to the storyboards (only the first plan, not a refine).
     else if (p.auto_approve && input.task === "plan" && input.plan && !(await hasStoryboards(p.id))) await writeStoryboards(fresh, {});
     return { ok: true };
@@ -845,4 +855,30 @@ export async function continueGenerating(ownerId: string, projectId: string) {
     return { resumed: "production" };
   }
   return { resumed: null };
+}
+
+// ---------------------------------------------------------------------------
+// Character & references (last project-setup step)
+// ---------------------------------------------------------------------------
+/**
+ * The character from the Creative Kit, made concrete: a drawable description
+ * (used in every AI image prompt) and the code-drawn mascot version. With AI /
+ * Mixed visuals the AI character sheet is drawn in the background (one image).
+ */
+async function saveCharacter(p: SetupProject, ch: { description: string; mascot: { shape?: string; color?: string; accent?: string; accessory?: string } }) {
+  const db = admin();
+  const kit = p.kit ?? {};
+  const palette = ((kit.palette ?? "").match(/#[0-9a-f]{6}\b|#[0-9a-f]{3}\b/gi) ?? []) as string[];
+  const mascot = normalizeSpec(ch.mascot as Partial<MascotSpec>, palette);
+  await db
+    .from("projects")
+    .update({ kit: { ...kit, recurringSubject: ch.description || kit.recurringSubject, mascot } })
+    .eq("id", p.id);
+  if ((p as SetupProject & { visual_source?: string }).visual_source !== "mascot" && (ch.description || kit.recurringSubject)) {
+    after(() =>
+      generateIdentityReference(p.id, { replace: true, kit: { recurringSubject: ch.description || kit.recurringSubject } })
+        .then(() => undefined)
+        .catch((e) => console.warn("[character] sheet failed", e instanceof Error ? e.message : e)),
+    );
+  }
 }

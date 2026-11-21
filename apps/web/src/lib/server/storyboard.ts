@@ -35,7 +35,8 @@ const STALE_MS = 10 * 60_000;
  */
 export interface StoryboardFrame {
   scene: number;
-  source: "openai" | "reference" | "none";
+  /** mascot = drawn by code (Mascot / Mixed visuals), no image file */
+  source: "openai" | "reference" | "none" | "mascot";
   model?: string;
   imagePath?: string;
   referencePath?: string;
@@ -52,7 +53,7 @@ type Project = ProjectRow & { visual_mode: "ai" | "ai_with_references" | "refere
 export function storyboardKey(c: Pick<ContentRow, "scenes">, p: Project) {
   const scenes = (c.scenes ?? []).slice(0, MAX_BEATS).map((s) => [s.visual, s.heading, s.layout, s.background, s.referenceIndex]);
   return createHash("sha1")
-    .update(JSON.stringify([scenes, projectKit(p).visualStyle, projectKit(p).palette, p.visual_mode, p.image_engine ?? "openai"]))
+    .update(JSON.stringify([scenes, projectKit(p).visualStyle, projectKit(p).palette, p.visual_mode, p.image_engine ?? "openai", p.visual_source ?? "ai"]))
     .digest("hex")
     .slice(0, 16);
 }
@@ -141,7 +142,7 @@ export async function generateStoryboard(contentId: string, opts: { force?: bool
     const scenes: Scene[] = (c.scenes?.length ? c.scenes : [{ heading: picked.title } as Scene]).slice(0, MAX_BEATS);
 
     // The recurring character keeps scenes consistent; draw it once if missing.
-    if (p.visual_mode !== "references" && projectKit(p).recurringSubject?.trim() && openAiImagesConfigured()) {
+    if (p.visual_source !== "mascot" && p.visual_mode !== "references" && projectKit(p).recurringSubject?.trim() && openAiImagesConfigured()) {
       const { count } = await db.from("project_assets").select("id", { count: "exact", head: true }).eq("project_id", p.id).eq("label", IDENTITY_LABEL);
       if (!count) {
         await generateIdentityReference(p.id).catch(() => undefined);
@@ -190,7 +191,15 @@ export async function generateStoryboard(contentId: string, opts: { force?: bool
     };
     await save();
 
+    // Visuals: Mascot = every scene by code; Mixed = AI only for the hook, payoff and ending.
+    const n = scenes.length;
+    const mascotScene = (s: Scene, i: number) =>
+      s.background !== "design" && (p.visual_source === "mascot" || (p.visual_source === "mixed" && ![0, n - 2, n - 1].includes(i)));
+    for (const [i, s] of scenes.entries()) if (mascotScene(s, i)) live[i] = { scene: i, source: "mascot", status: "completed", url: null, visual: s.visual };
+    await save();
+
     const frames = await pool(scenes, 3, async (s, i): Promise<StoryboardFrame> => {
+      if (mascotScene(s, i)) return live[i];
       const kept = keep(s, i);
       if (kept) return kept;
       // Archived (or stopped) meanwhile: stop drawing.
@@ -238,7 +247,7 @@ export async function generateStoryboard(contentId: string, opts: { force?: bool
     }
     await writes;
 
-    const drawn = frames.filter((f) => f.source === "openai").length;
+    const drawn = frames.filter((f) => f.source === "openai" || f.source === "mascot").length;
     const wanted = scenes.filter((s) => p.visual_mode !== "references" && s.background !== "design").length;
     const status = wanted && !drawn ? "failed" : "ready";
     await db.from("contents").update({ storyboard: frames, storyboard_status: status, storyboard_key: key }).eq("id", c.id);

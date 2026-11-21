@@ -2,9 +2,9 @@
  "name": "WF-05 Setup Agent",
  "nodes": [
   {
-   "id": "1b6b1734-69d4-488d-8652-b576c7598014",
+   "id": "87ea3586-a7bd-44e4-987f-3e4f133e9a13",
    "name": "05-01 Webhook",
-   "webhookId": "01d083ee-50d7-4d3c-a53a-5b0dcaa9c924",
+   "webhookId": "74835eed-efb7-4179-8d8a-620d04a09c70",
    "type": "n8n-nodes-base.webhook",
    "typeVersion": 2,
    "position": [
@@ -18,7 +18,7 @@
    }
   },
   {
-   "id": "7cc4d7d4-fa48-40e8-bcf3-9fdc0e650e8b",
+   "id": "517da80e-c2b1-4083-b28d-edb2a873b163",
    "name": "05-02 Load context",
    "type": "n8n-nodes-base.httpRequest",
    "typeVersion": 4.2,
@@ -52,7 +52,7 @@
    }
   },
   {
-   "id": "2755710f-b44f-46d5-8f07-c5741dca8606",
+   "id": "c38483a8-2a4a-4cd4-91b9-6bdaccf6426a",
    "name": "05-90 Mark failed",
    "type": "n8n-nodes-base.httpRequest",
    "typeVersion": 4.2,
@@ -86,7 +86,7 @@
    }
   },
   {
-   "id": "673c1a33-379a-450d-97b4-73a9507971ee",
+   "id": "e9063716-0a4e-4e85-9053-b538a6ad5e86",
    "name": "05-10 Task chat?",
    "type": "n8n-nodes-base.if",
    "typeVersion": 2.2,
@@ -104,7 +104,7 @@
      },
      "conditions": [
       {
-       "id": "ee92779b-f64f-402b-860d-4bb2d9bf15bb",
+       "id": "1e632253-97ef-4f49-a814-03793059190a",
        "leftValue": "={{ $('05-02 Load context').item.json.data.task }}",
        "rightValue": "chat",
        "operator": {
@@ -119,7 +119,7 @@
    }
   },
   {
-   "id": "05417b1a-2976-42ff-b007-b66b14971f73",
+   "id": "975df146-54ce-4488-8152-7d32f4788a4a",
    "name": "05-20 Chat",
    "type": "@n8n/n8n-nodes-langchain.chainLlm",
    "typeVersion": 1.9,
@@ -136,14 +136,14 @@
      "messageValues": [
       {
        "type": "SystemMessagePromptTemplate",
-       "message": "You are the Creative Agent of AI Content Studio. You help a creator turn a rough idea into a short-form video project (YouTube Shorts / Reels / TikTok, 9:16, 20-45 s) BEFORE anything is generated. The creator stays in control.\n\nAlways reply in the APP LANGUAGE given below (not the content language), warm and concrete, max 60 words. Ask at most 2 short questions per turn - keep it light, never interrogate. Offer 2-4 quick-reply chips (each max 6 words) that answer your question; empty when you ask nothing.\n\nSTAGE \"discovery\" - the ONLY job here is avoiding duplicate projects. Do NOT ask about audience, goal, tone or language (details are adjusted later on the concept).\n- similarCandidates are the creator's projects scored by similarity (>=0.55 = same idea; 0.35-0.55 = maybe; cross-language matches score lower, so judge by topic).\n- If a candidate is clearly about the same topic/niche and the creator has not answered this yet: action.type=\"similar\", action.projectId=its id, and ask ONE question: continue in that project, or create a different one?\n- Otherwise, or when the creator chose a different/new project: action.type=\"propose\" and say in one line that you are sketching the concept now.\n- If the creator wants the existing project: action.type=\"similar\" with that id again and tell them to tap \"Continue there\".\n\nSTAGE \"plan\" - the project setup is locked; the creator is reviewing the CONTENT PLAN cards (single video or series; each with title, hook, description, hashtags). Changes -> action.type=\"refine\", action.feedback naming the items (\"Day 2: make the hook a question\", \"#3 title shorter\", \"make it 7 days\"); accept -> action.type=\"continue\" and say storyboards come next. Never change the concept, kit or pillars here - they are locked.\n\nSTAGE \"storyboard\" - the creator is reviewing the STORYBOARDS (each scene: image, narration, shot). Changes -> action.type=\"refine\" with action.feedback = the video plus, when they meant one scene, the scene number and the change (\"Day 2 scene 3: show the pan, not the chef\") or, for the whole video, the change without a scene (\"Day 2 all scenes: make it funnier\"); reply confirms in one line. The content concept (title, hook, description, hashtags) stays locked. If it is not clear which video, action.type=\"ask\". Accept -> action.type=\"continue\" and say the video comes next. Concept, kit, pillars and the content plan are locked here.\n\nNEW CONTENT (stages \"plan\" and \"storyboard\"): when the creator wants more / new content ideas, action.type=\"add\", action.count = how many (1-5, default 1), action.feedback = what they should be about (empty if anything). Reply that you are adding them.\n\nSTAGES \"concept\", \"kit\", \"pillars\" - the creator is reviewing that stage's result (shown next to the chat).\n- They want changes -> action.type=\"refine\", action.feedback = a precise instruction for that stage only, naming the field when they did (messages like \"Change the niche: ...\" target that field; keep their words, e.g. \"niche: budget cooking for university students\"); reply confirms in one line.\n- They accept / say continue / ok / lanjut -> action.type=\"continue\".\nFill in sensible defaults instead of asking; the creator clicks a field to change it.\n- A question -> answer it, action.type=\"ask\".\n\nNever write the concept, kit or pillars yourself in the reply. action.feedback and action.projectId are empty strings when unused."
+       "message": "You are the Creative Agent of AI Content Studio. You help a creator turn a rough idea into a short-form video project (YouTube Shorts / Reels / TikTok, 9:16, 20-45 s) BEFORE anything is generated. The creator stays in control.\n\nAlways reply in the APP LANGUAGE given below (not the content language), warm and concrete, max 60 words. Ask at most 2 short questions per turn - keep it light, never interrogate. Offer 2-4 quick-reply chips (each max 6 words) that answer your question; empty when you ask nothing.\n\nSTAGE \"discovery\" - the ONLY job here is avoiding duplicate projects. Do NOT ask about audience, goal, tone or language (details are adjusted later on the concept).\n- similarCandidates are the creator's projects scored by similarity (>=0.55 = same idea; 0.35-0.55 = maybe; cross-language matches score lower, so judge by topic).\n- If a candidate is clearly about the same topic/niche and the creator has not answered this yet: action.type=\"similar\", action.projectId=its id, and ask ONE question: continue in that project, or create a different one?\n- Otherwise, or when the creator chose a different/new project: action.type=\"propose\" and say in one line that you are sketching the concept now.\n- If the creator wants the existing project: action.type=\"similar\" with that id again and tell them to tap \"Continue there\".\n\nSTAGE \"plan\" - the project setup is locked; the creator is reviewing the CONTENT PLAN cards (single video or series; each with title, hook, description, hashtags). Changes -> action.type=\"refine\", action.feedback naming the items (\"Day 2: make the hook a question\", \"#3 title shorter\", \"make it 7 days\"); accept -> action.type=\"continue\" and say storyboards come next. Never change the concept, kit or pillars here - they are locked.\n\nSTAGE \"storyboard\" - the creator is reviewing the STORYBOARDS (each scene: image, narration, shot). Changes -> action.type=\"refine\" with action.feedback = the video plus, when they meant one scene, the scene number and the change (\"Day 2 scene 3: show the pan, not the chef\") or, for the whole video, the change without a scene (\"Day 2 all scenes: make it funnier\"); reply confirms in one line. The content concept (title, hook, description, hashtags) stays locked. If it is not clear which video, action.type=\"ask\". Accept -> action.type=\"continue\" and say the video comes next. Concept, kit, pillars and the content plan are locked here.\n\nNEW CONTENT (stages \"plan\" and \"storyboard\"): when the creator wants more / new content ideas, action.type=\"add\", action.count = how many (1-5, default 1), action.feedback = what they should be about (empty if anything). Reply that you are adding them.\n\nSTAGES \"concept\", \"kit\", \"pillars\", \"character\" - the creator is reviewing that stage's result (shown next to the chat). In \"character\", a change to the character or mascot is a refine; accepting locks the project setup.\n- They want changes -> action.type=\"refine\", action.feedback = a precise instruction for that stage only, naming the field when they did (messages like \"Change the niche: ...\" target that field; keep their words, e.g. \"niche: budget cooking for university students\"); reply confirms in one line.\n- They accept / say continue / ok / lanjut -> action.type=\"continue\".\nFill in sensible defaults instead of asking; the creator clicks a field to change it.\n- A question -> answer it, action.type=\"ask\".\n\nNever write the concept, kit or pillars yourself in the reply. action.feedback and action.projectId are empty strings when unused."
       }
      ]
     }
    }
   },
   {
-   "id": "97745b32-9cf0-41d0-a52e-cc4709b40cb0",
+   "id": "ead4020e-bcb0-4560-b66a-95bbb26b8526",
    "name": "OpenAI (Chat)",
    "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
    "typeVersion": 1.3,
@@ -171,7 +171,7 @@
    }
   },
   {
-   "id": "cc3c3a66-ec49-47d3-ae9f-58e02de60c6a",
+   "id": "c276c734-b6c9-4648-a0cf-1ac97adb6954",
    "name": "Schema (Chat)",
    "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
    "typeVersion": 1.3,
@@ -185,7 +185,7 @@
    }
   },
   {
-   "id": "a928e55b-b47b-44fb-831a-0ba36d71af65",
+   "id": "aa6bc454-aee0-4bf3-a9b2-f0ffedb6e469",
    "name": "05-30 Save chat",
    "type": "n8n-nodes-base.httpRequest",
    "typeVersion": 4.2,
@@ -219,7 +219,7 @@
    }
   },
   {
-   "id": "d2fab42e-63ef-4b2e-a441-69246928a9e7",
+   "id": "8962447e-349e-40be-b3b4-6d3836bf66af",
    "name": "05-11 Task concept?",
    "type": "n8n-nodes-base.if",
    "typeVersion": 2.2,
@@ -237,7 +237,7 @@
      },
      "conditions": [
       {
-       "id": "38aac54a-7ae9-40e3-bc48-c380e9466db4",
+       "id": "d5311d2f-4471-45a6-933e-6de756c29e9a",
        "leftValue": "={{ $('05-02 Load context').item.json.data.task }}",
        "rightValue": "concept",
        "operator": {
@@ -252,7 +252,7 @@
    }
   },
   {
-   "id": "d38a3746-cf42-4998-be82-1753f8bb7fda",
+   "id": "e4294572-88eb-4c6e-95d2-7ea0912934c7",
    "name": "05-21 Concept",
    "type": "@n8n/n8n-nodes-langchain.chainLlm",
    "typeVersion": 1.9,
@@ -276,7 +276,7 @@
    }
   },
   {
-   "id": "2ec66fcc-5016-4207-b5ad-4cb202c1ee24",
+   "id": "7caa81f5-dd17-410e-9948-ada7ff180784",
    "name": "OpenAI (Concept)",
    "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
    "typeVersion": 1.3,
@@ -304,7 +304,7 @@
    }
   },
   {
-   "id": "fbcec395-fd86-4dfd-951d-bd19f794e6d1",
+   "id": "fbfdfa61-9c38-4467-8738-5318d64aeec8",
    "name": "Schema (Concept)",
    "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
    "typeVersion": 1.3,
@@ -318,7 +318,7 @@
    }
   },
   {
-   "id": "9f28d051-205c-451a-85fd-7909536f1280",
+   "id": "46c28286-27b4-4208-b3c9-465fdfa9361a",
    "name": "05-31 Save concept",
    "type": "n8n-nodes-base.httpRequest",
    "typeVersion": 4.2,
@@ -352,7 +352,7 @@
    }
   },
   {
-   "id": "39aef06c-b70c-453b-8467-8bd266f7afdc",
+   "id": "be0852f0-e2dc-4fac-a558-053587961e04",
    "name": "05-12 Task kit?",
    "type": "n8n-nodes-base.if",
    "typeVersion": 2.2,
@@ -370,7 +370,7 @@
      },
      "conditions": [
       {
-       "id": "58d3d98e-46d5-4f46-a8c1-1c002ae8aada",
+       "id": "ee1b71bc-7049-4d77-bf14-f863739622ab",
        "leftValue": "={{ $('05-02 Load context').item.json.data.task }}",
        "rightValue": "kit",
        "operator": {
@@ -385,7 +385,7 @@
    }
   },
   {
-   "id": "8a321455-fe4c-4260-8d4b-a4a67757fda2",
+   "id": "185fdde5-2f20-41ae-8cec-97cb04a009bc",
    "name": "05-22 Kit",
    "type": "@n8n/n8n-nodes-langchain.chainLlm",
    "typeVersion": 1.9,
@@ -409,7 +409,7 @@
    }
   },
   {
-   "id": "e8216820-e509-4e29-a56d-43b5143f4ae9",
+   "id": "ab5b372a-e329-411a-aeb0-d0fcf1f0e5a0",
    "name": "OpenAI (Kit)",
    "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
    "typeVersion": 1.3,
@@ -437,7 +437,7 @@
    }
   },
   {
-   "id": "c70a5c1e-34f6-4a87-992f-555f33015e5e",
+   "id": "fa2420cb-1550-4fd5-8d03-65b33be6c71e",
    "name": "Schema (Kit)",
    "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
    "typeVersion": 1.3,
@@ -451,7 +451,7 @@
    }
   },
   {
-   "id": "c5fcde5f-0f65-4e29-aac4-70bbefc97d0f",
+   "id": "d8f068b7-a173-49b4-ab68-6324ec012a5d",
    "name": "05-32 Save kit",
    "type": "n8n-nodes-base.httpRequest",
    "typeVersion": 4.2,
@@ -485,7 +485,7 @@
    }
   },
   {
-   "id": "f7471ab9-5ead-436e-8873-0a136a3faff3",
+   "id": "6c4b4c97-80d2-4b52-99a5-f31d0cbcaefd",
    "name": "05-13 Task pillars?",
    "type": "n8n-nodes-base.if",
    "typeVersion": 2.2,
@@ -503,7 +503,7 @@
      },
      "conditions": [
       {
-       "id": "b2ffad00-1954-4a90-9da3-05795765a7d7",
+       "id": "67deeec1-7fd3-49e9-a877-343e3d151af2",
        "leftValue": "={{ $('05-02 Load context').item.json.data.task }}",
        "rightValue": "pillars",
        "operator": {
@@ -518,7 +518,7 @@
    }
   },
   {
-   "id": "c96f2be1-7940-43f5-be91-f55aee08540b",
+   "id": "a5f1001f-9312-48b3-82c1-2a2dd9611859",
    "name": "05-23 Pillars",
    "type": "@n8n/n8n-nodes-langchain.chainLlm",
    "typeVersion": 1.9,
@@ -542,7 +542,7 @@
    }
   },
   {
-   "id": "882493e6-2ef4-4767-8c93-3c4759432f9b",
+   "id": "52d2f792-4d2d-45c3-84bd-e9a5aed5ed70",
    "name": "OpenAI (Pillars)",
    "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
    "typeVersion": 1.3,
@@ -570,7 +570,7 @@
    }
   },
   {
-   "id": "efa53285-c272-4fb7-9ae9-3e4997d4c552",
+   "id": "70c5e14c-8dd0-472a-ad78-57520984501a",
    "name": "Schema (Pillars)",
    "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
    "typeVersion": 1.3,
@@ -584,7 +584,7 @@
    }
   },
   {
-   "id": "d20514e3-eee6-40e1-8496-0efb6736d06a",
+   "id": "a187109c-dc3c-4380-97fc-abd408bf6e8b",
    "name": "05-33 Save pillars",
    "type": "n8n-nodes-base.httpRequest",
    "typeVersion": 4.2,
@@ -618,8 +618,8 @@
    }
   },
   {
-   "id": "6d8d4ffc-0846-473a-ba4c-7c336ee801a5",
-   "name": "05-14 Task scene?",
+   "id": "877349ea-74dd-46a2-9a68-ebfe1929dec9",
+   "name": "05-14 Task character?",
    "type": "n8n-nodes-base.if",
    "typeVersion": 2.2,
    "position": [
@@ -636,9 +636,9 @@
      },
      "conditions": [
       {
-       "id": "e4b27dd8-fd68-40d5-aedb-087f7f556a70",
+       "id": "f7c3c106-8d7f-4217-ba13-866c5b3f442f",
        "leftValue": "={{ $('05-02 Load context').item.json.data.task }}",
-       "rightValue": "scene",
+       "rightValue": "character",
        "operator": {
         "type": "string",
         "operation": "equals"
@@ -651,8 +651,8 @@
    }
   },
   {
-   "id": "a766bdc1-8665-4c29-a36a-31c696958ca1",
-   "name": "05-24 Scene",
+   "id": "822a0846-37b9-4606-92fe-d430ec6cd25f",
+   "name": "05-24 Character",
    "type": "@n8n/n8n-nodes-langchain.chainLlm",
    "typeVersion": 1.9,
    "onError": "continueErrorOutput",
@@ -663,20 +663,20 @@
    "parameters": {
     "promptType": "define",
     "hasOutputParser": true,
-    "text": "=App language (write the reply and every field in it): {{ $('05-02 Load context').item.json.data.appLanguage }}\nIdea: {{ $('05-02 Load context').item.json.data.idea }}\nConversation (oldest first): {{ JSON.stringify($('05-02 Load context').item.json.data.history) }}\nCurrent concept: {{ JSON.stringify($('05-02 Load context').item.json.data.concept) }}\nCurrent Creative Kit: {{ JSON.stringify($('05-02 Load context').item.json.data.kit) }}\nCurrent pillars & guardrails: {{ JSON.stringify($('05-02 Load context').item.json.data.pillars) }}\nExisting projects to stay clearly different from: {{ JSON.stringify($('05-02 Load context').item.json.data.avoidProjects) }}\nCurrent content plan: {{ JSON.stringify($('05-02 Load context').item.json.data.contentPlan) }}\nEnding: {{ $('05-02 Load context').item.json.data.endingBrief }}\nChange request (empty = first draft): {{ $('05-02 Load context').item.json.data.feedback }}\nScene to rewrite (with its neighbours): {{ JSON.stringify($('05-02 Load context').item.json.data.sceneEdit) }}",
+    "text": "=App language (write the reply and every field in it): {{ $('05-02 Load context').item.json.data.appLanguage }}\nIdea: {{ $('05-02 Load context').item.json.data.idea }}\nConversation (oldest first): {{ JSON.stringify($('05-02 Load context').item.json.data.history) }}\nCurrent concept: {{ JSON.stringify($('05-02 Load context').item.json.data.concept) }}\nCurrent Creative Kit: {{ JSON.stringify($('05-02 Load context').item.json.data.kit) }}\nCurrent pillars & guardrails: {{ JSON.stringify($('05-02 Load context').item.json.data.pillars) }}\nExisting projects to stay clearly different from: {{ JSON.stringify($('05-02 Load context').item.json.data.avoidProjects) }}\nCurrent content plan: {{ JSON.stringify($('05-02 Load context').item.json.data.contentPlan) }}\nEnding: {{ $('05-02 Load context').item.json.data.endingBrief }}\nChange request (empty = first draft): {{ $('05-02 Load context').item.json.data.feedback }}\nVisuals: {{ $('05-02 Load context').item.json.data.visualSource }}\nCurrent mascot: {{ JSON.stringify($('05-02 Load context').item.json.data.mascot) }}",
     "messages": {
      "messageValues": [
       {
        "type": "SystemMessagePromptTemplate",
-       "message": "You rewrite ONE scene (beat) of a short-form video storyboard. Apply the creator's change request to this scene only and keep everything it does not mention.\n- narration: the spoken line for this beat, in the CONTENT language and the narrator voice of the Creative Kit; it must still flow from the previous scene's narration into the next one's.\n- onScreenText / headline: short on-screen words in the content language (empty if the scene had none and the change doesn't need them).\n- visual: a concrete shot description in English for the illustrator - subject, action, framing, setting - in the project's visual style, consistent with the recurring character and the neighbouring scenes.\n- heading: 1-4 words naming the beat.\n- seconds: keep about the same unless the change asks otherwise.\n- reply: ONE short line in the APP LANGUAGE saying what you changed (e.g. \"Scene 3 now shows the pan sizzling - redrawing its image.\")."
+       "message": "You design the PROJECT CHARACTER from the confirmed concept and Creative Kit (its recurringSubject, visualStyle and palette). If a change request is given, apply exactly that and keep the rest.\n- description: the recurring character described concretely and visually so an illustrator draws it the same way every time - species / type, body shape, colours, clothing or accessory, face details, personality in one phrase (e.g. \"a round orange tabby kitten with a blue knitted scarf, big green eyes, curious and gentle\"). If the project is abstract (no character), describe a friendly simple mascot that fits the niche. App language.\n- mascot: the same character as a simple cartoon drawn by code:\n  - shape: one of blob, bean, cat, bear, robot, bird - the closest to the character (a person or chef -> bean; a cat -> cat; a tech topic -> robot; anything else -> blob)\n  - color: the body colour as a hex code (from the palette when it fits)\n  - accent: a second hex colour for the accessory and details\n  - accessory: one of none, scarf, glasses, cap, bow, headphones, apron - what fits the character\n- reply: ONE short line in the APP LANGUAGE presenting the character and asking if they want to change it or lock the setup."
       }
      ]
     }
    }
   },
   {
-   "id": "0b9d8496-da3b-41f6-924e-5d903889841e",
-   "name": "OpenAI (Scene)",
+   "id": "dea427fe-5d1f-4694-9549-866057bc6df4",
+   "name": "OpenAI (Character)",
    "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
    "typeVersion": 1.3,
    "position": [
@@ -703,8 +703,8 @@
    }
   },
   {
-   "id": "291f507e-d202-45ef-9058-b43830645435",
-   "name": "Schema (Scene)",
+   "id": "36783f34-d8cb-4106-aab2-d64fef438cc5",
+   "name": "Schema (Character)",
    "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
    "typeVersion": 1.3,
    "position": [
@@ -713,17 +713,150 @@
    ],
    "parameters": {
     "schemaType": "manual",
-    "inputSchema": "{\"type\": \"object\", \"properties\": {\"reply\": {\"type\": \"string\"}, \"scene\": {\"type\": \"object\", \"properties\": {\"heading\": {\"type\": \"string\"}, \"narration\": {\"type\": \"string\"}, \"visual\": {\"type\": \"string\"}, \"onScreenText\": {\"type\": \"string\"}, \"headline\": {\"type\": \"string\"}, \"seconds\": {\"type\": \"number\"}}, \"required\": [\"heading\", \"narration\", \"visual\", \"onScreenText\", \"headline\", \"seconds\"]}}, \"required\": [\"reply\", \"scene\"]}"
+    "inputSchema": "{\"type\": \"object\", \"properties\": {\"reply\": {\"type\": \"string\"}, \"character\": {\"type\": \"object\", \"properties\": {\"description\": {\"type\": \"string\"}, \"mascot\": {\"type\": \"object\", \"properties\": {\"shape\": {\"type\": \"string\", \"enum\": [\"blob\", \"bean\", \"cat\", \"bear\", \"robot\", \"bird\"]}, \"color\": {\"type\": \"string\"}, \"accent\": {\"type\": \"string\"}, \"accessory\": {\"type\": \"string\", \"enum\": [\"none\", \"scarf\", \"glasses\", \"cap\", \"bow\", \"headphones\", \"apron\"]}}, \"required\": [\"shape\", \"color\", \"accent\", \"accessory\"]}}, \"required\": [\"description\", \"mascot\"]}}, \"required\": [\"reply\", \"character\"]}"
    }
   },
   {
-   "id": "21aee6e3-c977-4989-b77a-d0133cbbe72f",
-   "name": "05-34 Save scene",
+   "id": "8feeb11d-7f56-4c84-8486-3ea27091c55e",
+   "name": "05-34 Save character",
    "type": "n8n-nodes-base.httpRequest",
    "typeVersion": 4.2,
    "position": [
     1100,
     1680
+   ],
+   "parameters": {
+    "method": "POST",
+    "url": "={{ $env.ACS_API_BASE_URL }}/api/internal/setup/complete",
+    "sendHeaders": true,
+    "headerParameters": {
+     "parameters": [
+      {
+       "name": "x-acs-service-token",
+       "value": "={{ $env.ACS_INTERNAL_SERVICE_TOKEN }}"
+      },
+      {
+       "name": "Content-Type",
+       "value": "application/json"
+      }
+     ]
+    },
+    "sendBody": true,
+    "contentType": "json",
+    "specifyBody": "json",
+    "jsonBody": "={{ JSON.stringify(Object.assign({ projectId: $('05-02 Load context').item.json.data.projectId, task: 'character' }, { reply: $json.output.reply, character: $json.output.character })) }}",
+    "options": {
+     "timeout": 30000
+    }
+   }
+  },
+  {
+   "id": "da15dffa-4766-4879-90d4-f6ec357fcf44",
+   "name": "05-15 Task scene?",
+   "type": "n8n-nodes-base.if",
+   "typeVersion": 2.2,
+   "position": [
+    440,
+    2100
+   ],
+   "parameters": {
+    "conditions": {
+     "options": {
+      "caseSensitive": true,
+      "leftValue": "",
+      "typeValidation": "strict",
+      "version": 2
+     },
+     "conditions": [
+      {
+       "id": "d9d7f27b-798a-4f33-a9f5-7ef5308c11a4",
+       "leftValue": "={{ $('05-02 Load context').item.json.data.task }}",
+       "rightValue": "scene",
+       "operator": {
+        "type": "string",
+        "operation": "equals"
+       }
+      }
+     ],
+     "combinator": "and"
+    },
+    "options": {}
+   }
+  },
+  {
+   "id": "7d77ec95-7be5-401a-885f-52244a7234ca",
+   "name": "05-25 Scene",
+   "type": "@n8n/n8n-nodes-langchain.chainLlm",
+   "typeVersion": 1.9,
+   "onError": "continueErrorOutput",
+   "position": [
+    700,
+    2100
+   ],
+   "parameters": {
+    "promptType": "define",
+    "hasOutputParser": true,
+    "text": "=App language (write the reply and every field in it): {{ $('05-02 Load context').item.json.data.appLanguage }}\nIdea: {{ $('05-02 Load context').item.json.data.idea }}\nConversation (oldest first): {{ JSON.stringify($('05-02 Load context').item.json.data.history) }}\nCurrent concept: {{ JSON.stringify($('05-02 Load context').item.json.data.concept) }}\nCurrent Creative Kit: {{ JSON.stringify($('05-02 Load context').item.json.data.kit) }}\nCurrent pillars & guardrails: {{ JSON.stringify($('05-02 Load context').item.json.data.pillars) }}\nExisting projects to stay clearly different from: {{ JSON.stringify($('05-02 Load context').item.json.data.avoidProjects) }}\nCurrent content plan: {{ JSON.stringify($('05-02 Load context').item.json.data.contentPlan) }}\nEnding: {{ $('05-02 Load context').item.json.data.endingBrief }}\nChange request (empty = first draft): {{ $('05-02 Load context').item.json.data.feedback }}\nScene to rewrite (with its neighbours): {{ JSON.stringify($('05-02 Load context').item.json.data.sceneEdit) }}",
+    "messages": {
+     "messageValues": [
+      {
+       "type": "SystemMessagePromptTemplate",
+       "message": "You rewrite ONE scene (beat) of a short-form video storyboard. Apply the creator's change request to this scene only and keep everything it does not mention.\n- narration: the spoken line for this beat, in the CONTENT language and the narrator voice of the Creative Kit; it must still flow from the previous scene's narration into the next one's.\n- onScreenText / headline: short on-screen words in the content language (empty if the scene had none and the change doesn't need them).\n- visual: a concrete shot description in English for the illustrator - subject, action, framing, setting - in the project's visual style, consistent with the recurring character and the neighbouring scenes.\n- heading: 1-4 words naming the beat.\n- seconds: keep about the same unless the change asks otherwise.\n- reply: ONE short line in the APP LANGUAGE saying what you changed (e.g. \"Scene 3 now shows the pan sizzling - redrawing its image.\")."
+      }
+     ]
+    }
+   }
+  },
+  {
+   "id": "bb7df839-0eae-4fb2-863a-64c0d7341486",
+   "name": "OpenAI (Scene)",
+   "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+   "typeVersion": 1.3,
+   "position": [
+    700,
+    2320
+   ],
+   "parameters": {
+    "model": {
+     "__rl": true,
+     "mode": "list",
+     "value": "gpt-5-mini"
+    },
+    "options": {
+     "reasoningEffort": "low",
+     "timeout": 120000,
+     "maxRetries": 2
+    }
+   },
+   "credentials": {
+    "openAiApi": {
+     "id": "REPLACE_ME",
+     "name": "OpenAI account"
+    }
+   }
+  },
+  {
+   "id": "27ce1663-2a0f-41d0-82b5-8ea0a1ca901a",
+   "name": "Schema (Scene)",
+   "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+   "typeVersion": 1.3,
+   "position": [
+    840,
+    2320
+   ],
+   "parameters": {
+    "schemaType": "manual",
+    "inputSchema": "{\"type\": \"object\", \"properties\": {\"reply\": {\"type\": \"string\"}, \"scene\": {\"type\": \"object\", \"properties\": {\"heading\": {\"type\": \"string\"}, \"narration\": {\"type\": \"string\"}, \"visual\": {\"type\": \"string\"}, \"onScreenText\": {\"type\": \"string\"}, \"headline\": {\"type\": \"string\"}, \"seconds\": {\"type\": \"number\"}}, \"required\": [\"heading\", \"narration\", \"visual\", \"onScreenText\", \"headline\", \"seconds\"]}}, \"required\": [\"reply\", \"scene\"]}"
+   }
+  },
+  {
+   "id": "150ead9a-94ec-4ac3-aff5-15ee39232e01",
+   "name": "05-35 Save scene",
+   "type": "n8n-nodes-base.httpRequest",
+   "typeVersion": 4.2,
+   "position": [
+    1100,
+    2100
    ],
    "parameters": {
     "method": "POST",
@@ -751,13 +884,13 @@
    }
   },
   {
-   "id": "8d23279b-515c-4383-8237-2f33c202ab24",
-   "name": "05-15 Task renumber?",
+   "id": "b6c64ea5-6f9a-44a0-8c79-f390ac0a741c",
+   "name": "05-16 Task renumber?",
    "type": "n8n-nodes-base.if",
    "typeVersion": 2.2,
    "position": [
     440,
-    2100
+    2520
    ],
    "parameters": {
     "conditions": {
@@ -769,7 +902,7 @@
      },
      "conditions": [
       {
-       "id": "62233873-42bc-400f-a108-328bb128cc5b",
+       "id": "e47dc312-75f4-48aa-84c2-517a7e1ee86c",
        "leftValue": "={{ $('05-02 Load context').item.json.data.task }}",
        "rightValue": "renumber",
        "operator": {
@@ -784,14 +917,14 @@
    }
   },
   {
-   "id": "00d6ba28-6899-4910-88a6-d13a088c4938",
-   "name": "05-25 Renumber",
+   "id": "c472ab02-08d9-46a4-9021-87bf1d29b880",
+   "name": "05-26 Renumber",
    "type": "@n8n/n8n-nodes-langchain.chainLlm",
    "typeVersion": 1.9,
    "onError": "continueErrorOutput",
    "position": [
     700,
-    2100
+    2520
    ],
    "parameters": {
     "promptType": "define",
@@ -808,13 +941,13 @@
    }
   },
   {
-   "id": "6d1c3847-7d7f-479b-a0dc-4638000e7a68",
+   "id": "df8f63f4-d799-4f02-b57d-3cfe541f92c4",
    "name": "OpenAI (Renumber)",
    "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
    "typeVersion": 1.3,
    "position": [
     700,
-    2320
+    2740
    ],
    "parameters": {
     "model": {
@@ -836,13 +969,13 @@
    }
   },
   {
-   "id": "2fceb196-864e-4d24-b1d1-04811346dff3",
+   "id": "8e8f6d68-c757-4350-a4ad-43a81c7738b4",
    "name": "Schema (Renumber)",
    "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
    "typeVersion": 1.3,
    "position": [
     840,
-    2320
+    2740
    ],
    "parameters": {
     "schemaType": "manual",
@@ -850,13 +983,13 @@
    }
   },
   {
-   "id": "346b2cca-e99e-4cc9-be13-ff442cc3cb09",
-   "name": "05-35 Save renumber",
+   "id": "cb5785ac-ca0e-4b7b-9808-1d7cbdda97de",
+   "name": "05-36 Save renumber",
    "type": "n8n-nodes-base.httpRequest",
    "typeVersion": 4.2,
    "position": [
     1100,
-    2100
+    2520
    ],
    "parameters": {
     "method": "POST",
@@ -884,13 +1017,13 @@
    }
   },
   {
-   "id": "5e70443e-ccca-4ced-9e4b-baf5a4d19a14",
-   "name": "05-16 Task more?",
+   "id": "c9df9fd8-472a-4080-8a87-2f10fb009d8b",
+   "name": "05-17 Task more?",
    "type": "n8n-nodes-base.if",
    "typeVersion": 2.2,
    "position": [
     440,
-    2520
+    2940
    ],
    "parameters": {
     "conditions": {
@@ -902,7 +1035,7 @@
      },
      "conditions": [
       {
-       "id": "505bb067-0895-409f-ad38-862b3169593c",
+       "id": "20c6d1f8-2618-4d64-8d54-73f0ca04c4af",
        "leftValue": "={{ $('05-02 Load context').item.json.data.task }}",
        "rightValue": "more",
        "operator": {
@@ -917,14 +1050,14 @@
    }
   },
   {
-   "id": "0b1f2407-f46c-4b53-9b4d-a80873db27f8",
-   "name": "05-26 More",
+   "id": "d2c770b8-e82b-4cb5-b36a-396cf3c27c03",
+   "name": "05-27 More",
    "type": "@n8n/n8n-nodes-langchain.chainLlm",
    "typeVersion": 1.9,
    "onError": "continueErrorOutput",
    "position": [
     700,
-    2520
+    2940
    ],
    "parameters": {
     "promptType": "define",
@@ -941,13 +1074,13 @@
    }
   },
   {
-   "id": "b7a013ea-bb5a-4b4c-8b56-1991ae699b88",
+   "id": "c1340118-f339-4b63-94c3-9beca1f95062",
    "name": "OpenAI (More)",
    "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
    "typeVersion": 1.3,
    "position": [
     700,
-    2740
+    3160
    ],
    "parameters": {
     "model": {
@@ -969,13 +1102,13 @@
    }
   },
   {
-   "id": "62cf928c-96b9-45e0-a36b-1ab1d50c784b",
+   "id": "5447e6c9-a055-4432-aff0-ab0f1fc8581d",
    "name": "Schema (More)",
    "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
    "typeVersion": 1.3,
    "position": [
     840,
-    2740
+    3160
    ],
    "parameters": {
     "schemaType": "manual",
@@ -983,13 +1116,13 @@
    }
   },
   {
-   "id": "efb7ab24-347d-4c29-85b3-4e1d27d4ae36",
-   "name": "05-36 Save more",
+   "id": "29915ef8-cb49-4b0a-a5d6-bf1c9de73415",
+   "name": "05-37 Save more",
    "type": "n8n-nodes-base.httpRequest",
    "typeVersion": 4.2,
    "position": [
     1100,
-    2520
+    2940
    ],
    "parameters": {
     "method": "POST",
@@ -1017,13 +1150,13 @@
    }
   },
   {
-   "id": "7afb4a4a-0c53-4733-9540-31d1fd2dd036",
-   "name": "05-17 Task plan?",
+   "id": "9d97e69a-5a68-471a-a750-3d89df8a6c27",
+   "name": "05-18 Task plan?",
    "type": "n8n-nodes-base.if",
    "typeVersion": 2.2,
    "position": [
     440,
-    2940
+    3360
    ],
    "parameters": {
     "conditions": {
@@ -1035,7 +1168,7 @@
      },
      "conditions": [
       {
-       "id": "f13233d2-a237-4bd8-8bd6-48d2fdd62c32",
+       "id": "3c256134-408e-4ac0-b4a2-9f59e62bc8f6",
        "leftValue": "={{ $('05-02 Load context').item.json.data.task }}",
        "rightValue": "plan",
        "operator": {
@@ -1050,14 +1183,14 @@
    }
   },
   {
-   "id": "d41b5e9c-c1ea-4071-9fdb-77cd46ddbbe9",
-   "name": "05-27 Plan",
+   "id": "f23fa6c5-343c-4fc4-8af2-68b2a5e21a34",
+   "name": "05-28 Plan",
    "type": "@n8n/n8n-nodes-langchain.chainLlm",
    "typeVersion": 1.9,
    "onError": "continueErrorOutput",
    "position": [
     700,
-    2940
+    3360
    ],
    "parameters": {
     "promptType": "define",
@@ -1074,13 +1207,13 @@
    }
   },
   {
-   "id": "43530b21-f338-4bb7-aecb-9bfe35231b37",
+   "id": "ee1724fb-9077-4199-a55a-356493d0acd1",
    "name": "OpenAI (Plan)",
    "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
    "typeVersion": 1.3,
    "position": [
     700,
-    3160
+    3580
    ],
    "parameters": {
     "model": {
@@ -1102,13 +1235,13 @@
    }
   },
   {
-   "id": "ad9e0506-af3a-4c33-9672-abf489cdb1af",
+   "id": "061e72f1-cf23-450f-9092-18e7da000d84",
    "name": "Schema (Plan)",
    "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
    "typeVersion": 1.3,
    "position": [
     840,
-    3160
+    3580
    ],
    "parameters": {
     "schemaType": "manual",
@@ -1116,13 +1249,13 @@
    }
   },
   {
-   "id": "fe6f2ac3-26c2-4d84-9785-1f4838b71ef2",
-   "name": "05-37 Save plan",
+   "id": "4c545ffe-5302-4a1d-9877-1429a5d036e2",
+   "name": "05-38 Save plan",
    "type": "n8n-nodes-base.httpRequest",
    "typeVersion": 4.2,
    "position": [
     1100,
-    2940
+    3360
    ],
    "parameters": {
     "method": "POST",
@@ -1358,7 +1491,7 @@
     ],
     [
      {
-      "node": "05-14 Task scene?",
+      "node": "05-14 Task character?",
       "type": "main",
       "index": 0
      }
@@ -1405,29 +1538,87 @@
     ]
    ]
   },
-  "05-14 Task scene?": {
+  "05-14 Task character?": {
    "main": [
     [
      {
-      "node": "05-24 Scene",
+      "node": "05-24 Character",
       "type": "main",
       "index": 0
      }
     ],
     [
      {
-      "node": "05-15 Task renumber?",
+      "node": "05-15 Task scene?",
       "type": "main",
       "index": 0
      }
     ]
    ]
   },
-  "05-24 Scene": {
+  "05-24 Character": {
    "main": [
     [
      {
-      "node": "05-34 Save scene",
+      "node": "05-34 Save character",
+      "type": "main",
+      "index": 0
+     }
+    ],
+    [
+     {
+      "node": "05-90 Mark failed",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "OpenAI (Character)": {
+   "ai_languageModel": [
+    [
+     {
+      "node": "05-24 Character",
+      "type": "ai_languageModel",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Schema (Character)": {
+   "ai_outputParser": [
+    [
+     {
+      "node": "05-24 Character",
+      "type": "ai_outputParser",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "05-15 Task scene?": {
+   "main": [
+    [
+     {
+      "node": "05-25 Scene",
+      "type": "main",
+      "index": 0
+     }
+    ],
+    [
+     {
+      "node": "05-16 Task renumber?",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "05-25 Scene": {
+   "main": [
+    [
+     {
+      "node": "05-35 Save scene",
       "type": "main",
       "index": 0
      }
@@ -1445,7 +1636,7 @@
    "ai_languageModel": [
     [
      {
-      "node": "05-24 Scene",
+      "node": "05-25 Scene",
       "type": "ai_languageModel",
       "index": 0
      }
@@ -1456,36 +1647,36 @@
    "ai_outputParser": [
     [
      {
-      "node": "05-24 Scene",
+      "node": "05-25 Scene",
       "type": "ai_outputParser",
       "index": 0
      }
     ]
    ]
   },
-  "05-15 Task renumber?": {
+  "05-16 Task renumber?": {
    "main": [
     [
      {
-      "node": "05-25 Renumber",
+      "node": "05-26 Renumber",
       "type": "main",
       "index": 0
      }
     ],
     [
      {
-      "node": "05-16 Task more?",
+      "node": "05-17 Task more?",
       "type": "main",
       "index": 0
      }
     ]
    ]
   },
-  "05-25 Renumber": {
+  "05-26 Renumber": {
    "main": [
     [
      {
-      "node": "05-35 Save renumber",
+      "node": "05-36 Save renumber",
       "type": "main",
       "index": 0
      }
@@ -1503,7 +1694,7 @@
    "ai_languageModel": [
     [
      {
-      "node": "05-25 Renumber",
+      "node": "05-26 Renumber",
       "type": "ai_languageModel",
       "index": 0
      }
@@ -1514,36 +1705,36 @@
    "ai_outputParser": [
     [
      {
-      "node": "05-25 Renumber",
+      "node": "05-26 Renumber",
       "type": "ai_outputParser",
       "index": 0
      }
     ]
    ]
   },
-  "05-16 Task more?": {
+  "05-17 Task more?": {
    "main": [
     [
      {
-      "node": "05-26 More",
+      "node": "05-27 More",
       "type": "main",
       "index": 0
      }
     ],
     [
      {
-      "node": "05-17 Task plan?",
+      "node": "05-18 Task plan?",
       "type": "main",
       "index": 0
      }
     ]
    ]
   },
-  "05-26 More": {
+  "05-27 More": {
    "main": [
     [
      {
-      "node": "05-36 Save more",
+      "node": "05-37 Save more",
       "type": "main",
       "index": 0
      }
@@ -1561,7 +1752,7 @@
    "ai_languageModel": [
     [
      {
-      "node": "05-26 More",
+      "node": "05-27 More",
       "type": "ai_languageModel",
       "index": 0
      }
@@ -1572,29 +1763,29 @@
    "ai_outputParser": [
     [
      {
-      "node": "05-26 More",
+      "node": "05-27 More",
       "type": "ai_outputParser",
       "index": 0
      }
     ]
    ]
   },
-  "05-17 Task plan?": {
+  "05-18 Task plan?": {
    "main": [
     [
      {
-      "node": "05-27 Plan",
+      "node": "05-28 Plan",
       "type": "main",
       "index": 0
      }
     ]
    ]
   },
-  "05-27 Plan": {
+  "05-28 Plan": {
    "main": [
     [
      {
-      "node": "05-37 Save plan",
+      "node": "05-38 Save plan",
       "type": "main",
       "index": 0
      }
@@ -1612,7 +1803,7 @@
    "ai_languageModel": [
     [
      {
-      "node": "05-27 Plan",
+      "node": "05-28 Plan",
       "type": "ai_languageModel",
       "index": 0
      }
@@ -1623,7 +1814,7 @@
    "ai_outputParser": [
     [
      {
-      "node": "05-27 Plan",
+      "node": "05-28 Plan",
       "type": "ai_outputParser",
       "index": 0
      }

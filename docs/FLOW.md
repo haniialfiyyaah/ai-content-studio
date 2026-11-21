@@ -290,3 +290,21 @@ never published until resumed, later content moves up a slot) or **Reject**
 - The whole scene card is clickable to refine. Once the concept is locked,
   concept cards (read-only view) and storyboard titles open the content
   details; ready video cards open the video details.
+
+## Visuals & character (round 9)
+
+- **Visuals** chosen in the start box (`projects.visual_source`): **AI
+  illustrations** · **Mixed** (AI only for the hook, payoff and ending; the
+  mascot elsewhere) · **Mascot** (drawn by code, free). Cost plans later.
+- **Mascot** (`packages/mascot`, synced into the renderer by
+  `scripts/sync-mascot.mjs`): a cartoon character — body, eyes, mouth, arms with
+  hands, legs — from the project (shape blob/bean/cat/bear/robot/bird, colours,
+  accessory). Per scene the writer picks pose · expression · prop (one emoji) ·
+  setting (`Scene.mascotPose/Expression/Prop/Setting`). Storyboards draw it in
+  the browser; the Remotion renderer animates it (bob, blink, wave) and moves
+  captions above its head.
+- **Character & references** = last project-setup step (setup_stage
+  `character`, WF-05 task `character`): a drawable character description, the
+  mascot design, the AI character sheet (AI / Mixed, drawn in the background),
+  and the creator's reference uploads. Click the character to change it; Auto
+  setup runs through it.
