@@ -186,3 +186,6 @@ a.btn,a.navitem,a.newbtn,a.tab,a.manage-nav{text-decoration:none}
 .sb-pending{animation:skPulse 1.4s ease-in-out infinite both}@keyframes skPulse{50%{opacity:.5}}
 @media (prefers-reduced-motion:reduce){.sb-img.anim,.sb-pending,.sb-sheet{animation:none}}
 @media (max-width:640px){.sb-sheet{padding:14px 12px}.sb-beat,.sb-flip,.sb-img{width:132px}}
+.sb-writing{display:flex;flex-direction:column;gap:12px;padding:16px;border:1px dashed #d9d0f5;border-radius:13px;background:#faf8ff}
+.sb-steps{list-style:none;margin:0;padding:0;display:flex;gap:6px;flex-wrap:wrap}.sb-steps li{font-size:10.5px;font-weight:750;padding:5px 10px;border-radius:99px;background:#fff;border:1px solid var(--border);color:#a39bb5}
+.sb-steps li.done{color:#2c9a75;border-color:#d4efe2;background:#f2fbf6}.sb-steps li.done:before{content:"✓ "}.sb-steps li.now{color:#5e43c6;border-color:#d9cffb;background:#f1edff}

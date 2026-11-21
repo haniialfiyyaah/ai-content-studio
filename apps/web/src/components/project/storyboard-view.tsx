@@ -22,7 +22,23 @@ export interface StoryboardItem {
   scenes: Scene[];
   frames: (StoryboardFrameView | undefined)[];
   status: "none" | "writing" | "ready" | "failed";
+  /** The script run's progress while writing (stage from WF-01). */
+  writing?: { stage: string; progress: number } | null;
 }
+
+/** WF-01 stages → what the creator reads. The scene count is unknown until the script is done. */
+const WRITING_STEPS = [
+  { key: "queued", label: "Waiting to start" },
+  { key: "understanding", label: "Reading the concept" },
+  { key: "contents", label: "Writing the script & scenes" },
+  { key: "editing", label: "Polishing the script" },
+  { key: "saving", label: "Saving" },
+];
+const stepIndex = (stage?: string) => {
+  const k = stage === "research" ? "understanding" : stage;
+  const i = WRITING_STEPS.findIndex((s) => s.key === k);
+  return i < 0 ? 0 : i;
+};
 
 /**
  * Content setup step 2: the storyboard of each video — every scene with its
@@ -60,16 +76,23 @@ export function StoryboardView({ projectId, items, series }: { projectId: string
             </div>
           </header>
 
+          {/* Writing the script: one honest status (the scenes appear together when it's done) */}
           {it.status === "writing" && !it.scenes.length && (
-            <div className="sb-strip" aria-busy>
-              {Array.from({ length: 6 }, (_, i) => (
-                <figure key={i} className="sb-beat">
-                  <div className="sb-img sb-pending" style={{ animationDelay: `${i * 120}ms` }}>
-                    <span className="sb-num">{i + 1}</span>
-                    <span className="sb-loading"><Spinner size={14} /> writing</span>
-                  </div>
-                </figure>
-              ))}
+            <div className="sb-writing" aria-busy aria-live="polite">
+              <div className="row" style={{ gap: 10 }}>
+                <Spinner size={15} />
+                <div>
+                  <div className="small semibold">{WRITING_STEPS[stepIndex(it.writing?.stage)].label}…</div>
+                  <div className="xs muted">The whole story is written in one go — all scenes appear together, then their images.</div>
+                </div>
+              </div>
+              <ol className="sb-steps">
+                {WRITING_STEPS.slice(1).map((st, i) => {
+                  const at = stepIndex(it.writing?.stage);
+                  return <li key={st.key} className={i + 1 < at ? "done" : i + 1 === at ? "now" : ""}>{st.label}</li>;
+                })}
+              </ol>
+              <div className="progressbar"><span style={{ width: `${Math.max(it.writing?.progress ?? 4, 4)}%` }} /></div>
             </div>
           )}
           {(it.status === "failed" || it.status === "none") && (

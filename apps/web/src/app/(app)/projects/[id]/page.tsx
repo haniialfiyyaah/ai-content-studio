@@ -131,6 +131,12 @@ export default async function ProjectPage({
     });
     const ready = p.content_stage === "plan" && !cards.length && !busy;
     // Storyboards: every scene's image, signed per content (frames land live while drawing).
+    // Latest storyboard run per content → its writing progress (stage + %).
+    const { data: sbRuns } =
+      p.content_stage === "storyboard"
+        ? await supabase.from("generation_runs").select("target_ids, stage, progress, status").eq("project_id", p.id).eq("kind", "storyboard").order("created_at", { ascending: false })
+        : { data: [] };
+    const runFor = (id: string) => (sbRuns ?? []).find((r) => ((r.target_ids as string[]) ?? []).includes(id));
     const boards =
       p.content_stage === "storyboard"
         ? await Promise.all(
@@ -150,6 +156,10 @@ export default async function ProjectPage({
                   return f ? { status: f.status, url: urls[j] ?? null } : undefined;
                 }),
                 status: c.script_status ?? "none",
+                writing: (() => {
+                  const r = runFor(c.id);
+                  return r ? { stage: r.status === "queued" ? "queued" : (r.stage as string), progress: (r.progress as number) ?? 0 } : null;
+                })(),
               };
             }),
           )
@@ -162,6 +172,7 @@ export default async function ProjectPage({
           sources={[
             { table: "projects", filter: `id=eq.${p.id}` },
             { table: "contents", filter: `project_id=eq.${p.id}` },
+            { table: "generation_runs", filter: `project_id=eq.${p.id}` },
             ...(ws.conversationId ? [{ table: "messages", filter: `conversation_id=eq.${ws.conversationId}` }] : []),
           ]}
         />
