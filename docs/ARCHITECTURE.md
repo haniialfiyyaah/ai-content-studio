@@ -1,81 +1,121 @@
-# Architecture — v2.7 rebuild (2026-11-20)
+# Architecture — v2 (2026-11-21)
 
-Source of truth for UX: `AI-Content-Studio-Complete-Package-v2.7` (prototype + screen spec).
-Product flow simplified by the owner: **no spend approval, no BYOK, no manual text editing.**
+Product flow: `docs/FLOW.md` (guided setup → content → storyboard → images →
+video → publish). Old v2.7 design: git tag `v1-legacy`.
 
 ```
-Overview prompt ──► project (generating) + its own conversation + generation_run
-                     │  WF-01 (webhook, OpenAI): plan → Creative Kit + research → N contents
-                     ▼  each content: 3 AI options per field (title/hook/script/caption/hashtags) + scenes
-Review (dropdowns) ──► Approve all ──► Schedule (days/time/tz → slot per content)
-                     ▼  readiness: generated · all approved · scheduled · YouTube connected
-Activate ──► video_renders (queued) + publish_jobs (scheduled)
-                     │  WF-02 render: scene images (fal: AI / reference-guided / your uploads) + ElevenLabs narration
-                     │               → Railway Remotion renderer (motion, captions, hook) → Storage → Download
-                     │  WF-03 every 5 min: due jobs → YouTube resumable upload (3 attempts)
-                     ▼  WF-06 every 1 min: Telegram notifications · UI updates via Supabase Realtime
+Overview idea ──► POST /api/projects ── project (status setup) + web conversation
+                   │  similar check (embeddings, in code) → "continue there / different project?"
+                   │  WF-05 Setup Agent: concept → Creative Kit → pillars & guardrails (refine / continue)
+                   ▼  Lock setup → generation_run (ideation)
+WF-01 Generate ──► contents (status idea; AI options per field + scenes), duplicate heads-up
+                   ▼  Approve & schedule (launch): untick = remove, approve the rest, slot, go live
+Approve ─────────► storyboard images (self-call /api/internal/storyboard/run)
+Live ────────────► video_renders (queued) + publish_jobs (scheduled)
+                   │  WF-02 render: scene images (reused from the storyboard) + ElevenLabs narration
+                   │               → Remotion renderer on EC2 → Storage → Download
+                   │  WF-03: due jobs → YouTube resumable upload
+                   ▼  WF-06: Telegram notifications · UI via Supabase Realtime
 ```
 
 ## Layers
 
 | Layer | Where | Rule |
 |---|---|---|
-| UI | `apps/web/src/app/(app)` server components + small client islands | Design system = prototype CSS verbatim (`globals.css`). Pages re-render on Realtime changes (`LiveRefresh`). |
-| Domain (pure) | `packages/domain` | Types, zod contracts (n8n ↔ API), schedule slots, readiness. Unit-tested. |
+| UI | `apps/web/src/app/(app)` server components + small client islands | Pages re-render on Realtime changes (`LiveRefresh`). |
+| Domain (pure) | `packages/domain` | Types, zod contracts (n8n ↔ API, user payloads), schedule slots, `projectKit()`. Unit-tested. |
 | Server services | `apps/web/src/lib/server/*` | Only place that writes the DB. User actions check ownership; trusted writes use the service role. |
-| Provider adapters | `packages/integrations` | fal (submit/poll/compose), ElevenLabs, YouTube OAuth/upload/stats, AES secrets. |
-| Orchestration | n8n Cloud | Never touches the DB. Calls `/api/internal/*` with `x-acs-service-token`. |
-| Data | Supabase (`supabase/migrations/20261120000000_v27_schema.sql`) | Owner RLS everywhere; tokens + workflow errors are service-only. |
+| Provider adapters | `packages/integrations` | OpenAI images + embeddings, fal, ElevenLabs, YouTube, Telegram, AES secrets. |
+| Orchestration | n8n on EC2 (`deploy/ec2`) | Never touches the DB. Calls `/api/internal/*` with `x-acs-service-token`. |
+| Data | Supabase — `supabase/migrations/20261121000000_v2_baseline.sql` | Owner RLS everywhere; tokens + workflow errors are service-only. |
+
+### Server modules
+
+| Module | Owns |
+|---|---|
+| `setup.ts` | guided setup: start, similar check, stage tasks for WF-05, refine / continue, lock |
+| `similar.ts` | embeddings: similar projects (≥ 0.55) and duplicate content (≥ 0.70 / close ≥ 0.55) |
+| `projects.ts` | ideas, revisions, approve / remove / hold, launch, schedule slots, lifecycle, settings |
+| `content-actions.ts` | the single content action dispatcher |
+| `storyboard.ts` | drawing scene images on approve, reuse by the render |
+| `renders.ts` / `publishing.ts` | video pipeline, YouTube upload |
+| `signals.ts` | project signals: needs you · in progress · next upload · auto/manual |
+| `internal.ts` | WF-01 / WF-A1 / scheduler contracts |
+| `telegram.ts` | the bot (decides, returns Bot API calls) |
+
+## User API
+
+| Method & path | Purpose |
+|---|---|
+| `POST /api/projects` `{ idea }` | start a project (similar check, then setup) |
+| `POST /api/projects/:id/setup` `{ action: continue · retry · start_new · use_similar }` | setup buttons |
+| `POST /api/projects/:id/messages` `{ content }` | chat (setup agent during setup, project agent after) |
+| `PATCH /api/projects/:id/settings` `{ schedule?, ending?, imageEngine?, visualMode?, autoApprove? }` | project settings |
+| `POST /api/projects/:id/ideas` `{ count, brief? }` · `POST …/ideas/retry` | new content ideas · retry a failed run |
+| `POST /api/projects/:id/launch` `{ include, exclude }` | Approve & schedule (go live when YouTube is connected) |
+| `POST /api/projects/:id/lifecycle` `{ action: activate · pause · resume · stop }` | project lifecycle |
+| `POST /api/projects/:id/renders` | render every approved content without a video |
+| `/api/projects/:id/assets`, `…/assets/upload-url`, `…/identity`, `DELETE /api/assets/:id` | reference images, the character |
+| `PATCH /api/contents/:id` `{ field, index }` | pick an AI option |
+| `POST /api/contents/:id/actions` `{ action }` | approve · remove · hold · resume · unlock · storyboard · render · publish |
+| `GET /api/renders/:id/download` · `POST /api/renders/:id/retry` | video file · re-render |
+| `/api/profile`, `/api/auth/*`, `/api/integrations/{youtube,telegram}` | account |
+
+## Internal API (n8n, `x-acs-service-token`) — grouped by workflow
+
+| Group | Routes | Caller |
+|---|---|---|
+| `setup/` | `context` · `complete` · `fail` | WF-05 Setup Agent |
+| `generation/` | `context` · `progress` · `complete` · `fail` | WF-01 Generate |
+| `agent/` | `context` · `reply` | WF-A1 Project Agent |
+| `renders/` | `start` · `poll` · `callback` · `fail` | WF-02 Render |
+| `publish/run` · `analytics/run` | | WF-03 |
+| `notifications/` | `deliver` · `complete` | WF-06 |
+| `telegram/update` | | WF-A2 |
+| `claim-due` | | WF-00 Queue Scheduler |
+| `storyboard/run` | | the app itself (after approve) |
+| `workflows/error` | | WF-04 |
 
 ## Queue model (no lost work)
 
 Every job is a row first. The app fires a webhook as a **fast path** (`after()`),
-and **WF-00 Queue Scheduler** (every 2 min) re-dispatches anything still
-`queued`. Claims are compare-and-set (`queued → rendering`, `scheduled → publishing`),
-so webhook + scheduler can race safely. Stuck work is failed server-side
-(generation > 15 min, render > 45 min) so the UI never spins forever.
+and **WF-00 Queue Scheduler** re-dispatches anything still `queued`. Claims are
+compare-and-set (`queued → rendering`, `scheduled → publishing`), so webhook +
+scheduler can race safely. Stuck work is failed server-side so the UI never
+spins forever. (WF-00, WF-03 and WF-06 are currently deactivated to save
+executions — turn them on for scheduled publishing and Telegram alerts.)
 
-## n8n workflows (cloud ids)
+## n8n workflows (EC2, `https://acs-n8n.duckdns.org`)
 
 | Workflow | Id | Trigger |
 |---|---|---|
-| WF-00 Queue Scheduler | `c3VwV5JlwWHW02Gr` | every 2 min |
-| WF-01 Generate Project | `HAcp9KphY2c6quix` | webhook `acs-generate` + sub-workflow |
-| WF-02 Render Video | `pFPyYRiZKu9dr2LO` | webhook `acs-render` + sub-workflow |
-| WF-03 Publishing & Analytics | `nesO8x03td8rF25k` | every 5 min / every 6 h |
-| WF-04 Error Handling | `Skab0JCwPCgIgrYN` | error trigger (all workflows) |
-| WF-06 Notifications | `ZMoSD2okLc7psv3z` | every 1 min |
-| WF-A1 Project Agent Chat | `1FOlfsXAnFVbqDzw` | webhook `acs-agent-chat` |
-| WF-A2 Telegram Gateway | `EAETpN89kJ1GVTC4` | Telegram trigger |
-| SUB Telegram Send | `NNXNhlVKtnu5OKUg` | sub-workflow (all outbound Telegram) |
+| WF-00 Queue Scheduler | `krK0OAzIBgi4Cipw` | every 10 min |
+| WF-01 Generate Project | `KaGdNHPG09cuFwbb` | webhook `acs-generate` |
+| WF-02 Render Video | `FN8Eqd6rIQDug8jJ` | webhook `acs-render` |
+| WF-03 Publishing & Analytics | `eEmksYHu2wE1BtaH` | every 15 min / 12 h |
+| WF-04 Error Handling | `Hs5qQeqXcbQ46etY` | error trigger |
+| WF-05 Setup Agent | `SwLZlWgTOlSCQw1Y` | webhook `acs-setup` |
+| WF-06 Notifications | `23qsgCiuUne5tl5a` | every 3 min |
+| WF-A1 Project Agent Chat | `ElL4pmD7I4BlwdJf` | webhook `acs-agent-chat` |
+| WF-A2 Telegram Gateway | `CNN8fpiUxy2JVKaq` | Telegram trigger |
+| SUB Telegram Send | `hXxZiAIs1TNZ7dfx` | sub-workflow (all outbound Telegram) |
 
-n8n variables: `ACS_API_BASE_URL`, `ACS_INTERNAL_SERVICE_TOKEN`, `TELEGRAM_BOT_TOKEN`.
-OpenAI runs on n8n's OpenAI credential (currently n8n gateway credits; swap to the Studio key in the
-`OpenAI (plan|content|agent)` nodes for production volume).
+Env on EC2: `ACS_API_BASE_URL`, `ACS_INTERNAL_SERVICE_TOKEN`, `TELEGRAM_BOT_TOKEN`
+(see `deploy/ec2/.env.example`). OpenAI runs on the n8n OpenAI credential.
 
-## Video pipeline (Remotion on Railway)
+## Video pipeline (Remotion on EC2)
 
-1. `renders/start` (claim) → one image per scene via the provider chain
-   **OpenAI images** (`gpt-image-2.6-flare` → `gpt-image-2` → `gpt-image-1.5` → mini; edits for reference-guided) → **fal** (Flux / Kontext) →
-   **user's reference** → **gradient**. `visual_mode=references` uses uploads directly. Narration via
-   ElevenLabs with word timings → captions (even timing when no voice).
-2. `renders/poll` advances images (one fallback to Flux Schnell; a scene that still fails becomes a gradient).
-3. When images are settled the app POSTs the job to `RENDERER_URL/render` with a signed upload URL.
-4. `apps/renderer` renders the `Short` composition (1080×1920, Ken Burns, crossfades, hook card,
-   word-by-word captions, progress bar), uploads the MP4 and calls `/api/internal/renders/callback`.
-5. Any approved content can be rendered on demand (`POST /api/contents/:id/render`) and downloaded
-   (`GET /api/renders/:id/download`); YouTube upload still requires schedule + activation.
+1. Scene images come from the storyboard drawn on approve; missing ones are drawn by the
+   project's engine (**OpenAI** `gpt-image-2.6-flare` → fallbacks, or **fal**), the other engine
+   is the backup, then the user's reference, then a gradient. Narration via ElevenLabs with
+   word timings → captions.
+2. When images are settled the app POSTs the job to `RENDERER_URL/render` with a signed upload URL.
+3. `apps/renderer` renders the `Short` composition (720p, Ken Burns, crossfades, hook card,
+   word-by-word captions, designed end screen), uploads the MP4 and calls `/api/internal/renders/callback`.
 
-## Telegram flow
+## Telegram
 
-WF-A2 forwards every update (messages + button taps) to `/api/internal/telegram/update`; the app's
-bot (`lib/server/telegram.ts`) decides and **returns** the Bot API calls (each with the user's own
-`chat_id`). **SUB Telegram Send** (`NNXNhlVKtnu5OKUg`) posts them using the n8n variable
-`TELEGRAM_BOT_TOKEN` — the app never holds the token. WF-06 (every minute) asks
-`/api/internal/notifications/deliver` for a notification's calls (text, content cards, or the MP4),
-sends them via SUB, and records delivered/failed via `/notifications/complete`.
-
-Loop: idea → project cards (#n, hook, script) → ✅ Approve all (starts rendering) or ✏️ edit in plain
-language (`generation_runs.kind = revision`, AI rewrites only the referenced `#n`) → schedule presets /
-"just send me the videos" → MP4 delivered in chat → 🚀 Activate (YouTube). Commands: `/new`, `/projects`,
-`/render`, `/schedule`, `/edit`, `/help`. Conversation state lives in `telegram_links.state`.
+WF-A2 forwards every update to `/api/internal/telegram/update`; the bot
+(`lib/server/telegram.ts`) **returns** the Bot API calls and **SUB Telegram Send**
+posts them (the app never holds the bot token). A new idea sent to the bot starts
+the same guided setup and links to the app to continue.

@@ -81,11 +81,11 @@ export default async function VideoDetailPage({ params }: { params: Promise<{ id
           {r.status === "ready" && <a className="btn primary" href={`/api/renders/${r.id}/download`}><Download size={14} /> Download</a>}
           {j?.external_url && <a className="btn" href={j.external_url} target="_blank" rel="noreferrer"><ExternalLink size={14} /> YouTube</a>}
           {r.status === "ready" && isLatest && c.status === "approved" && j?.status !== "published" && j?.status !== "publishing" && (
-            <ActionButton path={`/api/contents/${c.id}/publish`} className="btn soft" confirm="Upload this video to YouTube now?">🚀 Publish now</ActionButton>
+            <ActionButton path={`/api/contents/${c.id}/actions`} body={{ action: "publish" }} className="btn soft" confirm="Upload this video to YouTube now?">🚀 Publish now</ActionButton>
           )}
           {r.status === "failed" && <ActionButton path={`/api/renders/${r.id}/retry`} className="btn primary"><RotateCcw size={14} /> Retry</ActionButton>}
           {r.status === "ready" && c.status === "approved" && (
-            <ActionButton path={`/api/contents/${c.id}/render`} className="btn" confirm="Render a new version? Its images are generated again.">
+            <ActionButton path={`/api/contents/${c.id}/actions`} body={{ action: "render" }} className="btn" confirm="Render a new version? Its images are generated again.">
               <RotateCcw size={14} /> Re-render
             </ActionButton>
           )}

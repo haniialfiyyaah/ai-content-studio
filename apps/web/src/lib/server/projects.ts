@@ -10,11 +10,12 @@ import {
   notFound,
   readiness,
   type OptionField,
-  type Schedule, type Ending } from "@acs/domain";
+  type Schedule, type Ending, type ProjectSettings } from "@acs/domain";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { dispatchToN8n } from "./dispatch";
 import { queueStoryboards } from "./storyboard";
 import { setupMessage } from "./setup";
+import { setImageEngine, setVisualMode } from "./assets";
 import { logActivity, notifyTelegram, postAssistantMessage } from "./events";
 import type { ContentRow, ProjectRow } from "./rows";
 
@@ -338,6 +339,21 @@ export async function launchProject(ownerId: string, projectId: string, input: {
   if (project.status === "live") await scheduleAndQueue(project);
   else await assignSlots(projectId, schedule.data, false);
   return { approved: approvedNow.length, excluded: exclude.length, status: project.status, needsYoutube: !ytOk };
+}
+
+/** One endpoint for project settings (PATCH /api/projects/:id/settings); any subset. */
+export async function updateProjectSettings(ownerId: string, projectId: string, input: ProjectSettings) {
+  await loadOwnedProject(ownerId, projectId);
+  const out: Record<string, unknown> = {};
+  if (input.schedule !== undefined) Object.assign(out, await saveSchedule(ownerId, projectId, input.schedule));
+  if (input.ending) Object.assign(out, await saveEnding(ownerId, projectId, input.ending));
+  if (input.imageEngine) Object.assign(out, await setImageEngine(ownerId, projectId, input.imageEngine));
+  if (input.visualMode) Object.assign(out, await setVisualMode(ownerId, projectId, input.visualMode));
+  if (input.autoApprove !== undefined) {
+    await admin().from("projects").update({ auto_approve: input.autoApprove }).eq("id", projectId);
+    out.autoApprove = input.autoApprove;
+  }
+  return out;
 }
 
 export async function saveEnding(ownerId: string, projectId: string, ending: Ending) {

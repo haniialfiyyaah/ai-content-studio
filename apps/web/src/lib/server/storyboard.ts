@@ -235,3 +235,13 @@ export async function storyboardImageUrls(frames: StoryboardFrame[] | null | und
   for (const f of frames) out[f.scene] = signed.get(f.imagePath ?? f.referencePath ?? "") ?? null;
   return out;
 }
+
+/** User action: draw (or redraw) this content's storyboard images now. */
+export async function redrawStoryboard(ownerId: string, contentId: string) {
+  const db = admin();
+  const { data } = await db.from("contents").select("id").eq("id", contentId).eq("owner_id", ownerId).maybeSingle();
+  if (!data) throw notFound("Content");
+  await db.from("contents").update({ storyboard_status: "generating", storyboard_started_at: null }).eq("id", contentId);
+  after(() => generateStoryboard(contentId, { force: true }).then(() => undefined).catch(() => undefined));
+  return { generating: true };
+}

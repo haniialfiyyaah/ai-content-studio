@@ -27,7 +27,7 @@ export function StartProject() {
     setError(null);
     start(async () => {
       try {
-        const { projectId } = await api<{ projectId: string }>("/api/projects/start", "POST", { prompt });
+        const { projectId } = await api<{ projectId: string }>("/api/projects", "POST", { idea: prompt });
         if (files.length) {
           // References are attached to the project while the agent shapes the idea.
           for (const [i, f] of files.entries()) {

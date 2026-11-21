@@ -126,7 +126,7 @@ export function AssetsPanel({
           const disabled = !editable || pending || (m !== "ai" && !assets.length);
           return (
             <label key={m} className={`ai-option ${mode === m ? "selected" : ""}`} style={{ opacity: disabled && mode !== m ? 0.55 : 1 }}>
-              <input type="radio" name="visual-mode" checked={mode === m} disabled={disabled} onChange={() => run(() => api(`/api/projects/${projectId}/visual-mode`, "PATCH", { visualMode: m }))} />
+              <input type="radio" name="visual-mode" checked={mode === m} disabled={disabled} onChange={() => run(() => api(`/api/projects/${projectId}/settings`, "PATCH", { visualMode: m }))} />
               <div><div className="small semibold">{VISUAL_MODE_LABELS[m]}</div><div className="xs muted line">{MODE_HELP[m]}</div></div>
             </label>
           );
@@ -137,7 +137,7 @@ export function AssetsPanel({
             <div className="eyebrow">IMAGE ENGINE</div>
             {IMAGE_ENGINES.map((e) => (
               <label key={e} className={`ai-option ${engine === e ? "selected" : ""}`} style={{ opacity: !editable || pending ? 0.6 : 1 }}>
-                <input type="radio" name="image-engine" checked={engine === e} disabled={!editable || pending} onChange={() => run(() => api(`/api/projects/${projectId}/image-engine`, "PATCH", { imageEngine: e }))} />
+                <input type="radio" name="image-engine" checked={engine === e} disabled={!editable || pending} onChange={() => run(() => api(`/api/projects/${projectId}/settings`, "PATCH", { imageEngine: e }))} />
                 <div><div className="small semibold">{IMAGE_ENGINE_LABELS[e].label}</div><div className="xs muted line">{IMAGE_ENGINE_LABELS[e].help}</div></div>
               </label>
             ))}

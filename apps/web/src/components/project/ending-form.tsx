@@ -22,7 +22,7 @@ export function EndingForm({ projectId, initial, editable }: { projectId: string
     setError(null);
     start(async () => {
       try {
-        await api(`/api/projects/${projectId}/ending`, "PATCH", e);
+        await api(`/api/projects/${projectId}/settings`, "PATCH", { ending: e });
         setSaved(true);
         router.refresh();
       } catch (err) {

@@ -78,10 +78,10 @@ export default async function ContentDetail({
         </div>
         <div className="actions">
           {c.status === "idea" && editable && (
-            <ActionButton path={`/api/contents/${c.id}/approve`} className="btn primary"><Check size={14} /> Approve</ActionButton>
+            <ActionButton path={`/api/contents/${c.id}/actions`} body={{ action: "approve" }} className="btn primary"><Check size={14} /> Approve</ActionButton>
           )}
           {c.status === "approved" && editable && job?.status !== "published" && (
-            <ActionButton path={`/api/contents/${c.id}/unlock`} className="btn" confirm="Unlock this content? It goes back to review, its video is replaced after you change options, and any scheduled upload is removed until you approve again.">🔓 Unlock to change</ActionButton>
+            <ActionButton path={`/api/contents/${c.id}/actions`} body={{ action: "unlock" }} className="btn" confirm="Unlock this content? It goes back to review, its video is replaced after you change options, and any scheduled upload is removed until you approve again.">🔓 Unlock to change</ActionButton>
           )}
         </div>
       </div>
@@ -145,7 +145,7 @@ export default async function ContentDetail({
               <span className="badge-outline">9:16 · {total} seconds · {c.scenes.length} beats</span>
               {editable && (
                 <ActionButton
-                  path={`/api/contents/${c.id}/storyboard`}
+                  path={`/api/contents/${c.id}/actions`} body={{ action: "storyboard" }}
                   className="btn small soft"
                   disabled={drawing}
                   confirm={frames ? "Redraw every scene image? This uses image credits again." : undefined}

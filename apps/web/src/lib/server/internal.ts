@@ -213,25 +213,6 @@ async function duplicateHeadsUp(p: ProjectRow, newIds: string[], texts: string[]
   }
 }
 
-/**
- * WF-01 stage "character": draws the recurring subject from the plan as the
- * project's reference image before content is written. Never fails the run.
- */
-export async function generationIdentity(input: { runId: string; recurringSubject?: string; visualStyle?: string; palette?: string }) {
-  const db = admin();
-  const { data: run } = await db.from("generation_runs").select("project_id").eq("id", input.runId).maybeSingle();
-  if (!run) throw notFound("Run");
-  if (!input.recurringSubject?.trim()) return { skipped: true, reason: "no recurring subject" };
-  await generationProgress({ runId: input.runId, stage: "character", progress: 40 });
-  try {
-    return await generateIdentityReference(run.project_id, {
-      kit: { recurringSubject: input.recurringSubject, visualStyle: input.visualStyle, palette: input.palette },
-    });
-  } catch (e) {
-    return { skipped: true, reason: e instanceof Error ? e.message : "failed" };
-  }
-}
-
 export async function generationFail(input: { runId: string; error: string }) {
   const db = admin();
   const { data: run } = await db.from("generation_runs").select("*").eq("id", input.runId).maybeSingle();

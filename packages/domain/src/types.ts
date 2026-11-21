@@ -291,3 +291,22 @@ export function projectKit(p: { kit?: Partial<CreativeKit> | null; concept?: Par
     language: c.language || k.language || "English",
   };
 }
+
+// ---------------------------------------------------------------------------
+// User API payloads
+// ---------------------------------------------------------------------------
+/** PATCH /api/projects/:id/settings — any subset. `schedule` is validated by ScheduleSchema. */
+export const ProjectSettingsSchema = z
+  .object({
+    schedule: z.unknown(),
+    ending: EndingSchema,
+    imageEngine: z.enum(IMAGE_ENGINES),
+    visualMode: z.enum(VISUAL_MODES),
+    autoApprove: z.boolean(),
+  })
+  .partial();
+export type ProjectSettings = z.infer<typeof ProjectSettingsSchema>;
+
+/** POST /api/contents/:id/actions */
+export const CONTENT_ACTIONS = ["approve", "remove", "hold", "resume", "unlock", "storyboard", "render", "publish"] as const;
+export type ContentAction = (typeof CONTENT_ACTIONS)[number];

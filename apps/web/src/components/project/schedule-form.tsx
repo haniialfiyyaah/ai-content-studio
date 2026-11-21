@@ -22,7 +22,7 @@ export function ScheduleForm({ projectId, initial, timezone }: { projectId: stri
     setMsg(null);
     start(async () => {
       try {
-        await api(`/api/projects/${projectId}/schedule`, "PUT", { days, time, startDate, timezone: tz });
+        await api(`/api/projects/${projectId}/settings`, "PATCH", { schedule: { days, time, startDate, timezone: tz } });
         setMsg({ ok: true, text: "Schedule saved — every content now has a publishing slot." });
         router.refresh();
       } catch (e) {

@@ -50,7 +50,7 @@ export function ReviewFlow({
     setError(null);
     start(async () => {
       try {
-        const { nextId } = await api<{ nextId: string | null }>(`/api/contents/${current.id}/approve`, "POST");
+        const { nextId } = await api<{ nextId: string | null }>(`/api/contents/${current.id}/actions`, "POST", { action: "approve" });
         go(nextId);
         router.refresh();
       } catch (e) {
@@ -64,7 +64,7 @@ export function ReviewFlow({
     setError(null);
     start(async () => {
       try {
-        const { nextId } = await api<{ nextId: string | null }>(`/api/contents/${current.id}/reject`, "POST");
+        const { nextId } = await api<{ nextId: string | null }>(`/api/contents/${current.id}/actions`, "POST", { action: "remove" });
         go(nextId);
         router.refresh();
       } catch (e) {
@@ -92,7 +92,7 @@ export function ReviewFlow({
     setError(null);
     start(async () => {
       try {
-        await api(`/api/contents/${current!.id}/storyboard`, "POST");
+        await api(`/api/contents/${current!.id}/actions`, "POST", { action: "storyboard" });
         router.refresh();
       } catch (e) {
         setError(e instanceof Error ? e.message : "Could not draw images");

@@ -33,7 +33,7 @@ export function OptionPicker({
     setError(null);
     start(async () => {
       try {
-        await api(`/api/contents/${contentId}/selection`, "PATCH", { field, index });
+        await api(`/api/contents/${contentId}`, "PATCH", { field, index });
         router.refresh();
       } catch (e) {
         setValue(prev);

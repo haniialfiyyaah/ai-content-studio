@@ -13,13 +13,13 @@ export function RenderControls({
 }) {
   if (!approved) return <span className="xs faint">Approve to render</span>;
   if (!render || render.status === "cancelled") {
-    return <ActionButton path={`/api/contents/${contentId}/render`} className="btn small soft"><Film size={13} /> Render video</ActionButton>;
+    return <ActionButton path={`/api/contents/${contentId}/actions`} body={{ action: "render" }} className="btn small soft"><Film size={13} /> Render video</ActionButton>;
   }
   if (render.status === "ready") {
     return (
       <span className="actions">
         <a className="btn small primary" href={`/api/renders/${render.id}/download`}><Download size={13} /> Download</a>
-        <ActionButton path={`/api/contents/${contentId}/render`} className="btn small ghost" title="Render a new version"><RotateCcw size={13} /></ActionButton>
+        <ActionButton path={`/api/contents/${contentId}/actions`} body={{ action: "render" }} className="btn small ghost" title="Render a new version"><RotateCcw size={13} /></ActionButton>
       </span>
     );
   }

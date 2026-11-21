@@ -130,7 +130,7 @@ export default async function ProjectPage({
                     <div className="semibold">Drafting didn&apos;t finish</div>
                     <div className="xs muted">{run?.error || "Nothing was published. Try again — your setup is kept."}</div>
                   </div>
-                  <ActionButton path={`/api/projects/${p.id}/retry`} className="btn primary">Try again</ActionButton>
+                  <ActionButton path={`/api/projects/${p.id}/ideas/retry`} className="btn primary">Try again</ActionButton>
                 </div>
               ) : (
                 <>
@@ -335,7 +335,7 @@ export default async function ProjectPage({
                 </div>
                 <div className="actions">
                   {editable && (
-                    <ActionButton path={`/api/projects/${p.id}/generate-more`} body={{ count: 3 }} className="btn soft" disabled={ideating}>
+                    <ActionButton path={`/api/projects/${p.id}/ideas`} body={{ count: 3 }} className="btn soft" disabled={ideating}>
                       {ideating ? "Generating…" : "Generate 3 more"}
                     </ActionButton>
                   )}
@@ -363,17 +363,17 @@ export default async function ProjectPage({
                         {editable && !["published", "publishing"].includes(ws.jobs.get(c.id)?.status ?? "") && (
                           contentHasMedia(c, ws.renders.get(c.id)) ? (
                             <>
-                              <ActionButton path={`/api/contents/${c.id}/hold`} body={{ hold: !c.on_hold }} className="btn small ghost" title={c.on_hold ? "Publish it again at its slot" : "Keep it, but don't publish until you resume"}>
+                              <ActionButton path={`/api/contents/${c.id}/actions`} body={{ action: c.on_hold ? "resume" : "hold" }} className="btn small ghost" title={c.on_hold ? "Publish it again at its slot" : "Keep it, but don't publish until you resume"}>
                                 {c.on_hold ? "▶ Resume" : "⏸ Hold"}
                               </ActionButton>
-                              <ActionButton path={`/api/contents/${c.id}/reject`} confirm="Reject this content? Its images and video are discarded and it won't be published." className="btn small ghost" title="Discard — never published">✕ Reject</ActionButton>
+                              <ActionButton path={`/api/contents/${c.id}/actions`} body={{ action: "remove" }} confirm="Reject this content? Its images and video are discarded and it won't be published." className="btn small ghost" title="Discard — never published">✕ Reject</ActionButton>
                             </>
                           ) : (
-                            <ActionButton path={`/api/contents/${c.id}/reject`} className="btn small ghost" title="Remove this idea">🗑 Remove</ActionButton>
+                            <ActionButton path={`/api/contents/${c.id}/actions`} body={{ action: "remove" }} className="btn small ghost" title="Remove this idea">🗑 Remove</ActionButton>
                           )
                         )}
                         {c.status === "approved" && editable && ws.jobs.get(c.id)?.status !== "published" && (
-                          <ActionButton path={`/api/contents/${c.id}/unlock`} className="btn small ghost" title="Unlock to change options (removes approval)">🔓 Unlock</ActionButton>
+                          <ActionButton path={`/api/contents/${c.id}/actions`} body={{ action: "unlock" }} className="btn small ghost" title="Unlock to change options (removes approval)">🔓 Unlock</ActionButton>
                         )}
                         <Link href={`/projects/${p.id}/content/${c.id}`} className="btn small">Details →</Link>
                       </div>
@@ -494,7 +494,7 @@ export default async function ProjectPage({
                       <RenderControls contentId={c.id} approved render={r} />
                       {r?.status === "ready" && j?.status !== "published" && j?.status !== "publishing" && (
                         <ActionButton
-                          path={`/api/contents/${c.id}/publish`}
+                          path={`/api/contents/${c.id}/actions`} body={{ action: "publish" }}
                           className="btn small soft"
                           confirm="Upload this video to YouTube now?"
                         >
