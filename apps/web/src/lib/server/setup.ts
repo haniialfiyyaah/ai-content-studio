@@ -21,7 +21,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { SIMILAR_STRONG, findSimilarProjects, type SimilarProject } from "./similar";
 import { dispatchToN8n } from "./dispatch";
 import { markFrame, queueSceneRedraw } from "./storyboard";
-import { queueGeneration } from "./projects";
+import { queueGeneration, requestRender } from "./projects";
 import { logActivity, postAssistantMessage } from "./events";
 import type { ProjectRow } from "./rows";
 
@@ -185,7 +185,10 @@ export async function setupAction(ownerId: string, projectId: string, action: "c
     await userMessage(ownerId, projectId, "✅ The plan looks good — write the storyboards");
     return writeStoryboards(p, {});
   }
-  if (stage === "storyboard") throw conflict("The video is the next step — coming soon");
+  if (stage === "storyboard") {
+    await userMessage(ownerId, projectId, "✅ The storyboards look good — make the video");
+    return startVideos(p);
+  }
   // Every button press is part of the conversation.
   if (action === "start_new") {
     await userMessage(ownerId, projectId, "Start a new project");
@@ -403,6 +406,9 @@ export async function setupComplete(raw: unknown) {
   if (action.type === "propose" && stage === "similar") await advance(fresh);
   else if (action.type === "continue" && inSetup && stage !== "similar") await advance(fresh);
   else if (action.type === "continue" && stage === "plan") await writeStoryboards(fresh, {});
+  else if (action.type === "continue" && stage === "storyboard") await startVideos(fresh).catch(async (e) => {
+    await postAssistantMessage(admin(), p.owner_id, p.id, e instanceof Error ? e.message : "Not ready for the video yet.");
+  });
   else if (action.type === "refine" && stage === "storyboard" && action.feedback?.trim()) {
     await refineScene(fresh, action.feedback.trim());
   } else if (action.type === "refine" && stage !== "similar" && action.feedback?.trim()) {
@@ -549,4 +555,35 @@ async function applySceneEdit(target: { contentId: string; scene: number }, patc
   const script = scenes.map((s) => s.narration).filter(Boolean).join(" ");
   await db.from("contents").update({ scenes, options: { ...(c.options as object), script: [script] } }).eq("id", target.contentId);
   queueSceneRedraw(target.contentId, target.scene);
+}
+
+// ---------------------------------------------------------------------------
+// Video: the storyboards are confirmed → render every video
+// ---------------------------------------------------------------------------
+async function startVideos(p: SetupProject) {
+  const db = admin();
+  const { data } = await db.from("contents").select("id, script_status, storyboard_status, storyboard").eq("project_id", p.id).neq("status", "removed").order("position");
+  const list = data ?? [];
+  if (!list.length) throw conflict("There's nothing to render yet");
+  const unfinished = list.filter(
+    (c) =>
+      c.script_status !== "ready" ||
+      c.storyboard_status === "generating" ||
+      ((c.storyboard ?? []) as { status: string }[]).some((f) => f.status === "drawing" || f.status === "editing"),
+  );
+  if (unfinished.length) throw conflict("Wait until every storyboard is finished (scripts and images), then continue.");
+  // The storyboard is the confirmation: every video is approved and rendered (images are reused).
+  await db.from("contents").update({ status: "approved", approved_at: new Date().toISOString() }).eq("project_id", p.id).in("id", list.map((c) => c.id)).neq("status", "approved");
+  await db.from("projects").update({ content_stage: "production", setup_busy: false }).eq("id", p.id);
+  for (const c of list) await requestRender(p.owner_id, c.id);
+  await logActivity(db, { ownerId: p.owner_id, projectId: p.id, kind: "videos.started", message: `Rendering ${list.length} video${list.length > 1 ? "s" : ""}` });
+  await postAssistantMessage(
+    db,
+    p.owner_id,
+    p.id,
+    list.length > 1
+      ? `Making the ${list.length} videos now — narration, captions, motion and the end screen, using your storyboard images. They finish one by one.`
+      : "Making the video now — narration, captions, motion and the end screen, using your storyboard images.",
+  );
+  return { stage: "production" as const, rendering: list.length };
 }

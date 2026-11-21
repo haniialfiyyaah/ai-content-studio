@@ -14,6 +14,7 @@ import { ProjectBrief } from "@/components/project/project-brief";
 import { StoryboardView } from "@/components/project/storyboard-view";
 import { ReadyModal } from "@/components/project/ready-modal";
 import { SetupSummary } from "@/components/project/setup-summary";
+import { VideoView } from "@/components/project/video-view";
 import { WorkspaceFrame } from "@/components/project/workspace-frame";
 import { ActionButton } from "@/components/ui/action-button";
 import { LiveRefresh } from "@/components/ui/live-refresh";
@@ -120,11 +121,16 @@ export default async function ProjectPage({
   }
 
   // Content setup (after the project setup is locked): the content concept, then storyboards.
-  if (p.content_stage === "plan" || p.content_stage === "storyboard") {
+  if (p.content_stage === "plan" || p.content_stage === "storyboard" || p.content_stage === "production") {
     const busy = p.setup_busy && !setupStale(p);
     const plan = (p.content_plan ?? {}) as { format?: string; style?: string; seriesTitle?: string; why?: string };
     // Read-only look back at a finished step; the project-ready moment shows the setup behind the pop-up.
-    const viewing = view === "setup" || (view === "plan" && p.content_stage === "storyboard") ? (view as "setup" | "plan") : null;
+    const viewing =
+      view === "setup" ||
+      (view === "plan" && (p.content_stage === "storyboard" || p.content_stage === "production")) ||
+      (view === "storyboard" && p.content_stage === "production")
+        ? (view as "setup" | "plan" | "storyboard")
+        : null;
     const cards: PlanCard[] = contents.map((c, i) => {
       const r = resolveContent(c.options, c.selection);
       return { id: c.id, n: i + 1, label: c.label ?? "", title: r.title, hook: r.hook, description: r.caption, hashtags: r.hashtags };
@@ -133,12 +139,13 @@ export default async function ProjectPage({
     // Storyboards: every scene's image, signed per content (frames land live while drawing).
     // Latest storyboard run per content → its writing progress (stage + %).
     const { data: sbRuns } =
-      p.content_stage === "storyboard"
+      p.content_stage === "storyboard" || view === "storyboard"
         ? await supabase.from("generation_runs").select("target_ids, stage, progress, status").eq("project_id", p.id).eq("kind", "storyboard").order("created_at", { ascending: false })
         : { data: [] };
     const runFor = (id: string) => (sbRuns ?? []).find((r) => ((r.target_ids as string[]) ?? []).includes(id));
+    const showBoards = p.content_stage === "storyboard" || viewing === "storyboard";
     const boards =
-      p.content_stage === "storyboard"
+      showBoards
         ? await Promise.all(
             contents.map(async (c, i) => {
               const r = resolveContent(c.options, c.selection);
@@ -168,11 +175,20 @@ export default async function ProjectPage({
     return (
       <>
         <LiveRefresh
-          pollMs={p.setup_busy || ws.messages.at(-1)?.role === "user" || contents.some((c) => c.script_status === "writing") || drawing ? 3000 : undefined}
+          pollMs={
+            p.setup_busy ||
+            ws.messages.at(-1)?.role === "user" ||
+            contents.some((c) => c.script_status === "writing") ||
+            drawing ||
+            [...ws.renders.values()].some((r) => r.status === "queued" || r.status === "rendering")
+              ? 3000
+              : undefined
+          }
           sources={[
             { table: "projects", filter: `id=eq.${p.id}` },
             { table: "contents", filter: `project_id=eq.${p.id}` },
             { table: "generation_runs", filter: `project_id=eq.${p.id}` },
+            { table: "video_renders", filter: `project_id=eq.${p.id}` },
             ...(ws.conversationId ? [{ table: "messages", filter: `conversation_id=eq.${ws.conversationId}` }] : []),
           ]}
         />
@@ -195,7 +211,7 @@ export default async function ProjectPage({
             <PhaseSteps current={ready ? "setup" : p.content_stage} projectId={p.id} viewing={ready ? null : viewing} />
             {viewing && (
               <div className="view-banner">
-                <span>Viewing {viewing === "setup" ? "the project setup" : "the content concept"} · read-only</span>
+                <span>Viewing {viewing === "setup" ? "the project setup" : viewing === "plan" ? "the content concept" : "the storyboards"} · read-only</span>
                 <Link href={`/projects/${p.id}`} scroll={false} className="btn small">Back to current step</Link>
               </div>
             )}
@@ -206,6 +222,22 @@ export default async function ProjectPage({
               </>
             ) : viewing === "plan" ? (
               <PlanView projectId={p.id} plan={plan} cards={cards} busy={false} stale={false} readOnly />
+            ) : viewing === "storyboard" ? (
+              <StoryboardView projectId={p.id} series={plan.format === "series"} items={boards} readOnly />
+            ) : p.content_stage === "production" ? (
+              <VideoView
+                series={plan.format === "series"}
+                items={contents.map((c, i) => {
+                  const r = ws.renders.get(c.id);
+                  return {
+                    id: c.id,
+                    n: i + 1,
+                    label: c.label ?? "",
+                    title: resolveContent(c.options, c.selection).title,
+                    render: r ? { id: r.id, status: r.status, phase: r.phase, url: r.url, error: r.error } : null,
+                  };
+                })}
+              />
             ) : p.content_stage === "plan" ? (
               <PlanView projectId={p.id} plan={plan} cards={cards} busy={p.setup_busy} stale={setupStale(p)} />
             ) : (

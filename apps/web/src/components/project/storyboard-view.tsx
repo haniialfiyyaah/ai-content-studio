@@ -44,12 +44,17 @@ const stepIndex = (stage?: string) => {
  * Content setup step 2: the storyboard of each video — every scene with its
  * image, narration and shot. Changes happen one scene at a time (✏️).
  */
-export function StoryboardView({ projectId, items, series }: { projectId: string; items: StoryboardItem[]; series: boolean }) {
+export function StoryboardView({ projectId, items, series, readOnly }: { projectId: string; items: StoryboardItem[]; series: boolean; readOnly?: boolean }) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const retry = () =>
     start(async () => {
       await api(`/api/projects/${projectId}/setup`, "POST", { action: "retry" }).catch(() => undefined);
+      router.refresh();
+    });
+  const toVideo = () =>
+    start(async () => {
+      await api(`/api/projects/${projectId}/setup`, "POST", { action: "continue" }).catch(() => undefined);
       router.refresh();
     });
   const name = (it: StoryboardItem) => (series ? it.label || `#${it.n}` : "the video");
@@ -113,7 +118,7 @@ export function StoryboardView({ projectId, items, series }: { projectId: string
                     <figcaption>
                       <div className="sb-beat-head">
                         <span className="sb-heading">{s.heading}</span>
-                        {it.status === "ready" && !busy && (
+                        {!readOnly && it.status === "ready" && !busy && (
                           <button className="icbtn tinybtn" title={`Change scene ${i + 1}`} onClick={() => compose(`Change ${name(it)} scene ${i + 1} (“${s.heading}”): `)}>
                             <Pencil size={10} />
                           </button>
@@ -129,7 +134,16 @@ export function StoryboardView({ projectId, items, series }: { projectId: string
         </section>
       ))}
 
-      <div className="note">Tap ✏️ on a scene to change it — only that scene is rewritten and redrawn. Next step: the video.</div>
+      {!readOnly && (
+        <div className="plan-foot">
+          <span className="xs muted">
+            {ready < items.length ? "Storyboards are still being written and drawn…" : "Tap ✏️ on a scene to change it — only that scene is rewritten and redrawn."}
+          </span>
+          <button className="btn primary" disabled={pending || ready < items.length} onClick={toVideo}>
+            {pending ? <Spinner size={13} /> : null} Continue to video →
+          </button>
+        </div>
+      )}
     </div>
   );
 }

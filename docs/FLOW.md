@@ -209,3 +209,10 @@ never published until resumed, later content moves up a slot) or **Reject**
   setup shows behind it and the content concept is generated when the
   countdown ends. Each sketch frame shows its own loader while its storyboard
   is written or rewritten.
+- **Video** (content step 3): "Continue to video →" on the storyboards (enabled
+  once every script and image is done) approves every content and renders it
+  with the existing pipeline (storyboard images reused; narration, captions,
+  motion, end screen via the Remotion renderer on EC2). Video view: one card per
+  video with live status (waiting → preparing voice & images → composing →
+  ready), player, Download, Retry. Finished steps (incl. storyboards) can be
+  viewed read-only. Publishing comes next.
