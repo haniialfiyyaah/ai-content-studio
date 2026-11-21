@@ -180,7 +180,8 @@ export default async function ProjectPage({
               />
               {p.auto_approve && <SignalBadges s={{ needsYou: 0, inProgress: false, nextUpload: null, auto: true }} status={p.status} />}
             </div>
-            <PhaseSteps current={p.content_stage} projectId={p.id} viewing={viewing} />
+            {/* While the "project ready" pop-up shows, the step is still Project setup. */}
+            <PhaseSteps current={ready ? "setup" : p.content_stage} projectId={p.id} viewing={ready ? null : viewing} />
             {viewing && (
               <div className="view-banner">
                 <span>Viewing {viewing === "setup" ? "the project setup" : "the content concept"} · read-only</span>
