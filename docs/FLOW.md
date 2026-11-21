@@ -197,3 +197,9 @@ never published until resumed, later content moves up a slot) or **Reject**
   product, CTA, a dashed subject box with the shot description) — no image
   model. Cards fill in one by one; refine via chat (✏️ per video / per scene;
   feedback naming "Day 2" / "#3" rewrites only those). Stops; images & video next.
+- **Step dots are clickable for viewing**: finished steps open read-only (setup
+  steps inside the setup; Project setup / Content concept via `?view=`), the
+  current step returns to work. The ready pop-up has no Wait: the project
+  setup shows behind it and the content concept is generated when the
+  countdown ends. Each sketch frame shows its own loader while its storyboard
+  is written or rewritten.

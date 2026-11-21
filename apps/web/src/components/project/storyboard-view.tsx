@@ -6,6 +6,7 @@ import { Pencil, RotateCcw } from "lucide-react";
 import type { Scene } from "@acs/domain";
 import { api } from "@/lib/client/api";
 import { compose } from "@/lib/client/compose";
+import { Spinner } from "@/components/ui/spinner";
 import { SketchFrame } from "./sketch-frame";
 
 export interface StoryboardItem {
@@ -56,10 +57,17 @@ export function StoryboardView({ projectId, items, series, fontClass }: { projec
             )}
           </header>
 
-          {it.status === "writing" && (
+          {/* First draft: every scene shows its own loading frame */}
+          {it.status === "writing" && !it.scenes.length && (
             <div className="sb-strip" aria-busy>
-              {Array.from({ length: 6 }, (_, i) => <div key={i} className="sk-frame sk-pending" style={{ animationDelay: `${i * 120}ms` }}><span className="sk-num">{i + 1}</span></div>)}
-              <div className="sb-note">sketching the scenes…</div>
+              {Array.from({ length: 6 }, (_, i) => (
+                <figure key={i} className="sb-beat">
+                  <div className="sk-frame sk-pending" style={{ animationDelay: `${i * 120}ms` }}>
+                    <span className="sk-num">{i + 1}</span>
+                    <span className="sk-loading"><Spinner size={14} /> sketching</span>
+                  </div>
+                </figure>
+              ))}
             </div>
           )}
           {(it.status === "failed" || it.status === "none") && (
@@ -69,18 +77,25 @@ export function StoryboardView({ projectId, items, series, fontClass }: { projec
             </div>
           )}
 
-          {it.status === "ready" && (
+          {/* Ready, or being rewritten after a change (the old frames stay, each with a loader) */}
+          {(it.status === "ready" || (it.status === "writing" && it.scenes.length > 0)) && (
             <>
-              <div className="sb-strip">
+              {it.status === "writing" && <div className="sb-rewriting"><Spinner size={12} /> Rewriting this storyboard…</div>}
+              <div className={`sb-strip ${it.status === "writing" ? "is-rewriting" : ""}`} aria-busy={it.status === "writing"}>
                 {it.scenes.map((s, i) => (
                   <figure key={i} className="sb-beat">
-                    <SketchFrame s={s} index={i} />
+                    <div className="sk-wrap">
+                      <SketchFrame s={s} index={i} />
+                      {it.status === "writing" && <span className="sk-overlay"><Spinner size={16} /></span>}
+                    </div>
                     <figcaption>
                       <div className="sb-beat-head">
                         <span className="sb-hand">{s.heading}</span>
-                        <button className="icbtn tinybtn" title={`Change scene ${i + 1}`} onClick={() => compose(`Change ${name(it)} scene ${i + 1} (“${s.heading}”): `)}>
-                          <Pencil size={10} />
-                        </button>
+                        {it.status === "ready" && (
+                          <button className="icbtn tinybtn" title={`Change scene ${i + 1}`} onClick={() => compose(`Change ${name(it)} scene ${i + 1} (“${s.heading}”): `)}>
+                            <Pencil size={10} />
+                          </button>
+                        )}
                       </div>
                       {s.narration && <p className="sb-narr">{s.narration}</p>}
                     </figcaption>

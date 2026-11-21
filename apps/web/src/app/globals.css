@@ -192,3 +192,9 @@ a.btn,a.navitem,a.newbtn,a.tab,a.manage-nav{text-decoration:none}
 .confetti i{position:absolute;width:7px;height:10px;border-radius:2px;background:var(--c);opacity:0;transform:rotate(var(--a)) translateY(0);animation:confetti .9s cubic-bezier(.15,.7,.3,1) var(--d) forwards}
 @keyframes confetti{15%{opacity:1}100%{opacity:0;transform:rotate(var(--a)) translateY(-110px) rotate(200deg)}}
 @media (prefers-reduced-motion:reduce){.ready-overlay,.ready-pop,.confetti i{animation:none}.confetti{display:none}.ready-go:before{transition:none}}
+.setup-step.clickable{cursor:pointer;text-decoration:none;transition:box-shadow .15s}.setup-step.clickable:hover{box-shadow:0 0 0 2px #d9cffb}.setup-step.viewing{box-shadow:0 0 0 2px var(--accent)}
+.view-banner{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 14px;border-radius:12px;background:#f1edff;color:#5e43c6;font-size:12px;font-weight:700;margin-bottom:14px}
+.setup-step{border:0;font:inherit;font-size:11px;font-weight:760}
+.sk-loading{display:flex;flex-direction:column;align-items:center;gap:6px;font-family:var(--hand);font-size:16px;color:var(--pencil)}
+.sk-wrap{position:relative}.sk-overlay{position:absolute;inset:0;display:grid;place-items:center;background:#fbf8f1b3;border-radius:7px;color:#7a5fd6}
+.sb-strip.is-rewriting .sk-frame{opacity:.55}.sb-rewriting{display:inline-flex;align-items:center;gap:7px;font-size:12px;font-weight:700;color:#7a5fd6;margin-bottom:8px}

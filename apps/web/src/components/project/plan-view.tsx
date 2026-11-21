@@ -30,12 +30,15 @@ export function PlanView({
   cards,
   busy,
   stale,
+  readOnly,
 }: {
   projectId: string;
   plan: { format?: string; style?: string; seriesTitle?: string; why?: string };
   cards: PlanCard[];
   busy: boolean;
   stale: boolean;
+  /** Looking back at a finished step: no edits, no continue. */
+  readOnly?: boolean;
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
@@ -93,9 +96,11 @@ export function PlanView({
           <article key={c.id} className={`card plan-card ${working ? "dim" : ""}`}>
             <div className="row between" style={{ gap: 8 }}>
               <span className="plan-label">{series ? c.label || `#${c.n}` : "Your video"}</span>
-              <button className="icbtn tinybtn" title={`Change ${name(c)}`} disabled={working} onClick={() => compose(`Change ${name(c)}: `)}>
-                <Pencil size={11} />
-              </button>
+              {!readOnly && (
+                <button className="icbtn tinybtn" title={`Change ${name(c)}`} disabled={working} onClick={() => compose(`Change ${name(c)}: `)}>
+                  <Pencil size={11} />
+                </button>
+              )}
             </div>
             <h3 className="plan-title">{c.title}</h3>
             <div className="plan-field">
@@ -113,7 +118,7 @@ export function PlanView({
         ))}
       </div>
 
-      <div className="plan-foot">
+      {!readOnly && <div className="plan-foot">
         <span className="xs muted">Check {series ? "the videos" : "the video"} and tell the agent anything to change — ✏️ pre-fills it.</span>
         <button
           className="btn primary"
@@ -122,7 +127,7 @@ export function PlanView({
         >
           {pending ? <Spinner size={13} /> : null} Continue to storyboard{series ? "s" : ""} →
         </button>
-      </div>
+      </div>}
     </div>
   );
 }

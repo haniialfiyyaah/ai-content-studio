@@ -16,6 +16,7 @@ import {
 import { api } from "@/lib/client/api";
 import { compose } from "@/lib/client/compose";
 import { Spinner } from "@/components/ui/spinner";
+import { SetupSummary } from "./setup-summary";
 
 const STEPS = SETUP_STAGES.filter((s) => s !== "done");
 
@@ -61,6 +62,7 @@ export function SetupView({
   const router = useRouter();
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [viewing, setViewing] = useState<SetupStage | null>(null);
   const at = STEPS.indexOf(stage as (typeof STEPS)[number]);
   const working = busy && !stale;
   const needRetry = stale || (!busy && stage !== "similar" && !hasResult(stage, concept, kit));
@@ -84,13 +86,34 @@ export function SetupView({
   return (
     <div className="stack" style={{ gap: 18 }}>
       <div className="setup-steps">
-        {STEPS.map((s, i) => (
-          <div key={s} className={`setup-step ${i < at ? "done" : i === at ? "active" : ""}`}>
-            <span className="setup-dot">{i < at ? <Check size={12} /> : i + 1}</span>
-            {SETUP_STAGE_LABELS[s]}
-          </div>
-        ))}
+        {STEPS.map((s, i) => {
+          const cls = `setup-step ${i < at ? "done" : i === at ? "active" : ""} ${viewing === s ? "viewing" : ""}`;
+          const inner = (
+            <>
+              <span className="setup-dot">{i < at ? <Check size={12} /> : i + 1}</span>
+              {SETUP_STAGE_LABELS[s]}
+            </>
+          );
+          // Finished steps open read-only; the current step goes back to work.
+          const viewable = (i < at && s !== "similar") || i === at;
+          return viewable ? (
+            <button key={s} type="button" className={`${cls} clickable`} onClick={() => setViewing(i === at ? null : s)}>{inner}</button>
+          ) : (
+            <div key={s} className={cls}>{inner}</div>
+          );
+        })}
       </div>
+
+      {viewing && viewing !== stage && (
+        <>
+          <div className="view-banner">
+            <span>Viewing {SETUP_STAGE_LABELS[viewing].toLowerCase()} · read-only</span>
+            <button type="button" className="btn small" onClick={() => setViewing(null)}>Back to current step</button>
+          </div>
+          <SetupSummary concept={concept} kit={kit} ending={ending} only={viewing as "concept" | "kit" | "pillars"} />
+        </>
+      )}
+      {(!viewing || viewing === stage) && (<>
 
       {/* Confirmed stages, compact */}
       {at > 1 && concept.title && (
@@ -210,6 +233,7 @@ export function SetupView({
         )}
         {error && <div className="err">{error}</div>}
       </div>
+      </>)}
     </div>
   );
 }

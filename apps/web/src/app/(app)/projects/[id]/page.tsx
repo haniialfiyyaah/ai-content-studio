@@ -13,6 +13,7 @@ import { PlanView, type PlanCard } from "@/components/project/plan-view";
 import { ProjectBrief } from "@/components/project/project-brief";
 import { StoryboardView } from "@/components/project/storyboard-view";
 import { ReadyModal } from "@/components/project/ready-modal";
+import { SetupSummary } from "@/components/project/setup-summary";
 import { sketchFont } from "@/lib/fonts";
 import { WorkspaceFrame } from "@/components/project/workspace-frame";
 import { ActionButton } from "@/components/ui/action-button";
@@ -43,9 +44,9 @@ export default async function ProjectPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ tab?: string; c?: string; launch?: string }>;
+  searchParams: Promise<{ tab?: string; c?: string; launch?: string; view?: string }>;
 }) {
-  const [{ id }, { tab: rawTab, c: selectedId, launch }] = await Promise.all([params, searchParams]);
+  const [{ id }, { tab: rawTab, c: selectedId, launch, view }] = await Promise.all([params, searchParams]);
   const { supabase, user } = await requireUser();
   const ws = await loadWorkspace(supabase, user.id, id);
   const { project: p, contents, run, readiness } = ws;
@@ -123,10 +124,13 @@ export default async function ProjectPage({
   if (p.content_stage === "plan" || p.content_stage === "storyboard") {
     const busy = p.setup_busy && !setupStale(p);
     const plan = (p.content_plan ?? {}) as { format?: string; style?: string; seriesTitle?: string; why?: string };
+    // Read-only look back at a finished step; the project-ready moment shows the setup behind the pop-up.
+    const viewing = view === "setup" || (view === "plan" && p.content_stage === "storyboard") ? (view as "setup" | "plan") : null;
     const cards: PlanCard[] = contents.map((c, i) => {
       const r = resolveContent(c.options, c.selection);
       return { id: c.id, n: i + 1, label: c.label ?? "", title: r.title, hook: r.hook, description: r.caption, hashtags: r.hashtags };
     });
+    const ready = p.content_stage === "plan" && !cards.length && !busy;
     return (
       <>
         <LiveRefresh
@@ -152,9 +156,21 @@ export default async function ProjectPage({
               />
               {p.auto_approve && <SignalBadges s={{ needsYou: 0, inProgress: false, nextUpload: null, auto: true }} status={p.status} />}
             </div>
-            <PhaseSteps current={p.content_stage} />
-            {p.content_stage === "plan" && !cards.length && !busy && <ReadyModal projectId={p.id} seconds={p.auto_approve ? 5 : 8} auto={p.auto_approve} />}
-            {p.content_stage === "plan" ? (
+            <PhaseSteps current={p.content_stage} projectId={p.id} viewing={viewing} />
+            {viewing && (
+              <div className="view-banner">
+                <span>Viewing {viewing === "setup" ? "the project setup" : "the content concept"} · read-only</span>
+                <Link href={`/projects/${p.id}`} scroll={false} className="btn small">Back to current step</Link>
+              </div>
+            )}
+            {viewing === "setup" || ready ? (
+              <>
+                <SetupSummary concept={p.concept ?? {}} kit={p.kit ?? {}} ending={p.ending} />
+                {ready && !viewing && <ReadyModal projectId={p.id} seconds={p.auto_approve ? 5 : 8} auto={p.auto_approve} />}
+              </>
+            ) : viewing === "plan" ? (
+              <PlanView projectId={p.id} plan={plan} cards={cards} busy={false} stale={false} readOnly />
+            ) : p.content_stage === "plan" ? (
               <PlanView projectId={p.id} plan={plan} cards={cards} busy={p.setup_busy} stale={setupStale(p)} />
             ) : (
               <StoryboardView
