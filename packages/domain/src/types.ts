@@ -8,7 +8,7 @@ export const PROJECT_STATUSES = ["setup", "draft", "live", "paused", "stopped"] 
 export type ProjectStatus = (typeof PROJECT_STATUSES)[number];
 
 export type RunStatus = "queued" | "running" | "succeeded" | "failed";
-export type RunKind = "ideation" | "revision";
+export type RunKind = "ideation" | "revision" | "storyboard";
 /** idea → approved; removed = gone for the creator, remembered so it is never suggested again. */
 export type ContentStatus = "idea" | "approved" | "removed";
 export type RenderStatus = "queued" | "rendering" | "ready" | "failed" | "cancelled";
@@ -74,7 +74,7 @@ export type ContentOptions = z.infer<typeof ContentOptionsSchema>;
 export const GeneratedContentSchema = z.object({
   format: z.enum(CONTENT_FORMATS).catch("explainer").default("explainer"),
   options: ContentOptionsSchema,
-  scenes: z.array(SceneSchema).min(1).max(10),
+  scenes: z.array(SceneSchema).min(1).max(12),
   videoPrompt: nonEmpty,
 });
 export type GeneratedContent = z.infer<typeof GeneratedContentSchema>;

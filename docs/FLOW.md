@@ -183,3 +183,11 @@ never published until resumed, later content moves up a slot) or **Reject**
   approval.
 - Next: storyboards (scenes + script + sketch images) → stop → images → video.
 - Hide agent sits in the agent header; phones get a sticky Project / Agent switch.
+- **Storyboards** (content setup step 2): "Continue to storyboards" queues one
+  WF-01 run per content (kind `storyboard`, `contents.script_status`): the
+  concept stays locked, the writer + editor write the script and the scenes
+  (series context so each ending teases the next). Shown as free **sketch
+  frames** drawn from each scene's layout (hook text, points, compare, stat,
+  product, CTA, a dashed subject box with the shot description) — no image
+  model. Cards fill in one by one; refine via chat (✏️ per video / per scene;
+  feedback naming "Day 2" / "#3" rewrites only those). Stops; images & video next.

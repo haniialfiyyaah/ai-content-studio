@@ -411,3 +411,7 @@ ALTER TABLE public.projects
   ADD COLUMN IF NOT EXISTS content_stage text NOT NULL DEFAULT 'none' CHECK (content_stage IN ('none', 'plan', 'storyboard', 'production')),
   ADD COLUMN IF NOT EXISTS content_plan jsonb NOT NULL DEFAULT '{}'::jsonb;
 ALTER TABLE public.contents ADD COLUMN IF NOT EXISTS label text;
+-- storyboard step: one WF-01 run (kind storyboard) per content writes its script + scenes
+ALTER TABLE public.contents ADD COLUMN IF NOT EXISTS script_status text NOT NULL DEFAULT 'none' CHECK (script_status IN ('none', 'writing', 'ready', 'failed'));
+ALTER TABLE public.generation_runs DROP CONSTRAINT IF EXISTS generation_runs_kind_check;
+ALTER TABLE public.generation_runs ADD CONSTRAINT generation_runs_kind_check CHECK (kind IN ('ideation', 'revision', 'storyboard'));

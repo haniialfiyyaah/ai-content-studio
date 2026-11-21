@@ -19,6 +19,7 @@ import { after } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { SIMILAR_STRONG, findSimilarProjects, type SimilarProject } from "./similar";
 import { dispatchToN8n } from "./dispatch";
+import { queueGeneration } from "./projects";
 import { logActivity, postAssistantMessage } from "./events";
 import type { ProjectRow } from "./rows";
 
@@ -164,10 +165,15 @@ export async function setupAction(ownerId: string, projectId: string, action: "c
   if (!stage) throw conflict("Setup is finished");
   if (p.setup_busy && !setupStale(p)) throw conflict("The agent is still working — one moment");
   if (action === "retry") {
-    await runTask(projectId, stage === "similar" ? "chat" : stage === "storyboard" ? "plan" : (stage as SetupTask));
+    if (stage === "storyboard") return writeStoryboards(p, { onlyFailed: true });
+    await runTask(projectId, stage === "similar" ? "chat" : (stage as SetupTask));
     return { stage };
   }
-  if (stage === "plan" || stage === "storyboard") throw conflict("Storyboards are the next step — coming soon");
+  if (stage === "plan") {
+    await userMessage(ownerId, projectId, "✅ The plan looks good — write the storyboards");
+    return writeStoryboards(p, {});
+  }
+  if (stage === "storyboard") throw conflict("Images & video are the next step — coming soon");
   // Every button press is part of the conversation.
   if (action === "start_new") {
     await userMessage(ownerId, projectId, "Start a new project");
@@ -373,8 +379,11 @@ export async function setupComplete(raw: unknown) {
   const inSetup = p.status === "setup";
   if (action.type === "propose" && stage === "similar") await advance(fresh);
   else if (action.type === "continue" && inSetup && stage !== "similar") await advance(fresh);
-  else if (action.type === "refine" && stage !== "similar" && action.feedback?.trim()) {
-    await runTask(p.id, stage === "storyboard" ? "plan" : (stage as SetupTask), action.feedback.trim());
+  else if (action.type === "continue" && stage === "plan") await writeStoryboards(fresh, {});
+  else if (action.type === "refine" && stage === "storyboard" && action.feedback?.trim()) {
+    await writeStoryboards(fresh, { feedback: action.feedback.trim() });
+  } else if (action.type === "refine" && stage !== "similar" && action.feedback?.trim()) {
+    await runTask(p.id, stage as SetupTask, action.feedback.trim());
   }
   return { ok: true };
 }
@@ -426,4 +435,42 @@ export async function autoContinue(ownerId: string, projectId: string) {
   if (p.status !== "setup" || p.setup_busy || !["concept", "kit", "pillars"].includes(p.setup_stage)) return;
   const ready = p.setup_stage === "concept" ? Boolean(p.concept?.title) : p.setup_stage === "kit" ? Boolean(p.kit?.tone) : Boolean(p.kit?.pillars?.length);
   if (ready) await advance(p);
+}
+
+/**
+ * Storyboards: one WF-01 run per content (kind "storyboard") writes its script
+ * and scenes; cards fill in one by one. With feedback, only the contents it
+ * names are rewritten (Day 2, Episode 3, #4…); a single video is always the one.
+ */
+async function writeStoryboards(p: SetupProject, opts: { feedback?: string; onlyFailed?: boolean }) {
+  const db = admin();
+  const { data } = await db.from("contents").select("id, label, script_status").eq("project_id", p.id).neq("status", "removed").order("position");
+  const list = data ?? [];
+  let targets = opts.onlyFailed ? list.filter((c) => c.script_status === "failed" || c.script_status === "none") : list;
+  if (opts.feedback && list.length > 1) {
+    const named = pickNamed(list, opts.feedback);
+    if (named.length) targets = named;
+  }
+  if (!targets.length) return { stage: "storyboard" as const, writing: 0 };
+  await db.from("projects").update({ content_stage: "storyboard", setup_busy: false }).eq("id", p.id);
+  await db.from("contents").update({ script_status: "writing" }).in("id", targets.map((c) => c.id));
+  for (const c of targets) {
+    await queueGeneration(p.owner_id, p.id, "storyboard", 1, true, { targetIds: [c.id], feedback: opts.feedback });
+  }
+  if (!opts.feedback && !opts.onlyFailed) {
+    await postAssistantMessage(db, p.owner_id, p.id, list.length > 1 ? `Writing the storyboards — scenes and script for all ${list.length} videos. They appear one by one.` : "Writing the storyboard — the scenes and the script.");
+  }
+  return { stage: "storyboard" as const, writing: targets.length };
+}
+
+/** Contents a message names: "Day 2", "Episode 3", "Part 1", "#4". */
+function pickNamed<T extends { id: string; label: string | null }>(list: T[], text: string): T[] {
+  const t = text.toLowerCase();
+  const out = new Set<string>();
+  list.forEach((c, i) => {
+    const label = (c.label ?? "").toLowerCase();
+    if (label && new RegExp(`\\b${label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`).test(t)) out.add(c.id);
+    if (new RegExp(`#\\s*${i + 1}\\b`).test(t)) out.add(c.id);
+  });
+  return list.filter((c) => out.has(c.id));
 }

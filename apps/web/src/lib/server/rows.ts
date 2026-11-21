@@ -67,6 +67,7 @@ export interface ContentRow {
   position: number;
   status: ContentStatus;
   label?: string | null;
+  script_status?: "none" | "writing" | "ready" | "failed";
   on_hold?: boolean;
   storyboard_status?: string | null;
   options: Partial<ContentOptions>;

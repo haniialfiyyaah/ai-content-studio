@@ -41,7 +41,7 @@ async function youtubeConnected(ownerId: string): Promise<boolean> {
 export async function queueGeneration(
   ownerId: string,
   projectId: string,
-  kind: "ideation" | "revision",
+  kind: "ideation" | "revision" | "storyboard",
   contentCount: number,
   dispatch = true,
   extra: { feedback?: string; targetIds?: string[]; channel?: "web" | "telegram" } = {},

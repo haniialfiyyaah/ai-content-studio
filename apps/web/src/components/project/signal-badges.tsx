@@ -3,7 +3,7 @@ import { fmtDateTime } from "@/lib/format";
 import type { ProjectSignals } from "@/lib/server/signals";
 
 /** Status signals next to a project's status pill: needs you · in progress · next upload · auto/manual. */
-export function SignalBadges({ s, status, timezone, compact }: { s?: ProjectSignals; status: string; timezone?: string; compact?: boolean }) {
+export function SignalBadges({ s, timezone, compact }: { s?: ProjectSignals; status?: string; timezone?: string; compact?: boolean }) {
   if (!s) return null;
   return (
     <div className="signals">

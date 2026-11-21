@@ -11,6 +11,8 @@ import { SetupView } from "@/components/project/setup-view";
 import { PhaseSteps } from "@/components/project/phase-steps";
 import { PlanView, type PlanCard } from "@/components/project/plan-view";
 import { ProjectBrief } from "@/components/project/project-brief";
+import { StoryboardView } from "@/components/project/storyboard-view";
+import { sketchFont } from "@/lib/fonts";
 import { WorkspaceFrame } from "@/components/project/workspace-frame";
 import { ActionButton } from "@/components/ui/action-button";
 import { LiveRefresh } from "@/components/ui/live-refresh";
@@ -127,7 +129,7 @@ export default async function ProjectPage({
     return (
       <>
         <LiveRefresh
-          pollMs={p.setup_busy || ws.messages.at(-1)?.role === "user" ? 3000 : undefined}
+          pollMs={p.setup_busy || ws.messages.at(-1)?.role === "user" || contents.some((c) => c.script_status === "writing") ? 3000 : undefined}
           sources={[
             { table: "projects", filter: `id=eq.${p.id}` },
             { table: "contents", filter: `project_id=eq.${p.id}` },
@@ -150,7 +152,19 @@ export default async function ProjectPage({
               {p.auto_approve && <SignalBadges s={{ needsYou: 0, inProgress: false, nextUpload: null, auto: true }} status={p.status} />}
             </div>
             <PhaseSteps current={p.content_stage} />
-            <PlanView projectId={p.id} plan={plan} cards={cards} busy={p.setup_busy} stale={setupStale(p)} />
+            {p.content_stage === "plan" ? (
+              <PlanView projectId={p.id} plan={plan} cards={cards} busy={p.setup_busy} stale={setupStale(p)} />
+            ) : (
+              <StoryboardView
+                projectId={p.id}
+                series={plan.format === "series"}
+                fontClass={sketchFont.variable}
+                items={contents.map((c, i) => {
+                  const r = resolveContent(c.options, c.selection);
+                  return { id: c.id, n: i + 1, label: c.label ?? "", title: r.title, hook: r.hook, script: r.script, scenes: c.scenes, status: c.script_status ?? "none" };
+                })}
+              />
+            )}
           </main>
         </WorkspaceFrame>
       </>

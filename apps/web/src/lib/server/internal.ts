@@ -3,6 +3,7 @@ import {
   AppError,
   ErrorCodes,
   GenerationCompleteSchema,
+  type GenerationComplete,
   conflict,
   notFound,
   resolveContent, endingBrief, projectKit } from "@acs/domain";
@@ -11,7 +12,6 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { logActivity, notifyTelegram, postAssistantMessage } from "./events";
 import { generateMore, reviseContents } from "./projects";
 import { failRender } from "./renders";
-import { generateIdentityReference } from "./identity";
 import { CONTENT_DUPLICATE, findSimilarContents } from "./similar";
 import type { ContentRow, ProjectRow, RunRow } from "./rows";
 
@@ -64,11 +64,40 @@ export async function generationContext(runId: string) {
     };
   }
 
+  // storyboard: one locked content concept → its script + scenes (series context for the ending teaser).
+  let storyboard: { item: Record<string, string>; feedback: string; series: Record<string, unknown> | null } | null = null;
+  if (r.kind === "storyboard") {
+    const { data: all } = await db.from("contents").select("id, label, options, selection").eq("project_id", p.id).neq("status", "removed").order("position");
+    const list = all ?? [];
+    const id = ((run as RunRow & { target_ids: string[] }).target_ids ?? [])[0];
+    const idx = list.findIndex((c) => c.id === id);
+    const c = list[idx];
+    if (c) {
+      const cur = resolveContent(c.options, c.selection);
+      const plan = (p.content_plan ?? {}) as { format?: string; style?: string; seriesTitle?: string };
+      storyboard = {
+        item: { label: c.label ?? "", title: cur.title, hook: cur.hook, description: cur.caption, hashtags: cur.hashtags },
+        feedback: (run as RunRow & { feedback: string | null }).feedback ?? "",
+        series:
+          plan.format === "series"
+            ? {
+                style: plan.style,
+                seriesTitle: plan.seriesTitle,
+                position: `${c.label || `#${idx + 1}`} of ${list.length}`,
+                previous: idx > 0 ? resolveContent(list[idx - 1].options, list[idx - 1].selection).title : null,
+                next: idx < list.length - 1 ? resolveContent(list[idx + 1].options, list[idx + 1].selection).title : null,
+              }
+            : null,
+      };
+    }
+  }
+
   return {
     runId,
     skip: false as const,
     kind: r.kind,
     revision,
+    storyboard,
     contentCount: r.content_count,
     projectId: p.id,
     // WF-01 contract keys: prompt = the creator's idea, creativeKit = kit + concept merged.
@@ -111,6 +140,8 @@ export async function generationComplete(raw: unknown) {
   const n = payload.contents.length;
   const title = payload.project?.title ?? p.title;
   const channelLink = (path: string) => path;
+
+  if (r.kind === "storyboard") return storyboardComplete(p, r, payload.contents[0]);
 
   if (r.kind === "revision") {
     const ids = ((run as RunRow & { target_ids: string[] }).target_ids ?? []).slice(0, n);
@@ -201,6 +232,46 @@ export async function generationComplete(raw: unknown) {
   return { runId: r.id, contents: n };
 }
 
+/**
+ * One storyboard is written: keep the locked concept (title, hook, description,
+ * hashtags), take the script + scenes. When the last one lands, tell the creator.
+ */
+async function storyboardComplete(p: ProjectRow, r: RunRow, out: GenerationComplete["contents"][number]) {
+  const db = admin();
+  const id = ((r as RunRow & { target_ids: string[] }).target_ids ?? [])[0];
+  const { data: c } = await db.from("contents").select("options").eq("id", id).maybeSingle();
+  if (c && out) {
+    await db
+      .from("contents")
+      .update({
+        options: { ...(c.options as object), script: [out.options.script[0] ?? ""] },
+        scenes: out.scenes,
+        format: out.format,
+        video_prompt: out.videoPrompt,
+        script_status: "ready",
+        storyboard: null,
+        storyboard_status: "none",
+        storyboard_key: null,
+      })
+      .eq("id", id);
+  }
+  await db.from("generation_runs").update({ status: "succeeded", stage: "done", progress: 100, finished_at: new Date().toISOString() }).eq("id", r.id);
+  const { count } = await db.from("contents").select("id", { count: "exact", head: true }).eq("project_id", p.id).eq("script_status", "writing");
+  if (!count) {
+    const { count: total } = await db.from("contents").select("id", { count: "exact", head: true }).eq("project_id", p.id).neq("status", "removed");
+    await logActivity(db, { ownerId: p.owner_id, projectId: p.id, kind: "storyboards.ready", message: "Storyboards ready" });
+    await postAssistantMessage(
+      db,
+      p.owner_id,
+      p.id,
+      total && total > 1
+        ? "All storyboards are ready ✏️ Check the scenes and script of each video and tell me anything to change."
+        : "The storyboard is ready ✏️ Check the scenes and the script and tell me anything to change.",
+    );
+  }
+  return { runId: r.id, storyboard: id };
+}
+
 /** After new ideas land: warn in chat when one is still very close to existing content. */
 async function duplicateHeadsUp(p: ProjectRow, newIds: string[], texts: string[]) {
   const notes: string[] = [];
@@ -222,7 +293,12 @@ export async function generationFail(input: { runId: string; error: string }) {
     .from("generation_runs")
     .update({ status: "failed", error: input.error.slice(0, 500), finished_at: new Date().toISOString() })
     .eq("id", r.id);
-  await postAssistantMessage(db, r.owner_id, r.project_id, "⚠️ I couldn't finish drafting this time. Tap Try again on the project, or ask me again.");
+  if (r.kind === "storyboard") {
+    const id = ((r as RunRow & { target_ids: string[] }).target_ids ?? [])[0];
+    if (id) await db.from("contents").update({ script_status: "failed" }).eq("id", id);
+  } else {
+    await postAssistantMessage(db, r.owner_id, r.project_id, "⚠️ I couldn't finish drafting this time. Tap Try again on the project, or ask me again.");
+  }
   await logActivity(db, {
     ownerId: r.owner_id,
     projectId: r.project_id,

@@ -105,8 +105,15 @@ export function PlanView({
         ))}
       </div>
 
-      <div className="note">
-        Check {series ? "the videos" : "the video"} and tell the agent anything to change (✏️ pre-fills it). Next step: storyboards — the scenes, script and sketches{series ? " of every video" : ""}.
+      <div className="plan-foot">
+        <span className="xs muted">Check {series ? "the videos" : "the video"} and tell the agent anything to change — ✏️ pre-fills it.</span>
+        <button
+          className="btn primary"
+          disabled={working || pending}
+          onClick={() => start(async () => { await api(`/api/projects/${projectId}/setup`, "POST", { action: "continue" }).catch(() => undefined); router.refresh(); })}
+        >
+          {pending ? <Spinner size={13} /> : null} Continue to storyboard{series ? "s" : ""} →
+        </button>
       </div>
     </div>
   );
