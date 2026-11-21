@@ -2,9 +2,9 @@
  "name": "WF-05 Setup Agent",
  "nodes": [
   {
-   "id": "1f4eac39-4b1d-4cea-a4d4-69055641bc94",
+   "id": "1d965d7b-b70c-4835-bb71-b84d1d8bff6f",
    "name": "05-01 Webhook",
-   "webhookId": "27f01843-e664-4df6-9007-4147e72936ce",
+   "webhookId": "25ce267c-a89d-4536-9b64-6652882cca57",
    "type": "n8n-nodes-base.webhook",
    "typeVersion": 2,
    "position": [
@@ -18,7 +18,7 @@
    }
   },
   {
-   "id": "5bfb1268-fe12-4bea-9e8a-56182ebf71ab",
+   "id": "0ca74eee-94fe-442d-ae9c-bb2de92667c7",
    "name": "05-02 Load context",
    "type": "n8n-nodes-base.httpRequest",
    "typeVersion": 4.2,
@@ -52,7 +52,7 @@
    }
   },
   {
-   "id": "58bec963-874a-43c6-8a69-144f3fad2d4f",
+   "id": "3fb18996-be73-447d-9f53-fab748d05a3c",
    "name": "05-90 Mark failed",
    "type": "n8n-nodes-base.httpRequest",
    "typeVersion": 4.2,
@@ -86,7 +86,7 @@
    }
   },
   {
-   "id": "ef7a9fea-d91a-471c-8df3-8336af0dbbd3",
+   "id": "90b88a5f-4e87-41e9-b549-afab49461069",
    "name": "05-10 Task chat?",
    "type": "n8n-nodes-base.if",
    "typeVersion": 2.2,
@@ -104,7 +104,7 @@
      },
      "conditions": [
       {
-       "id": "e08e595e-be0b-4421-8ba0-cccff07ab5a3",
+       "id": "a0b01e4a-9a13-45d9-a452-39d1ba651e3c",
        "leftValue": "={{ $('05-02 Load context').item.json.data.task }}",
        "rightValue": "chat",
        "operator": {
@@ -119,7 +119,7 @@
    }
   },
   {
-   "id": "0e60580b-5eeb-46d6-ac5b-ab528e428bff",
+   "id": "e3bd37cb-a116-4555-b8d9-64e6f48637c1",
    "name": "05-20 Chat",
    "type": "@n8n/n8n-nodes-langchain.chainLlm",
    "typeVersion": 1.9,
@@ -143,7 +143,7 @@
    }
   },
   {
-   "id": "e35da623-7da8-4921-97ec-78aa69ecf61f",
+   "id": "893598c2-933c-4044-9ec8-55c3f00a248d",
    "name": "OpenAI (Chat)",
    "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
    "typeVersion": 1.3,
@@ -171,7 +171,7 @@
    }
   },
   {
-   "id": "ed77cc1c-5dc2-4ddf-a6fc-bef327a3ad46",
+   "id": "e117e147-d252-447e-9970-da03ae50f034",
    "name": "Schema (Chat)",
    "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
    "typeVersion": 1.3,
@@ -185,7 +185,7 @@
    }
   },
   {
-   "id": "e263f9f0-b1f6-4090-98f3-1d9bca00873b",
+   "id": "45979340-59e8-4688-a03d-191a5b02a6ef",
    "name": "05-30 Save chat",
    "type": "n8n-nodes-base.httpRequest",
    "typeVersion": 4.2,
@@ -219,7 +219,7 @@
    }
   },
   {
-   "id": "c0e2d886-6b4d-43e2-af55-cf8282e730c8",
+   "id": "527738ea-5312-4e9f-a5b6-4cbe30f0e6b1",
    "name": "05-11 Task concept?",
    "type": "n8n-nodes-base.if",
    "typeVersion": 2.2,
@@ -237,7 +237,7 @@
      },
      "conditions": [
       {
-       "id": "c690934b-131a-4155-a8b2-30282f60ca00",
+       "id": "f3d0e0ab-3188-4f9b-8086-e465ab1872d9",
        "leftValue": "={{ $('05-02 Load context').item.json.data.task }}",
        "rightValue": "concept",
        "operator": {
@@ -252,7 +252,7 @@
    }
   },
   {
-   "id": "c813c333-70f4-439a-919a-d42e8e2ff2a0",
+   "id": "52c3d52b-c010-4965-a1b8-828ab9812ff3",
    "name": "05-21 Concept",
    "type": "@n8n/n8n-nodes-langchain.chainLlm",
    "typeVersion": 1.9,
@@ -276,7 +276,7 @@
    }
   },
   {
-   "id": "ca0917c1-609f-41e4-9e57-8dae1b653727",
+   "id": "9dded528-4d82-423d-97ef-6411f48fafab",
    "name": "OpenAI (Concept)",
    "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
    "typeVersion": 1.3,
@@ -304,7 +304,7 @@
    }
   },
   {
-   "id": "f68c3447-f60c-4547-a179-06303e10435d",
+   "id": "9f48f479-80dc-4816-ad27-9aaea43155cb",
    "name": "Schema (Concept)",
    "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
    "typeVersion": 1.3,
@@ -318,7 +318,7 @@
    }
   },
   {
-   "id": "5fa55449-1162-420a-bdee-3ea47dd0a632",
+   "id": "5593584f-fbed-4e98-969d-fa0c4cf24680",
    "name": "05-31 Save concept",
    "type": "n8n-nodes-base.httpRequest",
    "typeVersion": 4.2,
@@ -352,7 +352,7 @@
    }
   },
   {
-   "id": "4175d00c-e793-42e5-8c56-ba33132273ee",
+   "id": "32338338-7a13-4ce0-b8e1-6c039db4ad41",
    "name": "05-12 Task kit?",
    "type": "n8n-nodes-base.if",
    "typeVersion": 2.2,
@@ -370,7 +370,7 @@
      },
      "conditions": [
       {
-       "id": "03f9f1de-c77b-4660-a8ae-d7c816a68b82",
+       "id": "52a764c9-cfd5-47c4-bf4e-03d2e7fee791",
        "leftValue": "={{ $('05-02 Load context').item.json.data.task }}",
        "rightValue": "kit",
        "operator": {
@@ -385,7 +385,7 @@
    }
   },
   {
-   "id": "a6220a87-1be5-4c43-8d5f-7ebb27173e61",
+   "id": "44577679-0186-4dc1-8848-9e8455400196",
    "name": "05-22 Kit",
    "type": "@n8n/n8n-nodes-langchain.chainLlm",
    "typeVersion": 1.9,
@@ -409,7 +409,7 @@
    }
   },
   {
-   "id": "6eb1c3b4-e402-4dc0-9473-4affca2e7ed5",
+   "id": "88604ee5-4828-41ed-8c41-4754af60d5bd",
    "name": "OpenAI (Kit)",
    "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
    "typeVersion": 1.3,
@@ -437,7 +437,7 @@
    }
   },
   {
-   "id": "9e06691f-16cf-496e-9a1c-5afb1b2b6c5e",
+   "id": "bcefc9e7-3168-4625-b97b-d78d4398caf5",
    "name": "Schema (Kit)",
    "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
    "typeVersion": 1.3,
@@ -451,7 +451,7 @@
    }
   },
   {
-   "id": "b81d8b34-5b78-4559-a9b7-cb2fc8d7bc0f",
+   "id": "ef750300-5e78-436f-a8fb-5bdf83545e28",
    "name": "05-32 Save kit",
    "type": "n8n-nodes-base.httpRequest",
    "typeVersion": 4.2,
@@ -485,7 +485,7 @@
    }
   },
   {
-   "id": "516b5b6a-671f-4ea4-96e0-fc57161a4343",
+   "id": "9deccd30-5d20-49ad-a187-dbce86fb9f4f",
    "name": "05-13 Task pillars?",
    "type": "n8n-nodes-base.if",
    "typeVersion": 2.2,
@@ -503,7 +503,7 @@
      },
      "conditions": [
       {
-       "id": "08bdf9b4-479a-4fed-ae5e-7aecd87a3371",
+       "id": "6d36ac58-d2c2-4274-90df-fd0f63e3972d",
        "leftValue": "={{ $('05-02 Load context').item.json.data.task }}",
        "rightValue": "pillars",
        "operator": {
@@ -518,7 +518,7 @@
    }
   },
   {
-   "id": "e7f34478-b49a-490d-b673-9266825e07ad",
+   "id": "a877bcd4-3960-46ed-8b4c-7e70f13b3097",
    "name": "05-23 Pillars",
    "type": "@n8n/n8n-nodes-langchain.chainLlm",
    "typeVersion": 1.9,
@@ -542,7 +542,7 @@
    }
   },
   {
-   "id": "99bcfc36-94c5-48b9-98cf-7d0f9359ce82",
+   "id": "939bb0ad-bf1c-41fc-9b34-4bf794fc64ab",
    "name": "OpenAI (Pillars)",
    "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
    "typeVersion": 1.3,
@@ -570,7 +570,7 @@
    }
   },
   {
-   "id": "86fe2fab-f710-4d42-8b0e-f0c37c79c830",
+   "id": "27d2b71c-a3bd-4d36-a7c2-8dab53762511",
    "name": "Schema (Pillars)",
    "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
    "typeVersion": 1.3,
@@ -584,7 +584,7 @@
    }
   },
   {
-   "id": "1d8b161d-046e-44f7-9868-4f9d91e661b8",
+   "id": "1a3ec754-c595-4d01-b128-ab9ed0aa62bf",
    "name": "05-33 Save pillars",
    "type": "n8n-nodes-base.httpRequest",
    "typeVersion": 4.2,
@@ -618,7 +618,7 @@
    }
   },
   {
-   "id": "297c77a4-0ead-4693-9f0e-6338427b618b",
+   "id": "a2fce22b-2f0a-4d4b-9aca-f0ad2bd34b4a",
    "name": "05-14 Task scene?",
    "type": "n8n-nodes-base.if",
    "typeVersion": 2.2,
@@ -636,7 +636,7 @@
      },
      "conditions": [
       {
-       "id": "b4e73541-81ce-4d36-bbd4-32868996bb83",
+       "id": "9ee48e10-0091-470d-a1e1-16825019b03e",
        "leftValue": "={{ $('05-02 Load context').item.json.data.task }}",
        "rightValue": "scene",
        "operator": {
@@ -651,7 +651,7 @@
    }
   },
   {
-   "id": "60b31a94-e32b-436e-ad8d-4318b9d39ea9",
+   "id": "fb27c3c0-344a-4516-86b4-2431ba944e9e",
    "name": "05-24 Scene",
    "type": "@n8n/n8n-nodes-langchain.chainLlm",
    "typeVersion": 1.9,
@@ -675,7 +675,7 @@
    }
   },
   {
-   "id": "5f52b248-20ad-4b44-8a94-6551a1d0acf8",
+   "id": "2f61ac96-4dfc-44d6-9ed8-c308fdc32335",
    "name": "OpenAI (Scene)",
    "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
    "typeVersion": 1.3,
@@ -703,7 +703,7 @@
    }
   },
   {
-   "id": "19e1bf60-dff4-4898-ae8b-494eb61c4f55",
+   "id": "3ccd5167-f767-4392-b5a8-4799244377df",
    "name": "Schema (Scene)",
    "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
    "typeVersion": 1.3,
@@ -717,7 +717,7 @@
    }
   },
   {
-   "id": "d41aa3e5-cc7f-4b43-9c9b-6e53aab9a6d0",
+   "id": "dce1a676-5e51-4502-b2c9-1555a6f2f3e0",
    "name": "05-34 Save scene",
    "type": "n8n-nodes-base.httpRequest",
    "typeVersion": 4.2,
@@ -751,8 +751,8 @@
    }
   },
   {
-   "id": "e5f6e9cc-7784-43b0-9cbd-b1ae3304e9f7",
-   "name": "05-15 Task plan?",
+   "id": "4f604329-566a-4f56-97fa-83077d86c3e4",
+   "name": "05-15 Task renumber?",
    "type": "n8n-nodes-base.if",
    "typeVersion": 2.2,
    "position": [
@@ -769,7 +769,140 @@
      },
      "conditions": [
       {
-       "id": "ac3cdb76-9694-4b0b-ac2f-23e7b7d6762f",
+       "id": "fd25500d-18e0-4690-9bcd-859120d50647",
+       "leftValue": "={{ $('05-02 Load context').item.json.data.task }}",
+       "rightValue": "renumber",
+       "operator": {
+        "type": "string",
+        "operation": "equals"
+       }
+      }
+     ],
+     "combinator": "and"
+    },
+    "options": {}
+   }
+  },
+  {
+   "id": "d194d2f7-c321-4691-bb96-b7d8b54541fb",
+   "name": "05-25 Renumber",
+   "type": "@n8n/n8n-nodes-langchain.chainLlm",
+   "typeVersion": 1.9,
+   "onError": "continueErrorOutput",
+   "position": [
+    700,
+    2100
+   ],
+   "parameters": {
+    "promptType": "define",
+    "hasOutputParser": true,
+    "text": "=App language (write the reply in it): {{ $('05-02 Load context').item.json.data.appLanguage }}\nContent language: {{ $('05-02 Load context').item.json.data.concept.language }}\nSeries after the change: {{ JSON.stringify($('05-02 Load context').item.json.data.renumber) }}",
+    "messages": {
+     "messageValues": [
+      {
+       "type": "SystemMessagePromptTemplate",
+       "message": "A video was skipped or restored in a series, and the videos were renumbered. Each item's \"label\" (Day N / Episode N / Part N) is now CORRECT. Fix only the WORDS that no longer match, in the content language, and change nothing else:\n- title / hook / description that mention a number, day or episode that no longer matches the label;\n- in storyboards (scenes given): narration, onScreenText and headline that say an old number (\"Day 4\", \"episode 3\", \"hari ke-4\", ...), and the ENDING of each video: its teaser must point to its \"next\" item (or, with no next, end the series without a teaser). Keep the voice and length.\nReturn patches ONLY for items that need a change, and in each only the fields that change (scenes: only the indexes that change). Never touch visuals - images carry no text.\n- reply: ONE short line in the APP LANGUAGE (e.g. \"Renumbered the days and fixed Day 2's teaser.\"). Empty patches if nothing needs fixing."
+      }
+     ]
+    }
+   }
+  },
+  {
+   "id": "b1f63d5d-d106-40ea-a96c-9361b1abc7df",
+   "name": "OpenAI (Renumber)",
+   "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+   "typeVersion": 1.3,
+   "position": [
+    700,
+    2320
+   ],
+   "parameters": {
+    "model": {
+     "__rl": true,
+     "mode": "list",
+     "value": "gpt-5-mini"
+    },
+    "options": {
+     "reasoningEffort": "low",
+     "timeout": 120000,
+     "maxRetries": 2
+    }
+   },
+   "credentials": {
+    "openAiApi": {
+     "id": "REPLACE_ME",
+     "name": "OpenAI account"
+    }
+   }
+  },
+  {
+   "id": "d39b19d2-2912-4af6-8de2-0e978b8737f3",
+   "name": "Schema (Renumber)",
+   "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+   "typeVersion": 1.3,
+   "position": [
+    840,
+    2320
+   ],
+   "parameters": {
+    "schemaType": "manual",
+    "inputSchema": "{\"type\": \"object\", \"properties\": {\"reply\": {\"type\": \"string\"}, \"patches\": {\"type\": \"array\", \"items\": {\"type\": \"object\", \"properties\": {\"contentId\": {\"type\": \"string\"}, \"title\": {\"type\": \"string\"}, \"hook\": {\"type\": \"string\"}, \"description\": {\"type\": \"string\"}, \"scenes\": {\"type\": \"array\", \"items\": {\"type\": \"object\", \"properties\": {\"index\": {\"type\": \"number\"}, \"narration\": {\"type\": \"string\"}, \"onScreenText\": {\"type\": \"string\"}, \"headline\": {\"type\": \"string\"}}, \"required\": [\"index\", \"narration\", \"onScreenText\", \"headline\"]}}}, \"required\": [\"contentId\", \"title\", \"hook\", \"description\", \"scenes\"]}}}, \"required\": [\"reply\", \"patches\"]}"
+   }
+  },
+  {
+   "id": "dbe9d2d9-3635-4857-83ab-b78d0d7b3f53",
+   "name": "05-35 Save renumber",
+   "type": "n8n-nodes-base.httpRequest",
+   "typeVersion": 4.2,
+   "position": [
+    1100,
+    2100
+   ],
+   "parameters": {
+    "method": "POST",
+    "url": "={{ $env.ACS_API_BASE_URL }}/api/internal/setup/complete",
+    "sendHeaders": true,
+    "headerParameters": {
+     "parameters": [
+      {
+       "name": "x-acs-service-token",
+       "value": "={{ $env.ACS_INTERNAL_SERVICE_TOKEN }}"
+      },
+      {
+       "name": "Content-Type",
+       "value": "application/json"
+      }
+     ]
+    },
+    "sendBody": true,
+    "contentType": "json",
+    "specifyBody": "json",
+    "jsonBody": "={{ JSON.stringify(Object.assign({ projectId: $('05-02 Load context').item.json.data.projectId, task: 'renumber' }, { reply: $json.output.reply, patches: $json.output.patches })) }}",
+    "options": {
+     "timeout": 30000
+    }
+   }
+  },
+  {
+   "id": "b32f695b-4e31-41c6-a7ce-e05f934e8ee8",
+   "name": "05-16 Task plan?",
+   "type": "n8n-nodes-base.if",
+   "typeVersion": 2.2,
+   "position": [
+    440,
+    2520
+   ],
+   "parameters": {
+    "conditions": {
+     "options": {
+      "caseSensitive": true,
+      "leftValue": "",
+      "typeValidation": "strict",
+      "version": 2
+     },
+     "conditions": [
+      {
+       "id": "d905abac-c7e1-48b8-a4f5-87966f075a5b",
        "leftValue": "={{ $('05-02 Load context').item.json.data.task }}",
        "rightValue": "plan",
        "operator": {
@@ -784,14 +917,14 @@
    }
   },
   {
-   "id": "5452a39a-306b-47b1-83a8-5d5e77993b94",
-   "name": "05-25 Plan",
+   "id": "a5941bc4-13a9-4dcc-8e23-0684759b5d98",
+   "name": "05-26 Plan",
    "type": "@n8n/n8n-nodes-langchain.chainLlm",
    "typeVersion": 1.9,
    "onError": "continueErrorOutput",
    "position": [
     700,
-    2100
+    2520
    ],
    "parameters": {
     "promptType": "define",
@@ -808,13 +941,13 @@
    }
   },
   {
-   "id": "255d3286-b67f-4e36-a7d4-5bc081bf1ee4",
+   "id": "e59dc541-00b2-4087-abac-e821ebd64743",
    "name": "OpenAI (Plan)",
    "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
    "typeVersion": 1.3,
    "position": [
     700,
-    2320
+    2740
    ],
    "parameters": {
     "model": {
@@ -836,13 +969,13 @@
    }
   },
   {
-   "id": "d2d6438c-0e98-4354-adb8-4e891af225e3",
+   "id": "f59053ad-2f90-45aa-a6b4-76f5cf5db409",
    "name": "Schema (Plan)",
    "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
    "typeVersion": 1.3,
    "position": [
     840,
-    2320
+    2740
    ],
    "parameters": {
     "schemaType": "manual",
@@ -850,13 +983,13 @@
    }
   },
   {
-   "id": "5a26be89-3cd4-4480-b2f2-af286a18c5d8",
-   "name": "05-35 Save plan",
+   "id": "6bf76516-e177-41d8-81e4-79530e951ab2",
+   "name": "05-36 Save plan",
    "type": "n8n-nodes-base.httpRequest",
    "typeVersion": 4.2,
    "position": [
     1100,
-    2100
+    2520
    ],
    "parameters": {
     "method": "POST",
@@ -1150,7 +1283,7 @@
     ],
     [
      {
-      "node": "05-15 Task plan?",
+      "node": "05-15 Task renumber?",
       "type": "main",
       "index": 0
      }
@@ -1197,22 +1330,80 @@
     ]
    ]
   },
-  "05-15 Task plan?": {
+  "05-15 Task renumber?": {
    "main": [
     [
      {
-      "node": "05-25 Plan",
+      "node": "05-25 Renumber",
+      "type": "main",
+      "index": 0
+     }
+    ],
+    [
+     {
+      "node": "05-16 Task plan?",
       "type": "main",
       "index": 0
      }
     ]
    ]
   },
-  "05-25 Plan": {
+  "05-25 Renumber": {
    "main": [
     [
      {
-      "node": "05-35 Save plan",
+      "node": "05-35 Save renumber",
+      "type": "main",
+      "index": 0
+     }
+    ],
+    [
+     {
+      "node": "05-90 Mark failed",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "OpenAI (Renumber)": {
+   "ai_languageModel": [
+    [
+     {
+      "node": "05-25 Renumber",
+      "type": "ai_languageModel",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Schema (Renumber)": {
+   "ai_outputParser": [
+    [
+     {
+      "node": "05-25 Renumber",
+      "type": "ai_outputParser",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "05-16 Task plan?": {
+   "main": [
+    [
+     {
+      "node": "05-26 Plan",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "05-26 Plan": {
+   "main": [
+    [
+     {
+      "node": "05-36 Save plan",
       "type": "main",
       "index": 0
      }
@@ -1230,7 +1421,7 @@
    "ai_languageModel": [
     [
      {
-      "node": "05-25 Plan",
+      "node": "05-26 Plan",
       "type": "ai_languageModel",
       "index": 0
      }
@@ -1241,7 +1432,7 @@
    "ai_outputParser": [
     [
      {
-      "node": "05-25 Plan",
+      "node": "05-26 Plan",
       "type": "ai_outputParser",
       "index": 0
      }

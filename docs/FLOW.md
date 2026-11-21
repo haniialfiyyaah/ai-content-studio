@@ -223,3 +223,11 @@ never published until resumed, later content moves up a slot) or **Reject**
   for duplicates".) Changes to the content concept (only in that step — it is
   locked from the storyboards on) update the active cards in place; skipped
   cards are never touched and the agent never brings them back. The **Continue to video** bar sits at the top (sticky).
+- **Images carry no text**, so text changes never redraw: a ✏️ scene change
+  redraws the image only when the shot (visual) changed; narration / on-screen
+  text changes are text-only.
+- **Series numbering on skip / restore** (Day N, Episode N, Part N — theme labels
+  untouched): the active videos are renumbered in order, then WF-05 task
+  `renumber` fixes only the words — numbers in titles / hooks, "Day N" in
+  narration / on-screen text, and each video's teaser so it points to the new
+  next one. Text only, no redraws; concept and storyboard steps.

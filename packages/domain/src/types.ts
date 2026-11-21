@@ -246,7 +246,7 @@ export const SetupPillarsSchema = z.object({
 });
 export type SetupPillars = z.infer<typeof SetupPillarsSchema>;
 
-export const SETUP_TASKS = ["chat", "concept", "kit", "pillars", "plan", "scene"] as const;
+export const SETUP_TASKS = ["chat", "concept", "kit", "pillars", "plan", "scene", "renumber"] as const;
 export type SetupTask = (typeof SETUP_TASKS)[number];
 
 /** n8n WF-05 → /api/internal/setup/complete */
@@ -280,6 +280,20 @@ export const SetupCompleteSchema = z.object({
       seconds: z.coerce.number().min(1).max(15).catch(4),
     })
     .partial()
+    .optional(),
+  /** task "renumber": text-only fixes after a skip / restore in a daily or connected series. */
+  patches: z
+    .array(
+      z.object({
+        contentId: z.string(),
+        title: clip(120).optional(),
+        hook: clip(200).optional(),
+        description: clip(1000).optional(),
+        scenes: z
+          .array(z.object({ index: z.coerce.number().int().min(0), narration: clip(600).optional(), onScreenText: clip(120).optional(), headline: clip(80).optional() }))
+          .default([]),
+      }),
+    )
     .optional(),
   /** echoed back: which content / scene a "scene" task was for */
   target: z.object({ contentId: z.string().uuid(), scene: z.coerce.number().int().min(0) }).optional(),

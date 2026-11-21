@@ -305,6 +305,8 @@ export async function setupContext(input: { projectId: string; task: SetupTask; 
     contentPlan: input.task === "plan" || agentStage(p) === "plan" ? await currentPlan(p) : null,
     /** task "scene": the one scene to rewrite, with its neighbours for flow. */
     sceneEdit: input.task === "scene" && input.target ? await sceneEditContext(input.target) : null,
+    /** task "renumber": the active series after a skip / restore (labels already renumbered). */
+    renumber: input.task === "renumber" ? await renumberContext(p) : null,
     endingBrief: endingBrief(p.ending, p.title),
   };
 }
@@ -381,6 +383,8 @@ export async function setupComplete(raw: unknown) {
     await db.from("projects").update({ kit: { ...kit, ...input.pillars } }).eq("id", p.id);
     meta.stage = "pillars";
     meta.data = input.pillars;
+  } else if (input.task === "renumber" && input.patches) {
+    await applyTextPatches(p.id, input.patches);
   } else if (input.task === "scene" && input.scene && input.target) {
     await applySceneEdit(input.target, input.scene);
   } else if (input.task === "plan" && input.plan) {
@@ -574,10 +578,14 @@ async function applySceneEdit(target: { contentId: string; scene: number }, patc
   const scenes = ((c.scenes ?? []) as Scene[]).map((s) => ({ ...s }));
   if (!scenes[target.scene]) return;
   const clean = Object.fromEntries(Object.entries(patch).filter(([, v]) => v !== "" && v !== undefined));
-  scenes[target.scene] = { ...scenes[target.scene], ...clean };
+  const before = scenes[target.scene];
+  scenes[target.scene] = { ...before, ...clean };
   const script = scenes.map((s) => s.narration).filter(Boolean).join(" ");
   await db.from("contents").update({ scenes, options: { ...(c.options as object), script: [script] } }).eq("id", target.contentId);
-  queueSceneRedraw(target.contentId, target.scene);
+  // Images carry no text: only a new shot needs a new image. Text-only changes never redraw.
+  const norm = (v?: string) => (v ?? "").trim().toLowerCase().replace(/\s+/g, " ");
+  if (norm(before.visual) !== norm(scenes[target.scene].visual)) queueSceneRedraw(target.contentId, target.scene);
+  else await markFrame(target.contentId, target.scene, "completed");
 }
 
 // ---------------------------------------------------------------------------
@@ -609,4 +617,91 @@ async function startVideos(p: SetupProject) {
       : "Making the video now — narration, captions, motion and the end screen, using your storyboard images.",
   );
   return { stage: "production" as const, rendering: list.length };
+}
+
+// ---------------------------------------------------------------------------
+// Series numbering after a skip / restore (Day N, Episode N, Part N) — text only
+// ---------------------------------------------------------------------------
+/**
+ * Renumbers the active videos of a series in order and lets the agent fix the
+ * text that mentions numbers or teases the next video. Images never change
+ * (they carry no text). Only while the content can still change (concept /
+ * storyboard steps).
+ */
+export async function fixSeriesNumbers(projectId: string) {
+  const db = admin();
+  const { data } = await db.from("projects").select("*").eq("id", projectId).maybeSingle();
+  const p = data as SetupProject | null;
+  if (!p) return;
+  const plan = (p.content_plan ?? {}) as { format?: string };
+  const stage = agentStage(p);
+  if (plan.format !== "series" || (stage !== "plan" && stage !== "storyboard")) return;
+  const { data: rows } = await db.from("contents").select("id, label").eq("project_id", projectId).in("status", ["idea", "approved"]).order("position");
+  let changed = 0;
+  for (const [i, c] of (rows ?? []).entries()) {
+    const m = (c.label ?? "").match(/^(.*?)(\d+)\s*$/);
+    if (!m) continue; // a theme label ("Sauces"), not a number
+    const next = `${m[1]}${i + 1}`;
+    if (next !== c.label) {
+      await db.from("contents").update({ label: next }).eq("id", c.id);
+      changed++;
+    }
+  }
+  // Something moved: fix the words (titles, hooks, teasers, "Day N" in narration).
+  if (changed && !(p.setup_busy && !setupStale(p))) await runTask(projectId, "renumber");
+}
+
+async function renumberContext(p: SetupProject) {
+  const { data } = await admin()
+    .from("contents")
+    .select("id, label, options, selection, scenes")
+    .eq("project_id", p.id)
+    .in("status", ["idea", "approved"])
+    .order("position");
+  const rows = data ?? [];
+  const storyboard = agentStage(p) === "storyboard";
+  return {
+    style: ((p.content_plan ?? {}) as { style?: string }).style ?? "",
+    stage: storyboard ? "storyboard" : "concept",
+    items: rows.map((c, i) => {
+      const r = resolveContent(c.options, c.selection);
+      const n = rows[i + 1];
+      return {
+        contentId: c.id,
+        label: c.label ?? "",
+        title: r.title,
+        hook: r.hook,
+        description: r.caption,
+        next: n ? { label: n.label ?? "", title: resolveContent(n.options, n.selection).title } : null,
+        scenes: storyboard
+          ? ((c.scenes ?? []) as Scene[]).map((s, j) => ({ index: j, narration: s.narration, onScreenText: s.onScreenText, headline: s.headline }))
+          : [],
+      };
+    }),
+  };
+}
+
+/** Text-only fixes from the agent: concept fields and scene words. Images are never redrawn. */
+async function applyTextPatches(
+  projectId: string,
+  patches: { contentId: string; title?: string; hook?: string; description?: string; scenes: { index: number; narration?: string; onScreenText?: string; headline?: string }[] }[],
+) {
+  const db = admin();
+  for (const pt of patches) {
+    const { data: c } = await db.from("contents").select("options, scenes").eq("id", pt.contentId).eq("project_id", projectId).maybeSingle();
+    if (!c) continue;
+    const o = { ...(c.options as Record<string, string[]>) };
+    if (pt.title) o.title = [pt.title];
+    if (pt.hook) o.hook = [pt.hook];
+    if (pt.description) o.caption = [pt.description];
+    const scenes = ((c.scenes ?? []) as Scene[]).map((s) => ({ ...s }));
+    for (const sp of pt.scenes) {
+      if (!scenes[sp.index]) continue;
+      if (sp.narration) scenes[sp.index].narration = sp.narration;
+      if (sp.onScreenText !== undefined && sp.onScreenText !== "") scenes[sp.index].onScreenText = sp.onScreenText;
+      if (sp.headline !== undefined && sp.headline !== "") scenes[sp.index].headline = sp.headline;
+    }
+    if (pt.scenes.length) o.script = [scenes.map((s) => s.narration).filter(Boolean).join(" ")];
+    await db.from("contents").update({ options: o, scenes }).eq("id", pt.contentId);
+  }
 }

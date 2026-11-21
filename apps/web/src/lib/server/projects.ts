@@ -14,7 +14,7 @@ import {
 import { createAdminClient } from "@/lib/supabase/admin";
 import { dispatchToN8n } from "./dispatch";
 import { queueStoryboards } from "./storyboard";
-import { agentStage, autoContinue, setupMessage } from "./setup";
+import { agentStage, autoContinue, fixSeriesNumbers, setupMessage } from "./setup";
 import { setImageEngine, setVisualMode } from "./assets";
 import { logActivity, notifyTelegram, postAssistantMessage } from "./events";
 import type { ContentRow, ProjectRow } from "./rows";
@@ -266,6 +266,7 @@ export async function skipContent(ownerId: string, contentId: string) {
   await db.from("publish_jobs").delete().eq("content_id", contentId).eq("status", "scheduled");
   await db.from("video_renders").update({ status: "cancelled" }).eq("content_id", contentId).in("status", ["queued"]);
   await chatNote(ownerId, data.project_id, `⏭ Skip ${contentName(data)}`);
+  await fixSeriesNumbers(data.project_id);
   await logActivity(db, { ownerId, projectId: data.project_id, kind: "content.skipped", message: `Skipped ${contentName(data)}` });
   return { skipped: contentId };
 }
@@ -277,6 +278,7 @@ export async function restoreContent(ownerId: string, contentId: string) {
   if (data.status !== "skipped" && data.status !== "removed") return { restored: contentId };
   await db.from("contents").update({ status: "idea" }).eq("id", contentId);
   await chatNote(ownerId, data.project_id, `↩️ Restore ${contentName(data)}`);
+  await fixSeriesNumbers(data.project_id);
   await logActivity(db, { ownerId, projectId: data.project_id, kind: "content.restored", message: `Restored ${contentName(data)}` });
   return { restored: contentId };
 }
