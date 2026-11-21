@@ -146,7 +146,7 @@ export async function generationComplete(raw: unknown) {
       template: "revision.ready",
       chat: false,
       text: `✏️ Updated ${ids.length} content in "${title}". Here are the new versions:`,
-      path: channelLink(`/projects/${p.id}?tab=content`),
+      path: channelLink(`/projects/${p.id}`),
       cards: { contentIds: ids },
     });
     return { runId: r.id, revised: ids.length };
@@ -194,7 +194,7 @@ export async function generationComplete(raw: unknown) {
       projectId: p.id,
       template: "ideation.ready",
       text: `💡 ${n} new ideas for "${title}" are waiting for your approval.`,
-      path: `/projects/${p.id}?tab=content`,
+      path: `/projects/${p.id}`,
       cards: { contentIds: newIds },
     });
   }

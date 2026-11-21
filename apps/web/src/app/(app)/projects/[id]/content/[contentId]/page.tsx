@@ -54,7 +54,7 @@ export default async function ContentDetail({
     <main className="page">
       <LiveRefresh pollMs={render?.status === "queued" || render?.status === "rendering" || drawing ? 5000 : undefined} sources={[{ table: "contents", filter: `id=eq.${c.id}` }, { table: "video_renders", filter: `content_id=eq.${c.id}` }]} />
       <div className="row xs muted" style={{ marginBottom: 18 }}>
-        <Link href={`/projects/${p.id}?tab=content`} className="row semibold" style={{ color: "var(--text)", textDecoration: "none" }}><ArrowLeft size={15} /> {p.title}</Link>
+        <Link href={`/projects/${p.id}?c=${c.id}`} className="row semibold" style={{ color: "var(--text)", textDecoration: "none" }}><ArrowLeft size={15} /> {p.title}</Link>
         <span>/ Content / {picked.title}</span>
       </div>
       <div className="detailhead">

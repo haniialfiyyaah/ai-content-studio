@@ -38,7 +38,7 @@ export default async function VideosPage() {
               <VideoBox url={r.url} status={r.status} phase={r.phase} />
               <Link href={`/videos/${r.id}`} className="small semibold" style={{ textDecoration: "none" }}>{resolveContent(r.contents?.options, r.contents?.selection).title} →</Link>
               <div className="row between">
-                <Link href={`/projects/${r.project_id}?tab=videos`} className="xs muted">{r.projects?.title}</Link>
+                <Link href={`/projects/${r.project_id}?c=${r.content_id}`} className="xs muted">{r.projects?.title}</Link>
                 <span className={pillClass(r.status)}>{r.status}</span>
               </div>
               <div className="row between">

@@ -65,7 +65,7 @@ export default async function VideoDetailPage({ params }: { params: Promise<{ id
       <LiveRefresh sources={[{ table: "video_renders", filter: `content_id=eq.${r.content_id}` }, { table: "publish_jobs", filter: `content_id=eq.${r.content_id}` }]} />
       <div className="row xs muted" style={{ marginBottom: 18, flexWrap: "wrap" }}>
         <Link href="/videos" className="row semibold" style={{ color: "var(--text)", textDecoration: "none" }}><ArrowLeft size={15} /> Videos</Link>
-        <span>/ <Link href={`/projects/${p.id}?tab=videos`}>{p.title}</Link></span>
+        <span>/ <Link href={`/projects/${p.id}`}>{p.title}</Link></span>
       </div>
 
       <div className="detailhead" style={{ marginBottom: 20 }}>

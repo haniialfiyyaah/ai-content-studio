@@ -43,10 +43,10 @@ export function AgentActions(s: AgentActionState) {
 
   if (s.status === "setup" || s.status === "stopped") return null;
   const actions = [
-    (s.drafts > 0 || s.status === "draft") && chip("aa", s.drafts > 0 ? `✅ Approve & schedule (${s.drafts})` : "🚀 Go live", () => nav(`/projects/${s.projectId}?tab=overview#launch`), true),
-    s.drafts > 0 && s.firstPendingId && chip("rv", "▶️ Review next", () => nav(`/projects/${s.projectId}?tab=content&review=${s.firstPendingId}`)),
+    (s.drafts > 0 || s.status === "draft") && chip("aa", s.drafts > 0 ? `✅ Approve & schedule (${s.drafts})` : "🚀 Go live", () => nav(`/projects/${s.projectId}?launch=1`), true),
+    s.drafts > 0 && s.firstPendingId && chip("rv", "▶️ Review next", () => nav(`/projects/${s.projectId}?c=${s.firstPendingId}`)),
     s.approvedWithoutVideo > 0 &&
-      chip("ra", `🎬 Render ${s.approvedWithoutVideo}`, () => run("ra", `/api/projects/${s.projectId}/renders`, undefined, () => nav(`/projects/${s.projectId}?tab=videos`))),
+      chip("ra", `🎬 Render ${s.approvedWithoutVideo}`, () => run("ra", `/api/projects/${s.projectId}/renders`, undefined, () => nav(`/projects/${s.projectId}`))),
     s.drafts === 0 && !s.hasSchedule && chip("sc", "📅 Set schedule", () => nav(`/projects/${s.projectId}?tab=schedule`)),
     chip("gm", "💡 3 more ideas", () => run("gm", `/api/projects/${s.projectId}/ideas`, { count: 3 })),
   ].filter(Boolean);

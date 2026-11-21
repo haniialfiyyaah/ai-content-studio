@@ -168,7 +168,7 @@ export async function sendProjectCards(chatId: string | number, projectId: strin
         for (let i = 0; i < btns.length; i += 3) rows.push(btns.slice(i, i + 3));
         return rows;
       })(),
-      [open(`/projects/${projectId}?tab=content`)],
+      [open(`/projects/${projectId}`)],
     ],
   );
 }
