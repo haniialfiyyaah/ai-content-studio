@@ -199,14 +199,13 @@ a.btn,a.navitem,a.newbtn,a.tab,a.manage-nav{text-decoration:none}
 .sk-wrap{position:relative}.sk-overlay{position:absolute;inset:0;display:grid;place-items:center;background:#fbf8f1b3;border-radius:7px;color:#7a5fd6}
 .sb-strip.is-rewriting .sk-frame{opacity:.55}.sb-rewriting{display:inline-flex;align-items:center;gap:7px;font-size:12px;font-weight:700;color:#7a5fd6;margin-bottom:8px}
 
-/* flip a sketch to read the scene details */
-.sk-flip{position:relative;display:block;width:146px;aspect-ratio:9/16;padding:0;border:0;background:none;cursor:pointer;perspective:900px;border-radius:7px}
+/* flip a sketch to its description (one side drawn at a time — no 3D backface tricks) */
+.sk-flip{display:block;width:146px;aspect-ratio:9/16;padding:0;border:0;background:none;cursor:pointer;border-radius:7px}
 .sk-flip:focus-visible{outline:3px solid #b7a6fd;outline-offset:3px}.sk-flip:disabled{cursor:default}
-.sk-face{position:absolute;inset:0;display:block;backface-visibility:hidden;-webkit-backface-visibility:hidden;transition:transform .45s cubic-bezier(.2,.8,.2,1)}
+.sk-face{display:block;width:100%;height:100%}.sk-face.anim{animation:skFlip .28s cubic-bezier(.2,.8,.2,1)}
 .sk-face .sk-frame{width:100%;height:100%}
-.sk-rear{transform:rotateY(180deg)}.sk-flip.flipped .sk-front{transform:rotateY(-180deg)}.sk-flip.flipped .sk-rear{transform:rotateY(0)}
-.sk-back{justify-content:flex-start;gap:6px;text-align:left;background:#fffdf8;padding-top:26px;overflow-y:auto}
-.sk-back-title{font-family:var(--hand);font-size:17px;font-weight:700;color:var(--ink);line-height:1.05}
-.sk-back dl{margin:0;display:flex;flex-direction:column;gap:5px}.sk-back dt{font-size:8.5px;font-weight:850;letter-spacing:.7px;text-transform:uppercase;color:#a39bb5}.sk-back dd{margin:0;font-size:10px;line-height:1.35;color:#4a4458}
-@media (prefers-reduced-motion:reduce){.sk-face{transition:none}}
+@keyframes skFlip{from{transform:scaleX(.2);opacity:.4}}
+.sk-back{justify-content:center;padding:26px 12px 14px}
+.sk-back-text{margin:0;font-size:11.5px;line-height:1.5;color:#3f3850;text-align:left}
+@media (prefers-reduced-motion:reduce){.sk-face.anim{animation:none}}
 @media (max-width:640px){.sk-flip{width:128px}}

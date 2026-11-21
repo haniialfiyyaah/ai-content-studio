@@ -120,20 +120,25 @@ export function StoryboardView({ projectId, items, series, fontClass }: { projec
   );
 }
 
-/** Click a sketch to flip it and read the scene's details; click again to flip back. */
+/** Click a sketch to flip it to the scene description; click again to flip back. One side is drawn at a time. */
 function FlipFrame({ s, index, disabled }: { s: Scene; index: number; disabled?: boolean }) {
   const [back, setBack] = useState(false);
+  const [touched, setTouched] = useState(false); // animate only after a click, never on page load
   return (
     <button
       type="button"
-      className={`sk-flip ${back ? "flipped" : ""}`}
-      onClick={() => setBack(!back)}
+      className="sk-flip"
+      onClick={() => {
+        setTouched(true);
+        setBack(!back);
+      }}
       disabled={disabled}
       aria-pressed={back}
-      aria-label={back ? `Show scene ${index + 1} sketch` : `Show scene ${index + 1} details`}
+      aria-label={back ? `Show scene ${index + 1} sketch` : `Show scene ${index + 1} description`}
     >
-      <span className="sk-face sk-front"><SketchFrame s={s} index={index} /></span>
-      <span className="sk-face sk-rear"><SketchBack s={s} index={index} /></span>
+      <span key={back ? "back" : "front"} className={`sk-face ${touched ? "anim" : ""}`}>
+        {back ? <SketchBack s={s} index={index} /> : <SketchFrame s={s} index={index} />}
+      </span>
     </button>
   );
 }

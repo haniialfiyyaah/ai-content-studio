@@ -1,18 +1,5 @@
 import type { Scene } from "@acs/domain";
 
-const LAYOUT_TEXT: Record<string, string> = {
-  hook: "Hook — big text over the shot",
-  statement: "Statement — one bold line",
-  points: "Points — list on screen",
-  code: "Code snippet",
-  compare: "Compare — before / after",
-  stat: "Big number",
-  quote: "Quote",
-  product: "Product shot",
-  image: "Full image",
-  cta: "Call to action / end card",
-};
-
 /** First spoken sentence — what a hook / statement frame says when there's no headline. */
 const firstLine = (s: Scene) => (s.narration || "").split(/(?<=[.!?])\s/)[0]?.trim();
 
@@ -68,26 +55,12 @@ export function SketchFrame({ s, index }: { s: Scene; index: number }) {
   );
 }
 
-/** The back of a sketch frame: everything about the scene. */
+/** The back of a sketch frame: a plain description of the scene. */
 export function SketchBack({ s, index }: { s: Scene; index: number }) {
-  const rows: [string, string | undefined][] = [
-    ["Shot", s.visual],
-    ["On screen", s.headline || s.onScreenText || (s.points.length ? s.points.join(" · ") : undefined)],
-    ["Layout", LAYOUT_TEXT[s.layout] ?? s.layout],
-    ["Background", s.background === "design" ? "Designed (no image)" : "AI image"],
-    ["Motion", s.motion || undefined],
-    ["Transition", s.transition],
-  ];
   return (
-    <div className="sk-frame sk-back" aria-label={`Scene ${index + 1} details`}>
+    <div className="sk-frame sk-back" aria-label={`Scene ${index + 1} description`}>
       <span className="sk-num">{index + 1}</span>
-      <div className="sk-back-title">{s.heading}</div>
-      <dl>
-        {rows.filter(([, v]) => v).map(([k, v]) => (
-          <div key={k}><dt>{k}</dt><dd>{v}</dd></div>
-        ))}
-      </dl>
-      <span className="sk-secs">{s.seconds}s</span>
+      <p className="sk-back-text">{s.visual || s.heading}</p>
     </div>
   );
 }
