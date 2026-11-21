@@ -310,12 +310,19 @@ export async function setupContext(input: { projectId: string; task: SetupTask; 
 }
 
 async function currentPlan(p: SetupProject) {
-  const { data } = await admin().from("contents").select("label, options, selection, status").eq("project_id", p.id).neq("status", "removed").order("position");
-  const items = (data ?? []).map((c, i) => {
+  const { data } = await admin().from("contents").select("label, options, selection, status").eq("project_id", p.id).in("status", ["idea", "skipped"]).order("position");
+  const rows = data ?? [];
+  const view = (c: (typeof rows)[number]) => {
     const r = resolveContent(c.options, c.selection);
-    return { number: i + 1, label: c.label ?? "", title: r.title, hook: r.hook, description: r.caption, hashtags: r.hashtags, skipped: c.status === "skipped" };
-  });
-  return { ...((p as SetupProject & { content_plan?: object }).content_plan ?? {}), items };
+    return { label: c.label ?? "", title: r.title, hook: r.hook, description: r.caption, hashtags: r.hashtags };
+  };
+  return {
+    ...((p as SetupProject & { content_plan?: object }).content_plan ?? {}),
+    /** The active cards, in order — the plan returns exactly these (changed or not). */
+    items: rows.filter((c) => c.status !== "skipped").map((c, i) => ({ number: i + 1, ...view(c) })),
+    /** Set aside by the creator: never bring these ideas back. */
+    skipped: rows.filter((c) => c.status === "skipped").map(view),
+  };
 }
 
 export async function setupComplete(raw: unknown) {
@@ -434,29 +441,44 @@ export async function setupFail(input: { projectId: string; error?: string }) {
 async function savePlan(p: SetupProject, plan: ContentPlan) {
   const db = admin();
   const series = plan.format === "series";
-  // A new plan replaces the old cards (skipped ones from the old plan go too).
-  await db.from("contents").delete().eq("project_id", p.id).in("status", ["idea", "skipped"]);
-  await db.from("contents").insert(
-    plan.items.map((it, i) => ({
-      owner_id: p.owner_id,
-      project_id: p.id,
-      position: i,
-      status: "idea",
-      label: series ? it.label || (plan.style === "daily" ? `Day ${i + 1}` : `Episode ${i + 1}`) : null,
-      options: {
-        title: [it.title],
-        hook: [it.hook],
-        caption: [it.description],
-        hashtags: [it.hashtags.map((h) => (h.startsWith("#") ? h : `#${h}`)).join(" ")],
-        script: [],
-      },
-      selection: {},
-      scenes: [],
-    })),
-  );
+  // Changes update the active cards in place; skipped cards are never touched.
+  const { data: rows } = await db.from("contents").select("id, label, position, status").eq("project_id", p.id).in("status", ["idea", "skipped"]).order("position");
+  const active = (rows ?? []).filter((r) => r.status === "idea");
+  const maxPos = Math.max(-1, ...(rows ?? []).map((r) => r.position as number));
+  const optionsOf = (it: ContentPlan["items"][number]) => ({
+    title: [it.title],
+    hook: [it.hook],
+    caption: [it.description],
+    hashtags: [it.hashtags.map((h) => (h.startsWith("#") ? h : `#${h}`)).join(" ")],
+    script: [],
+  });
+  const labelOf = (it: ContentPlan["items"][number], i: number, current?: string | null) =>
+    series ? it.label || current || (plan.style === "daily" ? `Day ${i + 1}` : `Episode ${i + 1}`) : null;
+
+  for (const [i, it] of plan.items.entries()) {
+    const cur = active[i];
+    if (cur) {
+      await db.from("contents").update({ options: optionsOf(it), selection: {}, label: labelOf(it, i, cur.label) }).eq("id", cur.id);
+    } else {
+      await db.from("contents").insert({
+        owner_id: p.owner_id,
+        project_id: p.id,
+        position: maxPos + 1 + (i - active.length),
+        status: "idea",
+        label: labelOf(it, i),
+        options: optionsOf(it),
+        selection: {},
+        scenes: [],
+      });
+    }
+  }
+  // The plan got shorter ("make it 5"): the extra active cards go.
+  const extra = active.slice(plan.items.length).map((r) => r.id);
+  if (extra.length) await db.from("contents").delete().in("id", extra);
+
   const { items, ...meta } = plan;
   await db.from("projects").update({ content_plan: { ...meta, count: items.length } }).eq("id", p.id);
-  await logActivity(db, { ownerId: p.owner_id, projectId: p.id, kind: "plan.ready", message: series ? `Series planned: ${items.length} episodes` : "Content concept ready" });
+  await logActivity(db, { ownerId: p.owner_id, projectId: p.id, kind: "plan.ready", message: series ? `Series planned: ${items.length} videos` : "Content concept ready" });
 }
 
 /** Auto turned on mid-setup: if a stage result is waiting, continue right away. */

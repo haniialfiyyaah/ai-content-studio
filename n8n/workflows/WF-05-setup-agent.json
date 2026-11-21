@@ -2,9 +2,9 @@
  "name": "WF-05 Setup Agent",
  "nodes": [
   {
-   "id": "6a89be5a-6b25-4dc5-881b-edf41b18e771",
+   "id": "1f4eac39-4b1d-4cea-a4d4-69055641bc94",
    "name": "05-01 Webhook",
-   "webhookId": "a8293a1e-bb63-4e76-8143-085de3c29c88",
+   "webhookId": "27f01843-e664-4df6-9007-4147e72936ce",
    "type": "n8n-nodes-base.webhook",
    "typeVersion": 2,
    "position": [
@@ -18,7 +18,7 @@
    }
   },
   {
-   "id": "9281fe30-e90e-4829-aa6a-0fd19f1fe82e",
+   "id": "5bfb1268-fe12-4bea-9e8a-56182ebf71ab",
    "name": "05-02 Load context",
    "type": "n8n-nodes-base.httpRequest",
    "typeVersion": 4.2,
@@ -52,7 +52,7 @@
    }
   },
   {
-   "id": "688c4c7e-8a18-4269-9d36-1217ffc2400d",
+   "id": "58bec963-874a-43c6-8a69-144f3fad2d4f",
    "name": "05-90 Mark failed",
    "type": "n8n-nodes-base.httpRequest",
    "typeVersion": 4.2,
@@ -86,7 +86,7 @@
    }
   },
   {
-   "id": "550f7b81-b459-4dbe-a03e-b39ffafdd41c",
+   "id": "ef7a9fea-d91a-471c-8df3-8336af0dbbd3",
    "name": "05-10 Task chat?",
    "type": "n8n-nodes-base.if",
    "typeVersion": 2.2,
@@ -104,7 +104,7 @@
      },
      "conditions": [
       {
-       "id": "f2f7c8b7-23ba-4744-880c-557777d75414",
+       "id": "e08e595e-be0b-4421-8ba0-cccff07ab5a3",
        "leftValue": "={{ $('05-02 Load context').item.json.data.task }}",
        "rightValue": "chat",
        "operator": {
@@ -119,7 +119,7 @@
    }
   },
   {
-   "id": "b97ff927-1e06-4e74-b81f-d5b38de0fab1",
+   "id": "0e60580b-5eeb-46d6-ac5b-ab528e428bff",
    "name": "05-20 Chat",
    "type": "@n8n/n8n-nodes-langchain.chainLlm",
    "typeVersion": 1.9,
@@ -143,7 +143,7 @@
    }
   },
   {
-   "id": "e102abde-a89a-413f-a971-fd825b331ce1",
+   "id": "e35da623-7da8-4921-97ec-78aa69ecf61f",
    "name": "OpenAI (Chat)",
    "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
    "typeVersion": 1.3,
@@ -171,7 +171,7 @@
    }
   },
   {
-   "id": "c67f6afc-291d-4452-bbee-cdc5679d46cb",
+   "id": "ed77cc1c-5dc2-4ddf-a6fc-bef327a3ad46",
    "name": "Schema (Chat)",
    "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
    "typeVersion": 1.3,
@@ -185,7 +185,7 @@
    }
   },
   {
-   "id": "a45c8baa-acee-49ca-a0ff-97f3c8dcf5d8",
+   "id": "e263f9f0-b1f6-4090-98f3-1d9bca00873b",
    "name": "05-30 Save chat",
    "type": "n8n-nodes-base.httpRequest",
    "typeVersion": 4.2,
@@ -219,7 +219,7 @@
    }
   },
   {
-   "id": "0af91c7c-435b-4352-9e1d-66b3c0bab6c0",
+   "id": "c0e2d886-6b4d-43e2-af55-cf8282e730c8",
    "name": "05-11 Task concept?",
    "type": "n8n-nodes-base.if",
    "typeVersion": 2.2,
@@ -237,7 +237,7 @@
      },
      "conditions": [
       {
-       "id": "2f763dad-40be-41fe-b73e-656e66b6a98a",
+       "id": "c690934b-131a-4155-a8b2-30282f60ca00",
        "leftValue": "={{ $('05-02 Load context').item.json.data.task }}",
        "rightValue": "concept",
        "operator": {
@@ -252,7 +252,7 @@
    }
   },
   {
-   "id": "21ce247d-72a1-4bf3-aaa7-5f6ec9e5e802",
+   "id": "c813c333-70f4-439a-919a-d42e8e2ff2a0",
    "name": "05-21 Concept",
    "type": "@n8n/n8n-nodes-langchain.chainLlm",
    "typeVersion": 1.9,
@@ -276,7 +276,7 @@
    }
   },
   {
-   "id": "5cbff1aa-3c01-4641-80f6-638b57310f1c",
+   "id": "ca0917c1-609f-41e4-9e57-8dae1b653727",
    "name": "OpenAI (Concept)",
    "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
    "typeVersion": 1.3,
@@ -304,7 +304,7 @@
    }
   },
   {
-   "id": "70eb9b24-f3b8-40e2-939a-91f502de63a3",
+   "id": "f68c3447-f60c-4547-a179-06303e10435d",
    "name": "Schema (Concept)",
    "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
    "typeVersion": 1.3,
@@ -318,7 +318,7 @@
    }
   },
   {
-   "id": "1905c871-bca3-4918-acf4-91e3e7ad60b8",
+   "id": "5fa55449-1162-420a-bdee-3ea47dd0a632",
    "name": "05-31 Save concept",
    "type": "n8n-nodes-base.httpRequest",
    "typeVersion": 4.2,
@@ -352,7 +352,7 @@
    }
   },
   {
-   "id": "77bbc1bd-80dd-4518-bcc8-836aa7ffcf1f",
+   "id": "4175d00c-e793-42e5-8c56-ba33132273ee",
    "name": "05-12 Task kit?",
    "type": "n8n-nodes-base.if",
    "typeVersion": 2.2,
@@ -370,7 +370,7 @@
      },
      "conditions": [
       {
-       "id": "0e5e709f-f2b9-4de0-88ab-04785b163fee",
+       "id": "03f9f1de-c77b-4660-a8ae-d7c816a68b82",
        "leftValue": "={{ $('05-02 Load context').item.json.data.task }}",
        "rightValue": "kit",
        "operator": {
@@ -385,7 +385,7 @@
    }
   },
   {
-   "id": "3aa042db-afac-4811-8660-2fef99f1aa51",
+   "id": "a6220a87-1be5-4c43-8d5f-7ebb27173e61",
    "name": "05-22 Kit",
    "type": "@n8n/n8n-nodes-langchain.chainLlm",
    "typeVersion": 1.9,
@@ -409,7 +409,7 @@
    }
   },
   {
-   "id": "68cb4ac1-7b67-45fa-a9af-6b9a772df638",
+   "id": "6eb1c3b4-e402-4dc0-9473-4affca2e7ed5",
    "name": "OpenAI (Kit)",
    "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
    "typeVersion": 1.3,
@@ -437,7 +437,7 @@
    }
   },
   {
-   "id": "b54dbad2-4057-42d9-afd7-05931aa4dbef",
+   "id": "9e06691f-16cf-496e-9a1c-5afb1b2b6c5e",
    "name": "Schema (Kit)",
    "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
    "typeVersion": 1.3,
@@ -451,7 +451,7 @@
    }
   },
   {
-   "id": "93859b65-c354-4a1e-ad3f-b8fba09b4902",
+   "id": "b81d8b34-5b78-4559-a9b7-cb2fc8d7bc0f",
    "name": "05-32 Save kit",
    "type": "n8n-nodes-base.httpRequest",
    "typeVersion": 4.2,
@@ -485,7 +485,7 @@
    }
   },
   {
-   "id": "32cdc4e7-ef9b-41f5-8907-87747e595497",
+   "id": "516b5b6a-671f-4ea4-96e0-fc57161a4343",
    "name": "05-13 Task pillars?",
    "type": "n8n-nodes-base.if",
    "typeVersion": 2.2,
@@ -503,7 +503,7 @@
      },
      "conditions": [
       {
-       "id": "c9d8c420-fd00-4f0a-93c8-05032eb23757",
+       "id": "08bdf9b4-479a-4fed-ae5e-7aecd87a3371",
        "leftValue": "={{ $('05-02 Load context').item.json.data.task }}",
        "rightValue": "pillars",
        "operator": {
@@ -518,7 +518,7 @@
    }
   },
   {
-   "id": "60073366-b91d-46e4-806a-c1bf282c8805",
+   "id": "e7f34478-b49a-490d-b673-9266825e07ad",
    "name": "05-23 Pillars",
    "type": "@n8n/n8n-nodes-langchain.chainLlm",
    "typeVersion": 1.9,
@@ -542,7 +542,7 @@
    }
   },
   {
-   "id": "a513d1a0-6099-4f2f-8392-33aa3519343a",
+   "id": "99bcfc36-94c5-48b9-98cf-7d0f9359ce82",
    "name": "OpenAI (Pillars)",
    "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
    "typeVersion": 1.3,
@@ -570,7 +570,7 @@
    }
   },
   {
-   "id": "89731afe-2265-4fac-96e2-7cb56678ca0e",
+   "id": "86fe2fab-f710-4d42-8b0e-f0c37c79c830",
    "name": "Schema (Pillars)",
    "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
    "typeVersion": 1.3,
@@ -584,7 +584,7 @@
    }
   },
   {
-   "id": "ceba70d1-58d3-4ed3-abf0-e787f4a8680c",
+   "id": "1d8b161d-046e-44f7-9868-4f9d91e661b8",
    "name": "05-33 Save pillars",
    "type": "n8n-nodes-base.httpRequest",
    "typeVersion": 4.2,
@@ -618,7 +618,7 @@
    }
   },
   {
-   "id": "ada00b7a-2a2c-4ec2-943d-66b452abaeb9",
+   "id": "297c77a4-0ead-4693-9f0e-6338427b618b",
    "name": "05-14 Task scene?",
    "type": "n8n-nodes-base.if",
    "typeVersion": 2.2,
@@ -636,7 +636,7 @@
      },
      "conditions": [
       {
-       "id": "06b6045b-f774-42ff-8a82-9ee028d95eb8",
+       "id": "b4e73541-81ce-4d36-bbd4-32868996bb83",
        "leftValue": "={{ $('05-02 Load context').item.json.data.task }}",
        "rightValue": "scene",
        "operator": {
@@ -651,7 +651,7 @@
    }
   },
   {
-   "id": "4dfdd752-4759-49eb-8fa9-8cd325d778d4",
+   "id": "60b31a94-e32b-436e-ad8d-4318b9d39ea9",
    "name": "05-24 Scene",
    "type": "@n8n/n8n-nodes-langchain.chainLlm",
    "typeVersion": 1.9,
@@ -675,7 +675,7 @@
    }
   },
   {
-   "id": "4a19623e-5d33-4ea8-a8ac-13dbb6ae371a",
+   "id": "5f52b248-20ad-4b44-8a94-6551a1d0acf8",
    "name": "OpenAI (Scene)",
    "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
    "typeVersion": 1.3,
@@ -703,7 +703,7 @@
    }
   },
   {
-   "id": "e854e628-d4cd-474d-af5c-cc84a86d9aed",
+   "id": "19e1bf60-dff4-4898-ae8b-494eb61c4f55",
    "name": "Schema (Scene)",
    "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
    "typeVersion": 1.3,
@@ -717,7 +717,7 @@
    }
   },
   {
-   "id": "b3ee74f5-aada-478d-9955-c71ec2746f83",
+   "id": "d41aa3e5-cc7f-4b43-9c9b-6e53aab9a6d0",
    "name": "05-34 Save scene",
    "type": "n8n-nodes-base.httpRequest",
    "typeVersion": 4.2,
@@ -751,7 +751,7 @@
    }
   },
   {
-   "id": "ce0328e5-e1bc-41ab-83a8-07d00b634fb0",
+   "id": "e5f6e9cc-7784-43b0-9cbd-b1ae3304e9f7",
    "name": "05-15 Task plan?",
    "type": "n8n-nodes-base.if",
    "typeVersion": 2.2,
@@ -769,7 +769,7 @@
      },
      "conditions": [
       {
-       "id": "f24dd68d-55b1-44f6-b1ea-0509a6aa9c76",
+       "id": "ac3cdb76-9694-4b0b-ac2f-23e7b7d6762f",
        "leftValue": "={{ $('05-02 Load context').item.json.data.task }}",
        "rightValue": "plan",
        "operator": {
@@ -784,7 +784,7 @@
    }
   },
   {
-   "id": "78109267-e8ce-4bb2-8393-9578ba62b96b",
+   "id": "5452a39a-306b-47b1-83a8-5d5e77993b94",
    "name": "05-25 Plan",
    "type": "@n8n/n8n-nodes-langchain.chainLlm",
    "typeVersion": 1.9,
@@ -801,14 +801,14 @@
      "messageValues": [
       {
        "type": "SystemMessagePromptTemplate",
-       "message": "You are the content strategist of a short-form video studio (YouTube Shorts / Reels / TikTok, 9:16, 20-45 s). The project setup (concept, Creative Kit, pillars, guardrails, ending) is LOCKED - plan the content from it. Do not change the setup.\n\n1. FORMAT - decide from the idea, the concept and the conversation:\n   - \"single\": the idea is one specific video (one product, one event, one story) or the creator asked for one video -> exactly 1 item.\n   - \"series\": the niche supports recurring videos -> 3-7 items (a number the creator asked for wins; otherwise 5).\n2. STYLE (series only; single = \"standalone\"), choose what works best on short-form platforms for this niche:\n   - \"daily\": a challenge, routine, habit or countdown where progress over days is the hook (\"7 days of...\", \"Day 1 of learning...\") -> labels \"Day 1\", \"Day 2\"...\n   - \"episodic\": a connected story or learning path where order matters and each video ends with a teaser for the next -> labels \"Episode 1\"...\n   - \"standalone\": related but independent topics under one theme -> labels \"Part 1\"... or a 1-3 word theme.\n3. why: ONE line (app language) - why single or series, and why this style.\n4. seriesTitle: a short series name for a series, empty for a single video.\n5. Each item, in the CONTENT LANGUAGE from the concept:\n   - title: max 60 characters, specific and searchable\n   - hook: the first spoken line, max 12 words, grips in 1.5 s (bold claim, surprising fact, mistake, question)\n   - description: the post caption, 1-2 sentences\n   - hashtags: 3-6 relevant hashtags\n   Every item stays inside the pillars and guardrails, and items never repeat each other.\n6. If a change request is given, apply it to the items it names (by #number, Day n or Episode n) or to the whole plan if it is general (e.g. \"make it 7 days\"), and keep everything else exactly as in the current plan.\n- reply: ONE short line in the APP LANGUAGE presenting the plan (e.g. \"A 7-day series - check the days and tell me what to change.\")."
+       "message": "You are the content strategist of a short-form video studio (YouTube Shorts / Reels / TikTok, 9:16, 20-45 s). The project setup (concept, Creative Kit, pillars, guardrails, ending) is LOCKED - plan the content from it. Do not change the setup.\n\n1. FORMAT - decide from the idea, the concept and the conversation:\n   - \"single\": the idea is one specific video (one product, one event, one story) or the creator asked for one video -> exactly 1 item.\n   - \"series\": the niche supports recurring videos -> 3-7 items (a number the creator asked for wins; otherwise 5).\n2. STYLE (series only; single = \"standalone\"), choose what works best on short-form platforms for this niche:\n   - \"daily\": a challenge, routine, habit or countdown where progress over days is the hook (\"7 days of...\", \"Day 1 of learning...\") -> labels \"Day 1\", \"Day 2\"...\n   - \"episodic\": a connected story or learning path where order matters and each video ends with a teaser for the next -> labels \"Episode 1\"...\n   - \"standalone\": related but independent topics under one theme -> labels \"Part 1\"... or a 1-3 word theme.\n3. why: ONE line (app language) - why single or series, and why this style.\n4. seriesTitle: a short series name for a series, empty for a single video.\n5. Each item, in the CONTENT LANGUAGE from the concept:\n   - title: max 60 characters, specific and searchable\n   - hook: the first spoken line, max 12 words, grips in 1.5 s (bold claim, surprising fact, mistake, question)\n   - description: the post caption, 1-2 sentences\n   - hashtags: 3-6 relevant hashtags\n   Every item stays inside the pillars and guardrails, and items never repeat each other.\n6. If a change request is given, the current plan's \"items\" are the ACTIVE cards: return them in the same order, changing only what the request names (by #number, Day n or Episode n) or the whole plan if it is general (e.g. \"make it 7 days\"); keep everything else exactly. The plan's \"skipped\" items were set aside by the creator: never return them and never bring the same ideas back.\n- reply: ONE short line in the APP LANGUAGE presenting the plan (e.g. \"A 7-day series - check the days and tell me what to change.\")."
       }
      ]
     }
    }
   },
   {
-   "id": "17085618-889c-410d-86d7-e5a92f7cf1c9",
+   "id": "255d3286-b67f-4e36-a7d4-5bc081bf1ee4",
    "name": "OpenAI (Plan)",
    "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
    "typeVersion": 1.3,
@@ -836,7 +836,7 @@
    }
   },
   {
-   "id": "17e5097f-0a49-4f25-a971-3f03f76f6a5d",
+   "id": "d2d6438c-0e98-4354-adb8-4e891af225e3",
    "name": "Schema (Plan)",
    "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
    "typeVersion": 1.3,
@@ -850,7 +850,7 @@
    }
   },
   {
-   "id": "66bfc599-286d-4b6a-9135-9bfdbb43c2ba",
+   "id": "5a26be89-3cd4-4480-b2f2-af286a18c5d8",
    "name": "05-35 Save plan",
    "type": "n8n-nodes-base.httpRequest",
    "typeVersion": 4.2,

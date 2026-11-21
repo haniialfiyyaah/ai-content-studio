@@ -220,4 +220,6 @@ never published until resumed, later content moves up a slot) or **Reject**
   status `skipped` = set aside, kept visible (dimmed, struck-through) with
   Restore; never storyboarded or rendered. Every skip / restore is posted to the
   agent chat as the creator's message. (`removed` stays for "gone, remembered
-  for duplicates".) The **Continue to video** bar sits at the top (sticky).
+  for duplicates".) Changes to the content concept (only in that step — it is
+  locked from the storyboards on) update the active cards in place; skipped
+  cards are never touched and the agent never brings them back. The **Continue to video** bar sits at the top (sticky).
