@@ -8,6 +8,11 @@ Backups of v1: git tag `v1-legacy` / branch `legacy/v1`, database schema
 `backup_v1` (full copy of `public`, not exposed via the API), live n8n
 workflows in `backups/n8n-v1/`.
 
+All v1 project data was cleared on 2026-11-21 (before phase 2). Snapshot of
+everything just before the clear: schema `backup_v2` (tables + list of storage
+paths; the files themselves were deleted). Kept: profiles, YouTube connection,
+Telegram link.
+
 ## Principles
 
 - **Show → refine or continue.** Every stage shows its result, asks "want to
