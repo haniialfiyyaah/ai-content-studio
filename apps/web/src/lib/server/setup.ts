@@ -12,7 +12,9 @@ import {
   type SetupStage,
   type SetupTask,
 } from "@acs/domain";
+import { after } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { SIMILAR_STRONG, findSimilarProjects, type SimilarProject } from "./similar";
 import { dispatchToN8n } from "./dispatch";
 import { logActivity, postAssistantMessage } from "./events";
 import { queueGeneration, sendProjectMessage } from "./projects";
@@ -75,9 +77,39 @@ export async function startSetup(ownerId: string, prompt: string) {
     .single();
   if (convo) await db.from("messages").insert({ conversation_id: convo.id, owner_id: ownerId, role: "user", content: text });
   await logActivity(db, { ownerId, projectId: project.id, kind: "project.created", message: "Project started — shaping the idea with the agent" });
-  await runTask(project.id, "chat");
+  await db.from("projects").update({ setup_busy: true, setup_started_at: new Date().toISOString() }).eq("id", project.id);
+  after(() => similarCheck(project.id as string, ownerId, text).catch(() => toConcept(project.id as string)));
   return { projectId: project.id as string };
 }
+
+/**
+ * First thing for a new idea: is it a duplicate? Strong match → ask "continue
+ * there or a different project?" (no AI needed). Borderline → the agent judges.
+ * Nothing similar → straight to the concept.
+ */
+async function similarCheck(projectId: string, ownerId: string, idea: string) {
+  const db = admin();
+  const matches = await findSimilarProjects(ownerId, projectId, idea);
+  await db.from("projects").update({ setup_similar: matches }).eq("id", projectId);
+  const top = matches[0];
+  if (top && top.score >= SIMILAR_STRONG) {
+    await db.from("projects").update({ setup_busy: false }).eq("id", projectId);
+    await postAssistantMessage(db, ownerId, projectId, similarQuestion(top.title, top.status), {
+      similar: { projectId: top.id, title: top.title },
+    });
+    return;
+  }
+  if (top) return runTask(projectId, "chat"); // borderline: let the agent decide
+  await toConcept(projectId);
+}
+
+async function toConcept(projectId: string) {
+  await admin().from("projects").update({ setup_stage: "concept" }).eq("id", projectId);
+  await runTask(projectId, "concept");
+}
+
+const similarQuestion = (title: string, status: string) =>
+  `This looks a lot like your project “${title}”${status === "setup" ? " (still being set up)" : ""}. Continue there, or create a different project?`;
 
 /** A chat message during setup: the agent answers and decides what happens. */
 export async function setupMessage(ownerId: string, projectId: string, content: string) {
@@ -118,7 +150,7 @@ export async function setupAction(ownerId: string, projectId: string, action: "c
 }
 
 const CONTINUE_TEXT: Partial<Record<SetupStage, string>> = {
-  discovery: "Sketch the concept",
+  discovery: "Create a different project",
   concept: "✅ Concept looks good — continue to the Creative Kit",
   kit: "✅ Kit looks good — continue to pillars & guardrails",
   pillars: "✅ Lock the setup and draft my first content",
@@ -134,7 +166,7 @@ async function continueInSimilar(p: SetupProject, targetId?: string) {
   if (p.setup_stage !== "discovery") throw conflict("This project is already being set up");
   const db = admin();
   const { data: target } = await db.from("projects").select("id, status").eq("id", targetId ?? "").eq("owner_id", p.owner_id).maybeSingle();
-  if (!target || target.status === "setup") throw notFound("Project");
+  if (!target || target.id === p.id) throw notFound("Project");
   await db.from("projects").delete().eq("id", p.id).eq("status", "setup");
   // The idea moves into the similar project's chat (its agent answers there).
   await sendProjectMessage(p.owner_id, target.id as string, `New idea for this project: ${p.prompt}`);
@@ -173,14 +205,12 @@ export async function setupContext(input: { projectId: string; task: SetupTask; 
   const { data: msgs } = convoId
     ? await db.from("messages").select("role, content").eq("conversation_id", convoId).order("created_at", { ascending: false }).limit(20)
     : { data: [] };
-  const { data: others } = await db
-    .from("projects")
-    .select("id, title, summary, concept, prompt")
-    .eq("owner_id", p.owner_id)
-    .neq("id", p.id)
-    .neq("status", "setup")
-    .order("created_at", { ascending: false })
-    .limit(20);
+  const candidates = ((p as SetupProject & { setup_similar?: SimilarProject[] | null }).setup_similar ?? []).map((c) => ({
+    id: c.id,
+    title: c.title,
+    score: c.score,
+    stillInSetup: c.status === "setup",
+  }));
   const kit = p.creative_kit ?? {};
   return {
     projectId: p.id,
@@ -203,12 +233,8 @@ export async function setupContext(input: { projectId: string; task: SetupTask; 
       ending: parseEnding(p.ending),
     },
     pillars: { pillars: kit.pillars ?? [], guardrails: kit.guardrails ?? [] },
-    existingProjects: (others ?? []).map((o) => ({
-      id: o.id,
-      title: o.title,
-      niche: (o.concept as { niche?: string } | null)?.niche ?? "",
-      summary: o.summary || o.prompt,
-    })),
+    /** Scored by embeddings: ≥0.55 = same idea, 0.35–0.55 = maybe (judge by topic). */
+    similarCandidates: candidates,
   };
 }
 

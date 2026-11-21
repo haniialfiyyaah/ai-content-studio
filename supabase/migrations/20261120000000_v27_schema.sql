@@ -476,3 +476,5 @@ alter table public.projects
   add column if not exists setup_started_at timestamptz,
   add column if not exists concept jsonb not null default '{}'::jsonb;
 alter table public.messages add column if not exists meta jsonb;
+
+alter table public.projects add column if not exists setup_similar jsonb;

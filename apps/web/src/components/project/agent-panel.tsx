@@ -106,7 +106,7 @@ export function AgentPanel({
                   <div className="small semibold">{m.meta.similar.title}</div>
                   <div className="actions" style={{ gap: 6, marginTop: 8 }}>
                     <button className="btn small primary" disabled={busy} onClick={() => similar("use_similar", m.meta!.similar!.projectId)}>Continue there</button>
-                    <button className="btn small soft" disabled={busy} onClick={() => similar("start_new")}>Start new</button>
+                    <button className="btn small soft" disabled={busy} onClick={() => similar("start_new")}>Create a different project</button>
                     <Link className="btn small ghost" href={`/projects/${m.meta.similar.projectId}`} target="_blank">View</Link>
                   </div>
                 </div>

@@ -19,7 +19,7 @@ import { Spinner } from "@/components/ui/spinner";
 const STEPS = SETUP_STAGES.filter((s) => s !== "done");
 
 const BUSY_TEXT: Record<SetupStage, string> = {
-  discovery: "Thinking about your idea…",
+  discovery: "Checking your other projects…",
   concept: "Sketching the concept — niche, audience and goal…",
   kit: "Building the Creative Kit — voice, look and format…",
   pillars: "Writing pillars and guardrails…",
@@ -27,7 +27,7 @@ const BUSY_TEXT: Record<SetupStage, string> = {
 };
 
 const NEXT_LABEL: Record<SetupStage, string> = {
-  discovery: "Skip questions & sketch the concept",
+  discovery: "Create a different project",
   concept: "Continue to Creative Kit",
   kit: "Continue to pillars",
   pillars: "Lock setup & draft content",
@@ -99,9 +99,13 @@ export function SetupView({
         {stage === "discovery" && (
           <>
             <div className="eyebrow">STEP 1 · YOUR IDEA</div>
-            <h2 className="setup-title">Let&apos;s shape it together</h2>
+            <h2 className="setup-title">{busy && !stale ? "Checking your other projects…" : similarPending ? "Looks like one you already have" : "Your idea"}</h2>
             <p className="small muted line">
-              Answer the agent&apos;s questions in the chat — who it&apos;s for, what you want people to do, how it should feel. Nothing is generated until you agree on the setup.
+              {busy && !stale
+                ? "So you don’t end up with duplicate videos. The concept is sketched right after."
+                : similarPending
+                  ? "Continue in that project, or create a different one — the concept is sketched as soon as you choose."
+                  : "Tell the agent which way you want to go."}
             </p>
             <div className="note" style={{ marginTop: 14 }}>“{idea}”</div>
           </>
@@ -173,7 +177,7 @@ export function SetupView({
             <div className="divider" />
             <div className="row between" style={{ flexWrap: "wrap", gap: 10 }}>
               {stage === "discovery" ? (
-                <span className="xs muted">{similarPending ? "Or answer the agent about the similar project." : "The agent moves on by itself once the idea is clear."}</span>
+                <span className="xs muted">{similarPending ? "Or continue in the similar project from the chat." : "Or tell the agent which way you want to go."}</span>
               ) : (
                 <span className="xs muted">Tap ✏️ on any field to change it, or tell the agent.</span>
               )}
@@ -182,7 +186,7 @@ export function SetupView({
                 disabled={pending}
                 onClick={() => act(stage === "discovery" && similarPending ? "start_new" : "continue")}
               >
-                {pending ? <Spinner size={13} /> : null} {stage === "discovery" && similarPending ? "Start a new project instead" : NEXT_LABEL[stage]} <ArrowRight size={14} />
+                {pending ? <Spinner size={13} /> : null} {NEXT_LABEL[stage]} <ArrowRight size={14} />
               </button>
             </div>
           </>

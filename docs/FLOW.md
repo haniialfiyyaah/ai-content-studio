@@ -27,7 +27,7 @@ workflows in `backups/n8n-v1/`.
 
 | # | Stage | Output | Stops? |
 |---|-------|--------|--------|
-| 0 | Discovery | chat: the agent asks about the rough idea (max 2–3 short questions per turn, quick-reply chips). If the topic looks similar to an existing project it asks "continue *X* instead?" | until the agent and creator agree the idea is clear |
+| 0 | Similar check | runs first, in code (embeddings): a similar project (score ≥ 0.55, or the agent judges 0.35–0.55) → ONE question: continue there, or create a different project? No other questions — details are edited on the concept with ✏️. Nothing similar → straight to the concept. | only when similar |
 | 1 | Concept | niche / theme, audience, goal, language, title, one-line summary | always |
 | 2 | Creative Kit | tone, narrator persona, voice, visual style, palette, recurring character, format, opening style, ending style | always |
 | 3 | Pillars & guardrails | 3–5 pillars (from the concept), 2–4 guardrails | always |
@@ -114,9 +114,9 @@ Free = manual approve. Paid = Autopilot, trending mode, more redraws.
 - Setup keeps the **split screen**: agent chat on the side, the current stage
   card in the main area (a full-page chat was tried and dropped — too many
   confirmations for a simple start).
-- Discovery: up to 2 light questions per turn, about 2 rounds. **"Skip
-  questions & sketch the concept"** stays; while a "similar project?" question
-  is open the same button reads **"Start a new project instead"**.
+- No discovery questions. The similar check comes first; the only possible
+  question is "continue there, or create a different project?". Then the
+  concept is generated directly; details are edited with ✏️.
 - **Every button press is also a chat message** ("✅ Concept looks good…").
 - **Refine per field:** ✏️ on any field / point pre-fills "Change the <field>: ".
 - **Language:** chat and setup cards use the app language (English for now);

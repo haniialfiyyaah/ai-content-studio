@@ -3,3 +3,4 @@ export * from "./youtube";
 export * from "./secrets";
 export * from "./openai-images";
 export * from "./telegram";
+export * from "./openai-embeddings";
