@@ -4,10 +4,13 @@ import {
   ErrorCodes,
   SetupCompleteSchema,
   conflict,
-  inferContentCount,
   nextSetupStage,
   notFound,
   parseEnding,
+  endingBrief,
+  resolveContent,
+  type ContentPlan,
+  type ContentStage,
   type MessageMeta,
   type SetupStage,
   type SetupTask,
@@ -17,19 +20,27 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { SIMILAR_STRONG, findSimilarProjects, type SimilarProject } from "./similar";
 import { dispatchToN8n } from "./dispatch";
 import { logActivity, postAssistantMessage } from "./events";
-import { queueGeneration } from "./projects";
 import type { ProjectRow } from "./rows";
 
 /**
- * Guided setup (docs/FLOW.md): Discovery → Concept → Creative Kit → Pillars &
- * guardrails. Each stage shows its result and waits for "continue" or a
- * refine. The AI work runs in n8n WF-05 (webhook acs-setup).
+ * The agent-guided part of a project (docs/FLOW.md), all run by n8n WF-05:
+ *   project setup: similar check → concept → kit → pillars   (status "setup")
+ *   content setup: plan (content concepts) → storyboard       (status "draft", content_stage)
+ * Each step shows its result and waits for "continue" or a refine — unless the
+ * creator turned on auto, which runs the project setup through to the plan.
  */
 const admin = () => createAdminClient();
 /** An agent run older than this is considered lost and can be retried. */
 const STALE_MS = 3 * 60_000;
 
-type SetupProject = ProjectRow & { setup_stage: SetupStage; setup_busy: boolean; setup_started_at: string | null };
+type SetupProject = ProjectRow & { setup_stage: SetupStage; setup_busy: boolean; setup_started_at: string | null; content_stage?: ContentStage };
+
+/** The step the agent is on, or null once the project is in production. */
+export function agentStage(p: Pick<SetupProject, "status" | "setup_stage" | "content_stage">): SetupStage | "plan" | "storyboard" | null {
+  if (p.status === "setup") return p.setup_stage;
+  if (p.content_stage === "plan" || p.content_stage === "storyboard") return p.content_stage;
+  return null;
+}
 
 async function loadSetupProject(ownerId: string, projectId: string): Promise<SetupProject> {
   const { data } = await admin().from("projects").select("*").eq("id", projectId).eq("owner_id", ownerId).maybeSingle();
@@ -122,7 +133,7 @@ const similarQuestion = (title: string, status: string) =>
 /** A chat message during setup: the agent answers and decides what happens. */
 export async function setupMessage(ownerId: string, projectId: string, content: string) {
   const p = await loadSetupProject(ownerId, projectId);
-  if (p.status !== "setup") throw conflict("Setup is finished");
+  if (!agentStage(p)) throw conflict("Setup is finished");
   if (p.setup_busy && !setupStale(p)) throw conflict("The agent is still working — one moment");
   const convoId = await webConversation(projectId);
   if (!convoId) throw notFound("Conversation");
@@ -141,12 +152,14 @@ export async function setupMessage(ownerId: string, projectId: string, content: 
 export async function setupAction(ownerId: string, projectId: string, action: "continue" | "retry" | "start_new" | "use_similar", targetId?: string) {
   const p = await loadSetupProject(ownerId, projectId);
   if (action === "use_similar") return continueInSimilar(p, targetId);
-  if (p.status !== "setup") throw conflict("Setup is finished");
+  const stage = agentStage(p);
+  if (!stage) throw conflict("Setup is finished");
   if (p.setup_busy && !setupStale(p)) throw conflict("The agent is still working — one moment");
   if (action === "retry") {
-    await runTask(projectId, p.setup_stage === "similar" ? "chat" : (p.setup_stage as SetupTask));
-    return { stage: p.setup_stage };
+    await runTask(projectId, stage === "similar" ? "chat" : stage === "storyboard" ? "plan" : (stage as SetupTask));
+    return { stage };
   }
+  if (stage === "plan" || stage === "storyboard") throw conflict("Storyboards are the next step — coming soon");
   // Every button press is part of the conversation.
   if (action === "start_new") {
     await userMessage(ownerId, projectId, "Start a new project");
@@ -161,7 +174,7 @@ const CONTINUE_TEXT: Partial<Record<SetupStage, string>> = {
   similar: "Create a different project",
   concept: "✅ Concept looks good — continue to the Creative Kit",
   kit: "✅ Kit looks good — continue to pillars & guardrails",
-  pillars: "✅ Lock the setup and draft my first content",
+  pillars: "✅ Lock the setup and plan my content",
 };
 
 async function userMessage(ownerId: string, projectId: string, content: string) {
@@ -197,13 +210,13 @@ async function advance(p: SetupProject) {
   return { stage: next };
 }
 
-/** Setup confirmed → the existing idea generation takes over (phase 2 replaces this). */
+/** Project setup locked → content setup starts with the content plan. */
 async function finishSetup(p: SetupProject) {
   const db = admin();
-  await db.from("projects").update({ setup_stage: "done", setup_busy: false, status: "draft" }).eq("id", p.id);
-  await logActivity(db, { ownerId: p.owner_id, projectId: p.id, kind: "setup.done", message: "Setup confirmed — drafting content" });
-  await postAssistantMessage(db, p.owner_id, p.id, "Setup locked in ✅ Now I'm drafting your first content from it.");
-  await queueGeneration(p.owner_id, p.id, "ideation", inferContentCount(p.idea) || 3);
+  await db.from("projects").update({ setup_stage: "done", setup_busy: false, status: "draft", content_stage: "plan" }).eq("id", p.id);
+  await logActivity(db, { ownerId: p.owner_id, projectId: p.id, kind: "setup.done", message: "Project setup locked — planning the content" });
+  await postAssistantMessage(db, p.owner_id, p.id, "Project setup locked ✅ Now I'm planning your content: one video or a series, and the concept of each.");
+  await runTask(p.id, "plan");
   return { stage: "done" as const };
 }
 
@@ -239,7 +252,7 @@ export async function setupContext(input: { projectId: string; task: SetupTask; 
     projectId: p.id,
     task: input.task,
     feedback: input.feedback ?? "",
-    stage: p.setup_stage,
+    stage: agentStage(p) ?? "done",
     /** Language of the chat and the setup cards (the app's language). Scripts use concept.language. */
     appLanguage: "English",
     idea: p.idea,
@@ -260,7 +273,19 @@ export async function setupContext(input: { projectId: string; task: SetupTask; 
     similarCandidates: candidates,
     /** Existing projects the new concept and pillars must stay clearly different from. */
     avoidProjects,
+    /** Content setup: the current plan (refine keeps what the creator did not ask to change). */
+    contentPlan: input.task === "plan" || agentStage(p) === "plan" ? await currentPlan(p) : null,
+    endingBrief: endingBrief(p.ending, p.title),
   };
+}
+
+async function currentPlan(p: SetupProject) {
+  const { data } = await admin().from("contents").select("label, options, selection").eq("project_id", p.id).neq("status", "removed").order("position");
+  const items = (data ?? []).map((c, i) => {
+    const r = resolveContent(c.options, c.selection);
+    return { number: i + 1, label: c.label ?? "", title: r.title, hook: r.hook, description: r.caption, hashtags: r.hashtags };
+  });
+  return { ...((p as SetupProject & { content_plan?: object }).content_plan ?? {}), items };
 }
 
 export async function setupComplete(raw: unknown) {
@@ -269,7 +294,8 @@ export async function setupComplete(raw: unknown) {
   const { data } = await db.from("projects").select("*").eq("id", input.projectId).maybeSingle();
   if (!data) throw notFound("Project");
   const p = data as SetupProject;
-  if (p.status !== "setup") return { ok: true, ignored: true };
+  const stage = agentStage(p);
+  if (!stage) return { ok: true, ignored: true };
   const kit = p.kit ?? {};
   const meta: MessageMeta = {};
 
@@ -312,6 +338,9 @@ export async function setupComplete(raw: unknown) {
     await db.from("projects").update({ kit: { ...kit, ...input.pillars } }).eq("id", p.id);
     meta.stage = "pillars";
     meta.data = input.pillars;
+  } else if (input.task === "plan" && input.plan) {
+    await savePlan(p, input.plan);
+    meta.data = { format: input.plan.format, style: input.plan.style, count: input.plan.items.length };
   }
 
   const action = input.action ?? {};
@@ -326,13 +355,18 @@ export async function setupComplete(raw: unknown) {
   await db.from("projects").update({ setup_busy: false }).eq("id", p.id);
   if (input.reply.trim()) await postAssistantMessage(db, p.owner_id, p.id, input.reply.trim(), Object.keys(meta).length ? { ...meta } : undefined);
 
-  if (input.task !== "chat") return { ok: true };
-  // The agent's decision drives the next step.
   const fresh = { ...p, setup_busy: false };
-  if (action.type === "propose" && p.setup_stage === "similar") await advance(fresh);
-  else if (action.type === "continue" && p.setup_stage !== "similar") await advance(fresh);
-  else if (action.type === "refine" && p.setup_stage !== "similar" && action.feedback?.trim()) {
-    await runTask(p.id, p.setup_stage as SetupTask, action.feedback.trim());
+  // Auto: the project setup runs straight through (concept → kit → pillars → plan).
+  if (input.task !== "chat") {
+    if (p.auto_approve && p.status === "setup" && ["concept", "kit", "pillars"].includes(input.task)) await advance(fresh);
+    return { ok: true };
+  }
+  // The agent's decision drives the next step.
+  const inSetup = p.status === "setup";
+  if (action.type === "propose" && stage === "similar") await advance(fresh);
+  else if (action.type === "continue" && inSetup && stage !== "similar") await advance(fresh);
+  else if (action.type === "refine" && stage !== "similar" && action.feedback?.trim()) {
+    await runTask(p.id, stage === "storyboard" ? "plan" : (stage as SetupTask), action.feedback.trim());
   }
   return { ok: true };
 }
@@ -340,9 +374,48 @@ export async function setupComplete(raw: unknown) {
 /** n8n failed: free the agent and tell the creator. */
 export async function setupFail(input: { projectId: string; error?: string }) {
   const db = admin();
-  const { data } = await db.from("projects").select("owner_id, status").eq("id", input.projectId).maybeSingle();
-  if (!data || data.status !== "setup") return { ok: true };
+  const { data } = await db.from("projects").select("owner_id, status, setup_stage, content_stage").eq("id", input.projectId).maybeSingle();
+  if (!data || !agentStage(data as SetupProject)) return { ok: true };
   await db.from("projects").update({ setup_busy: false }).eq("id", input.projectId);
   await postAssistantMessage(db, data.owner_id as string, input.projectId, "⚠️ I couldn't finish that step. Tap Retry, or tell me again.");
   return { ok: true };
+}
+
+/**
+ * The content plan replaces the project's idea cards (concept only: title,
+ * hook, description, hashtags — scenes come with the storyboard step).
+ */
+async function savePlan(p: SetupProject, plan: ContentPlan) {
+  const db = admin();
+  const series = plan.format === "series";
+  await db.from("contents").delete().eq("project_id", p.id).eq("status", "idea");
+  await db.from("contents").insert(
+    plan.items.map((it, i) => ({
+      owner_id: p.owner_id,
+      project_id: p.id,
+      position: i,
+      status: "idea",
+      label: series ? it.label || (plan.style === "daily" ? `Day ${i + 1}` : `Episode ${i + 1}`) : null,
+      options: {
+        title: [it.title],
+        hook: [it.hook],
+        caption: [it.description],
+        hashtags: [it.hashtags.map((h) => (h.startsWith("#") ? h : `#${h}`)).join(" ")],
+        script: [],
+      },
+      selection: {},
+      scenes: [],
+    })),
+  );
+  const { items, ...meta } = plan;
+  await db.from("projects").update({ content_plan: { ...meta, count: items.length } }).eq("id", p.id);
+  await logActivity(db, { ownerId: p.owner_id, projectId: p.id, kind: "plan.ready", message: series ? `Series planned: ${items.length} episodes` : "Content concept ready" });
+}
+
+/** Auto turned on mid-setup: if a stage result is waiting, continue right away. */
+export async function autoContinue(ownerId: string, projectId: string) {
+  const p = await loadSetupProject(ownerId, projectId);
+  if (p.status !== "setup" || p.setup_busy || !["concept", "kit", "pillars"].includes(p.setup_stage)) return;
+  const ready = p.setup_stage === "concept" ? Boolean(p.concept?.title) : p.setup_stage === "kit" ? Boolean(p.kit?.tone) : Boolean(p.kit?.pillars?.length);
+  if (ready) await advance(p);
 }

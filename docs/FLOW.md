@@ -159,3 +159,24 @@ after an hour.
 quietly so it is never suggested again). After → **Hold** (`contents.on_hold`:
 never published until resumed, later content moves up a slot) or **Reject**
 (discarded, never published). No "Skip", no "Rejected ideas" list.
+
+## Content setup (phase 2) — decisions, round 3
+
+- **Auto** toggle in the setup (default off): on = the agent runs concept → kit
+  → pillars and locks the setup by itself; every step still shows. Only an
+  "⚡ Auto" tag is shown when on — nothing when off. (Auto for later steps: TBD.)
+- No status tags, Approve & schedule or production tabs until the content
+  setup is done.
+- After the lock the setup is **read-only**: click the project name for the
+  brief (concept, kit, pillars, guardrails, format).
+- Steps: Project setup → **Content concept** → Storyboards → Images & video.
+- **Content concept** (WF-05 task `plan`): the agent decides single vs series
+  and, for a series, the style — *daily* (Day 1, Day 2… for challenges /
+  routines / countdowns), *episodic* (connected, order matters) or
+  *standalone* (related, independent) — with one line why. Each card: title,
+  hook, description, hashtags (content language). Stored as `contents` (status
+  idea, `label` = Day n / Episode n) + `projects.content_plan`. **Stops** for
+  the creator to check; refine through the chat (✏️ per card). No per-content
+  approval.
+- Next: storyboards (scenes + script + sketch images) → stop → images → video.
+- Hide agent sits in the agent header; phones get a sticky Project / Agent switch.

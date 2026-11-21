@@ -401,3 +401,13 @@ CREATE POLICY storage_renders_select_own ON storage.objects FOR SELECT TO authen
 DROP POLICY IF EXISTS storage_assets_select_own ON storage.objects;
 CREATE POLICY storage_assets_select_own ON storage.objects FOR SELECT TO authenticated
   USING (bucket_id = 'assets' AND (storage.foldername(name))[1] = auth.uid()::text);
+
+-- ---------------------------------------------------------------------------
+-- content setup (phase 2): plan → storyboard → production
+-- content_plan = { format: single|series, style: daily|episodic|standalone, seriesTitle, why }
+-- contents.label = "Day 1" / "Episode 2" (series only)
+-- ---------------------------------------------------------------------------
+ALTER TABLE public.projects
+  ADD COLUMN IF NOT EXISTS content_stage text NOT NULL DEFAULT 'none' CHECK (content_stage IN ('none', 'plan', 'storyboard', 'production')),
+  ADD COLUMN IF NOT EXISTS content_plan jsonb NOT NULL DEFAULT '{}'::jsonb;
+ALTER TABLE public.contents ADD COLUMN IF NOT EXISTS label text;

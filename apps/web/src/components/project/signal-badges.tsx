@@ -1,4 +1,4 @@
-import { Bell, CalendarClock, Hand, Loader2, Zap } from "lucide-react";
+import { Bell, CalendarClock, Loader2, Zap } from "lucide-react";
 import { fmtDateTime } from "@/lib/format";
 import type { ProjectSignals } from "@/lib/server/signals";
 
@@ -9,7 +9,7 @@ export function SignalBadges({ s, status, timezone, compact }: { s?: ProjectSign
     <div className="signals">
       {s.needsYou > 0 && (
         <span className="signal needs" title="Waiting for your confirm">
-          <Bell size={11} /> Needs you{status === "setup" ? "" : ` (${s.needsYou})`}
+          <Bell size={11} /> Needs you{s.needsYou > 1 ? ` (${s.needsYou})` : ""}
         </span>
       )}
       {s.inProgress && (
@@ -22,9 +22,9 @@ export function SignalBadges({ s, status, timezone, compact }: { s?: ProjectSign
           <CalendarClock size={11} /> {compact ? "Next" : "Next upload"} {fmtDateTime(s.nextUpload, timezone)}
         </span>
       )}
-      {status !== "setup" && (
-        <span className={`signal ${s.auto ? "auto" : "manual"}`} title={s.auto ? "Steps continue without your confirm" : "Every step waits for your confirm"}>
-          {s.auto ? <Zap size={11} /> : <Hand size={11} />} {s.auto ? "Auto-approve" : "Manual"}
+      {s.auto && (
+        <span className="signal auto" title="Steps continue without waiting for your confirm">
+          <Zap size={11} /> Auto
         </span>
       )}
     </div>

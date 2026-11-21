@@ -109,3 +109,31 @@ a.btn,a.navitem,a.newbtn,a.tab,a.manage-nav{text-decoration:none}
 .panel-frame-empty{display:grid;place-items:center;color:#a39bb8;font-size:11px;font-weight:800}.panel-frame-cap{color:#6f6882;line-height:1.3;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
 .panel-scene{padding:8px 10px;border:1px solid #f0edf6;border-radius:9px;background:#fcfbfe}
 @media (max-width:900px){.board{grid-template-columns:repeat(5,78vw)}}
+/* workspace: hide agent from its header; phone layout */
+.workspace.agent-hidden .agent-panel{display:none}.open-agent{position:sticky;top:80px;float:right;margin:14px 20px 0 0;z-index:3}
+.agent-hide{padding:6px 9px}
+@media (max-width:850px){
+  .mobile-switch{position:sticky;top:68px;z-index:6;justify-content:center}
+  .workspace.agent-hidden .agent-panel{display:flex}.open-agent,.agent-hide{display:none!important}
+  .agent-panel{height:calc(100dvh - 68px - 53px)}
+  .project-hero{flex-direction:column;gap:10px}.project-hero h1{font-size:23px}.project-hero .actions{width:100%}.project-hero .actions .btn{flex:1}
+  .tabs{margin-left:-16px;margin-right:-16px;padding:0 16px}
+  .setup-steps{flex-wrap:nowrap;overflow-x:auto;padding-bottom:4px}.setup-step{flex:none}
+  .panel{width:100vw}.panel-foot .btn{flex:1}
+  .board{grid-template-columns:repeat(5,82vw);scroll-snap-type:x mandatory}.board-col{scroll-snap-align:start}
+}
+/* project brief (click the project name) */
+.brief{position:relative;min-width:0}.brief-title{display:flex;align-items:center;gap:6px;background:none;border:0;padding:0;font-size:27px;font-weight:830;letter-spacing:-.6px;color:var(--text);text-align:left;cursor:pointer}.brief-title:hover{color:#5e43c6}.brief-title svg{flex:none;color:#9a92ad;transition:transform .2s}.brief-title svg.flip{transform:rotate(180deg)}
+.brief-pop{position:absolute;top:calc(100% + 8px);left:0;z-index:30;width:min(560px,calc(100vw - 32px));max-height:70vh;overflow-y:auto;background:#fff;border:1px solid var(--border);border-radius:15px;box-shadow:0 24px 60px #2a1d4326;padding:16px;display:flex;flex-direction:column;gap:14px;animation:setupIn .2s ease-out}@keyframes setupIn{from{opacity:0;transform:translateY(6px)}}
+.brief-sec{display:flex;flex-direction:column;gap:6px}.brief-row{display:grid;grid-template-columns:120px 1fr;gap:10px;font-size:12px;line-height:1.5}.brief-k{color:#938d9d}.brief-v{color:#3f3a4d}
+.ws-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+.phase-steps{margin-bottom:18px}
+/* content plan */
+.plan-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.plan-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px}.plan-single{max-width:680px}
+.plan-card{padding:16px;display:flex;flex-direction:column;gap:10px;animation:setupIn .3s ease-out}.plan-card.dim{opacity:.55}
+.plan-label{font-size:10px;font-weight:850;letter-spacing:1px;text-transform:uppercase;color:#7a5fd6;background:#f1edff;border-radius:99px;padding:4px 9px}
+.plan-title{font-size:15px;font-weight:800;line-height:1.35}.plan-single .plan-title{font-size:19px}
+.plan-field{display:flex;flex-direction:column;gap:3px}.plan-k{font-size:10px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;color:#a39bb5}.plan-hook{font-size:13px;font-weight:650;color:#4a4060;font-style:italic;line-height:1.5}
+.plan-tags{font-size:11px;color:#6a4fd0;line-height:1.6}
+@media (max-width:640px){.brief-title{font-size:21px}.brief-row{grid-template-columns:1fr;gap:2px}.plan-grid{grid-template-columns:1fr}}

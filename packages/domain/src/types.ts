@@ -242,7 +242,7 @@ export const SetupPillarsSchema = z.object({
 });
 export type SetupPillars = z.infer<typeof SetupPillarsSchema>;
 
-export const SETUP_TASKS = ["chat", "concept", "kit", "pillars"] as const;
+export const SETUP_TASKS = ["chat", "concept", "kit", "pillars", "plan"] as const;
 export type SetupTask = (typeof SETUP_TASKS)[number];
 
 /** n8n WF-05 → /api/internal/setup/complete */
@@ -264,6 +264,7 @@ export const SetupCompleteSchema = z.object({
   concept: ConceptSchema.optional(),
   kit: SetupKitSchema.optional(),
   pillars: SetupPillarsSchema.optional(),
+  plan: z.lazy(() => ContentPlanSchema).optional(),
 });
 export type SetupComplete = z.infer<typeof SetupCompleteSchema>;
 
@@ -310,3 +311,32 @@ export type ProjectSettings = z.infer<typeof ProjectSettingsSchema>;
 /** POST /api/contents/:id/actions */
 export const CONTENT_ACTIONS = ["approve", "remove", "hold", "resume", "unlock", "storyboard", "render", "publish"] as const;
 export type ContentAction = (typeof CONTENT_ACTIONS)[number];
+
+// ---------------------------------------------------------------------------
+// Content setup (phase 2) — after the project setup is locked
+// ---------------------------------------------------------------------------
+/** none → plan (content concepts) → storyboard (scenes + script + sketches) → production (images, video, publish) */
+export const CONTENT_STAGES = ["none", "plan", "storyboard", "production"] as const;
+export type ContentStage = (typeof CONTENT_STAGES)[number];
+
+export const PlanItemSchema = z.object({
+  /** "Day 1" / "Episode 2" for a series, empty for a single video. */
+  label: z.string().max(40).default(""),
+  title: z.string().trim().min(1).max(120),
+  hook: z.string().trim().min(1).max(200),
+  description: z.string().max(1000).default(""),
+  hashtags: z.array(z.string().max(40)).max(10).default([]),
+});
+export type PlanItem = z.infer<typeof PlanItemSchema>;
+
+export const ContentPlanSchema = z.object({
+  format: z.enum(["single", "series"]).catch("single"),
+  /** daily = Day 1, Day 2… · episodic = connected episodes · standalone = related but separate */
+  style: z.enum(["daily", "episodic", "standalone"]).catch("standalone"),
+  seriesTitle: z.string().max(120).default(""),
+  /** One line: why single / series and why this style. */
+  why: z.string().max(400).default(""),
+  items: z.array(PlanItemSchema).min(1).max(14),
+});
+export type ContentPlan = z.infer<typeof ContentPlanSchema>;
+export type ContentPlanMeta = Omit<ContentPlan, "items"> & { count?: number };

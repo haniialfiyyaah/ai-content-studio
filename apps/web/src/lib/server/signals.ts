@@ -41,10 +41,11 @@ export async function projectSignals(supabase: SupabaseClient, projects: Project
   for (const j of jobs.data ?? []) if (!next.has(j.project_id)) next.set(j.project_id, j.scheduled_for);
 
   for (const p of projects) {
-    const setup = p.status === "setup";
-    const setupBusy = setup && Boolean(p.setup_busy);
+    // Agent-guided steps (project setup, content plan, storyboards) wait for one check, not per content.
+    const guided = p.status === "setup" || p.content_stage === "plan" || p.content_stage === "storyboard";
+    const setupBusy = guided && Boolean(p.setup_busy);
     out.set(p.id, {
-      needsYou: setup ? (setupBusy ? 0 : 1) : p.status === "stopped" ? 0 : (draftN.get(p.id) ?? 0),
+      needsYou: guided ? (setupBusy ? 0 : 1) : p.status === "stopped" ? 0 : (draftN.get(p.id) ?? 0),
       inProgress: setupBusy || busy.has(p.id),
       nextUpload: p.status === "live" ? (next.get(p.id) ?? null) : null,
       auto: Boolean(p.auto_approve),

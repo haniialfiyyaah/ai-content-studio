@@ -35,6 +35,8 @@ export interface ProjectRow {
   ending: unknown;
   schedule: Partial<Schedule>;
   auto_approve: boolean;
+  content_stage: "none" | "plan" | "storyboard" | "production";
+  content_plan: Record<string, unknown>;
   visual_mode: "ai" | "ai_with_references" | "references";
   image_engine: "openai" | "fal";
   voice_id: string | null;
@@ -64,6 +66,7 @@ export interface ContentRow {
   project_id: string;
   position: number;
   status: ContentStatus;
+  label?: string | null;
   on_hold?: boolean;
   storyboard_status?: string | null;
   options: Partial<ContentOptions>;

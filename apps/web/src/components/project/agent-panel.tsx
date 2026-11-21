@@ -7,6 +7,7 @@ import { Send, Sparkles, X } from "lucide-react";
 import { api } from "@/lib/client/api";
 import { Spinner } from "@/components/ui/spinner";
 import type { MessageRow } from "@/lib/server/rows";
+import { useAgentFrame } from "./workspace-frame";
 
 export function AgentPanel({
   projectId,
@@ -27,6 +28,7 @@ export function AgentPanel({
   placeholder?: string;
 }) {
   const router = useRouter();
+  const frame = useAgentFrame();
   const input = useRef<HTMLTextAreaElement>(null);
   const [draft, setDraft] = useState("");
   const [pendingText, setPendingText] = useState<string | null>(null);
@@ -92,7 +94,9 @@ export function AgentPanel({
           <span className="iconTile"><Sparkles size={16} /></span>
           <div><div className="small semibold">Creative Agent</div><div className="tiny muted">Context: {projectTitle}</div></div>
         </div>
-        {onClose && <button className="icbtn" onClick={onClose} aria-label="Hide agent"><X size={15} /></button>}
+        {(onClose ?? frame?.hide) && (
+          <button className="btn ghost small agent-hide" onClick={onClose ?? frame?.hide} aria-label="Hide agent"><X size={13} /> Hide</button>
+        )}
       </div>
       <div className="chatlog" ref={log}>
         {messages.map((m, i) => {

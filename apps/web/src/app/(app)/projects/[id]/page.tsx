@@ -8,6 +8,10 @@ import { EndingForm } from "@/components/project/ending-form";
 import { LaunchPanel } from "@/components/project/launch-panel";
 import { ScheduleForm } from "@/components/project/schedule-form";
 import { SetupView } from "@/components/project/setup-view";
+import { AutoToggle } from "@/components/project/auto-toggle";
+import { PhaseSteps } from "@/components/project/phase-steps";
+import { PlanView, type PlanCard } from "@/components/project/plan-view";
+import { ProjectBrief } from "@/components/project/project-brief";
 import { WorkspaceFrame } from "@/components/project/workspace-frame";
 import { ActionButton } from "@/components/ui/action-button";
 import { LiveRefresh } from "@/components/ui/live-refresh";
@@ -89,8 +93,15 @@ export default async function ProjectPage({
           }
         >
           <main className="page">
-            <div className="eyebrow">NEW PROJECT · SETUP</div>
-            <h1 style={{ fontSize: 27, marginBottom: 18 }}>{p.emoji ? `${p.emoji} ` : ""}{p.title}</h1>
+            <div className="ws-head">
+              <div style={{ minWidth: 0 }}>
+                <div className="eyebrow">NEW PROJECT · SETUP</div>
+                <h1 style={{ fontSize: 27 }}>{p.emoji ? `${p.emoji} ` : ""}{p.title}</h1>
+              </div>
+            </div>
+            <div className="card pad" style={{ marginBottom: 16, padding: "12px 16px" }}>
+              <AutoToggle projectId={p.id} initial={p.auto_approve} disabled={sp.setup_stage === "similar"} />
+            </div>
             <SetupView
               projectId={p.id}
               stage={sp.setup_stage}
@@ -102,6 +113,47 @@ export default async function ProjectPage({
               ending={(p as typeof p & { ending?: unknown }).ending}
               similarPending={ws.messages.at(-1)?.role === "assistant" && Boolean(ws.messages.at(-1)?.meta?.similar)}
             />
+          </main>
+        </WorkspaceFrame>
+      </>
+    );
+  }
+
+  // Content setup (after the project setup is locked): the content concept, then storyboards.
+  if (p.content_stage === "plan" || p.content_stage === "storyboard") {
+    const busy = p.setup_busy && !setupStale(p);
+    const plan = (p.content_plan ?? {}) as { format?: string; style?: string; seriesTitle?: string; why?: string };
+    const cards: PlanCard[] = contents.map((c, i) => {
+      const r = resolveContent(c.options, c.selection);
+      return { id: c.id, n: i + 1, label: c.label ?? "", title: r.title, hook: r.hook, description: r.caption, hashtags: r.hashtags };
+    });
+    return (
+      <>
+        <LiveRefresh
+          pollMs={p.setup_busy || ws.messages.at(-1)?.role === "user" ? 3000 : undefined}
+          sources={[
+            { table: "projects", filter: `id=eq.${p.id}` },
+            { table: "contents", filter: `project_id=eq.${p.id}` },
+            ...(ws.conversationId ? [{ table: "messages", filter: `conversation_id=eq.${ws.conversationId}` }] : []),
+          ]}
+        />
+        <WorkspaceFrame
+          splitKey={p.id}
+          agent={<AgentPanel projectId={p.id} projectTitle={p.title} messages={ws.messages} thinking={busy && cards.length > 0} placeholder="Tell me what to change…" />}
+        >
+          <main className="page">
+            <div className="ws-head">
+              <ProjectBrief
+                title={p.title}
+                emoji={p.emoji}
+                kit={projectKit(p)}
+                ending={p.ending}
+                format={plan.format === "series" ? `Series · ${cards.length} videos` : plan.format === "single" ? "Single video" : null}
+              />
+              {p.auto_approve && <SignalBadges s={{ needsYou: 0, inProgress: false, nextUpload: null, auto: true }} status={p.status} />}
+            </div>
+            <PhaseSteps current={p.content_stage} />
+            <PlanView projectId={p.id} plan={plan} cards={cards} busy={p.setup_busy} stale={setupStale(p)} />
           </main>
         </WorkspaceFrame>
       </>

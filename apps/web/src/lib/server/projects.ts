@@ -14,7 +14,7 @@ import {
 import { createAdminClient } from "@/lib/supabase/admin";
 import { dispatchToN8n } from "./dispatch";
 import { queueStoryboards } from "./storyboard";
-import { setupMessage } from "./setup";
+import { agentStage, autoContinue, setupMessage } from "./setup";
 import { setImageEngine, setVisualMode } from "./assets";
 import { logActivity, notifyTelegram, postAssistantMessage } from "./events";
 import type { ContentRow, ProjectRow } from "./rows";
@@ -352,6 +352,7 @@ export async function updateProjectSettings(ownerId: string, projectId: string, 
   if (input.autoApprove !== undefined) {
     await admin().from("projects").update({ auto_approve: input.autoApprove }).eq("id", projectId);
     out.autoApprove = input.autoApprove;
+    if (input.autoApprove) await autoContinue(ownerId, projectId);
   }
   return out;
 }
@@ -570,8 +571,8 @@ export async function retryRender(ownerId: string, renderId: string) {
 
 export async function sendProjectMessage(ownerId: string, projectId: string, content: string) {
   const project = await loadOwnedProject(ownerId, projectId);
-  // During guided setup the setup agent (WF-05) answers instead of WF-A1.
-  if (project.status === "setup") return setupMessage(ownerId, projectId, content);
+  // During project + content setup the setup agent (WF-05) answers instead of WF-A1.
+  if (agentStage(project as Parameters<typeof agentStage>[0])) return setupMessage(ownerId, projectId, content);
   const db = admin();
   const { data: convo } = await db
     .from("conversations")
