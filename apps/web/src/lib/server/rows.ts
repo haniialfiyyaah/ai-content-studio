@@ -30,6 +30,7 @@ export interface ProjectRow {
   visual_mode: "ai" | "ai_with_references" | "references";
   image_engine?: "openai" | "fal";
   ending?: unknown;
+  auto_approve?: boolean;
   setup_stage?: SetupStage;
   setup_busy?: boolean;
   setup_started_at?: string | null;
@@ -61,6 +62,8 @@ export interface ContentRow {
   project_id: string;
   position: number;
   status: ContentStatus;
+  on_hold?: boolean;
+  storyboard_status?: string | null;
   options: Partial<ContentOptions>;
   selection: Selection;
   scenes: Scene[];

@@ -27,6 +27,8 @@ import { publishNow, runPublishJob } from "./publishing";
 import { signedVideoUrl } from "./renders";
 import type { ContentRow, ProjectRow } from "./rows";
 import { appUrl } from "./session";
+import { SAVED_PROJECTS_FILTER } from "./signals";
+import { statusLabel } from "@/lib/format";
 
 /**
  * Telegram bot brain. n8n (WF-A2) forwards raw updates here and this module
@@ -162,7 +164,7 @@ export async function sendProjectCards(chatId: string | number, projectId: strin
           .map((c, i) => ({ c, n: i + 1 }))
           .filter(({ c }) => c.status === "draft")
           .slice(0, 6)
-          .map(({ c, n }) => ({ text: `❌ Reject #${n}`, data: `rj:${c.id}` }));
+          .map(({ c, n }) => ({ text: `🗑 Remove #${n}`, data: `rj:${c.id}` }));
         const rows: TgButton[][] = [];
         for (let i = 0; i < btns.length; i += 3) rows.push(btns.slice(i, i + 3));
         return rows;
@@ -338,6 +340,7 @@ async function currentProject(link: Link) {
     .from("projects")
     .select("*")
     .eq("owner_id", link.owner_id)
+    .neq("status", "setup")
     .order("updated_at", { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -359,6 +362,7 @@ async function onText(link: Link, chatId: number, text: string) {
       .from("projects")
       .select("id, title, status, cover_emoji")
       .eq("owner_id", link.owner_id)
+      .or(SAVED_PROJECTS_FILTER)
       .order("updated_at", { ascending: false })
       .limit(8);
     if (!data?.length) {
@@ -367,7 +371,7 @@ async function onText(link: Link, chatId: number, text: string) {
     }
     say(
       chatId,
-      "<b>Your projects</b>\n" + data.map((p) => `${STATUS_EMOJI[p.status] ?? "•"} ${esc(p.title)} — ${p.status}`).join("\n"),
+      "<b>Your projects</b>\n" + data.map((p) => `${STATUS_EMOJI[p.status] ?? "•"} ${esc(p.title)} — ${statusLabel(p.status)}`).join("\n"),
       data.map((p) => [{ text: `${p.cover_emoji ?? "📁"} ${p.title}`.slice(0, 60), data: `pv:${p.id}` }]),
     );
     return { ok: true };
@@ -467,9 +471,9 @@ async function onCallback(link: Link, chatId: number, callbackId: string, data: 
   }
   if (code === "rj") {
     const res = await rejectContent(owner, id);
-    answer(callbackId, "Rejected");
+    answer(callbackId, "Removed");
     const { data: c } = await admin().from("contents").select("project_id").eq("id", res.rejected).single();
-    if (c) await sendProjectCards(chatId, c.project_id as string, undefined, "❌ Rejected — it won't be rendered or published.");
+    if (c) await sendProjectCards(chatId, c.project_id as string, undefined, "🗑 Removed — it won't be rendered or published.");
     return { ok: true };
   }
   if (code === "pn") {

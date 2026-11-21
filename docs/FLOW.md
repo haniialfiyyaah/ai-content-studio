@@ -136,3 +136,21 @@ Free = manual approve. Paid = Autopilot, trending mode, more redraws.
   never overridden.
 - After *Lock setup* the workspace shows a drafting card while the first
   content is written.
+
+## Status model (before phase 2)
+
+Project **status**: Setting up · Draft · **Live** (DB value `active`, schedule
+running) · Paused · Stopped. Next to it, **signals** (`lib/server/signals.ts`):
+🔔 *Needs you (n)* — ideas / setup steps waiting for a confirm · ⏳ *In
+progress* — generating, drawing or rendering · 📅 *Next upload* · ⚡
+*Auto-approve* / ✋ *Manual* (`projects.auto_approve`). The Projects page
+filters by them.
+
+A project is **saved only once the agent made its concept**; setup drafts
+without one are hidden from lists, ignored by the duplicate check and deleted
+after an hour.
+
+**Removing content:** before images or a video exist → **Remove** (gone; kept
+quietly so it is never suggested again). After → **Hold** (`contents.on_hold`:
+never published until resumed, later content moves up a slot) or **Reject**
+(discarded, never published). No "Skip", no "Rejected ideas" list.

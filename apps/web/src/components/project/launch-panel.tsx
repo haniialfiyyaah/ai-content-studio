@@ -18,8 +18,8 @@ export interface LaunchItem {
 
 /**
  * The one "Approve & schedule" step. Every idea is ticked by default; untick
- * the ones you don't want — they're set aside (no images, render or upload)
- * and can be restored later. The rest are approved, slotted and go live.
+ * the ones you don't want — they're removed (no images, render or upload).
+ * The rest are approved, slotted and go live.
  */
 export function LaunchPanel({
   projectId,
@@ -92,7 +92,7 @@ export function LaunchPanel({
       <div className="section">
         <div>
           <h2>Approve &amp; schedule</h2>
-          <p>Untick any idea you don&apos;t want — it&apos;s set aside, not drawn, rendered or published. You can restore it later.</p>
+          <p>Untick any idea you don&apos;t want — it&apos;s removed and never drawn, rendered or published.</p>
         </div>
       </div>
 
@@ -110,7 +110,7 @@ export function LaunchPanel({
                   <div>
                     <div className="small semibold">#{i.n} · {i.title}</div>
                     <div className="xs muted">
-                      {on ? (slot ? `${fmt(slot)} · ${i.scenes} scenes` : `${i.scenes} scenes`) : "Set aside — won't be published"}
+                      {on ? (slot ? `${fmt(slot)} · ${i.scenes} scenes` : `${i.scenes} scenes`) : "Will be removed"}
                     </div>
                   </div>
                 </div>
@@ -136,7 +136,7 @@ export function LaunchPanel({
       </div>
       <div className="row between" style={{ marginTop: 14 }}>
         <span className="xs muted">
-          {off.size ? `${off.size} set aside · ` : ""}
+          {off.size ? `${off.size} to remove · ` : ""}
           {goesLive ? "Videos render now and upload at each slot." : !youtubeConnected && projectStatus === "draft" ? "Goes live once YouTube is connected." : ""}
         </span>
         {items.length > 0 && (

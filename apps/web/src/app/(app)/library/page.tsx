@@ -11,7 +11,7 @@ import { requireUser } from "@/lib/server/session";
 export default async function LibraryPage({ searchParams }: { searchParams: Promise<{ project?: string }> }) {
   const { project } = await searchParams;
   const { supabase } = await requireUser();
-  const { data: projects } = await supabase.from("projects").select("id, title").order("title");
+  const { data: projects } = await supabase.from("projects").select("id, title").neq("status", "setup").order("title");
   let q = supabase.from("video_renders").select("*, contents(options, selection), projects(title)").eq("status", "ready").order("finished_at", { ascending: false }).limit(60);
   if (project) q = q.eq("project_id", project);
   const { data } = await q;

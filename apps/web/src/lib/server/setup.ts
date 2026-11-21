@@ -57,6 +57,14 @@ export async function startSetup(ownerId: string, prompt: string) {
   const text = prompt.trim();
   if (text.length < 4) throw new AppError(ErrorCodes.VALIDATION_ERROR, "Tell the agent a bit more about your idea", 400);
   const db = admin();
+  // A project is only kept once the agent has made its concept; drop abandoned drafts.
+  await db
+    .from("projects")
+    .delete()
+    .eq("owner_id", ownerId)
+    .eq("status", "setup")
+    .is("concept->>title", null)
+    .lt("created_at", new Date(Date.now() - 60 * 60_000).toISOString());
   const { data: project, error } = await db
     .from("projects")
     .insert({

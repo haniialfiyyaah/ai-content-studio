@@ -175,7 +175,7 @@ export function ReviewFlow({
         <div className="divider" />
         <div className="row between" style={{ flexWrap: "wrap", gap: 10 }}>
           <div className="actions">
-            <button className="btn ghost" disabled={busy} onClick={reject} title="Set this idea aside — it won't be drawn, rendered or published (you can restore it)"><X size={14} /> Reject</button>
+            <button className="btn ghost" disabled={busy} onClick={reject} title="Remove this idea — it won't be drawn, rendered or published"><X size={14} /> Remove</button>
             {nextPending && (
               <button className="btn ghost" disabled={busy} onClick={() => go(nextPending.id)}><SkipForward size={14} /> Skip</button>
             )}

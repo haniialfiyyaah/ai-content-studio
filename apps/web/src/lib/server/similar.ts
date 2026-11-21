@@ -29,7 +29,8 @@ export async function findSimilarProjects(ownerId: string, excludeId: string, te
     .neq("status", "stopped")
     .order("created_at", { ascending: false })
     .limit(40);
-  const projects = data ?? [];
+  // Unsaved setup drafts (no concept yet) don't count.
+  const projects = (data ?? []).filter((p) => p.status !== "setup" || (p.concept as { title?: string } | null)?.title);
   if (!projects.length) return [];
   const docs = projects.map((p) => {
     const niche = (p.concept as { niche?: string } | null)?.niche ?? "";

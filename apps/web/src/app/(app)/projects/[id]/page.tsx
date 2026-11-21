@@ -22,6 +22,9 @@ import { loadWorkspace } from "@/lib/server/queries";
 import { storyboardImageUrls, usableStoryboard, type StoryboardFrame } from "@/lib/server/storyboard";
 import { requireUser } from "@/lib/server/session";
 import { setupStale } from "@/lib/server/setup";
+import { contentHasMedia } from "@/lib/server/projects";
+import { projectSignals } from "@/lib/server/signals";
+import { SignalBadges } from "@/components/project/signal-badges";
 
 const TABS = [
   ["overview", "Overview"],
@@ -147,13 +150,7 @@ export default async function ProjectPage({
     );
   }
 
-  const { data: rejectedRows } = await supabase
-    .from("contents")
-    .select("id, options, selection")
-    .eq("project_id", p.id)
-    .eq("status", "archived")
-    .order("position");
-  const rejected = rejectedRows ?? [];
+  const signals = (await projectSignals(supabase, [p])).get(p.id);
 
   // Storyboard images for the content under review (slides in the Content tab).
   const reviewing = contents.find((c) => c.id === review && c.status === "draft") ?? contents.find((c) => c.status === "draft");
@@ -198,6 +195,7 @@ export default async function ProjectPage({
               <div className="row" style={{ flexWrap: "wrap" }}>
                 <h1>{p.cover_emoji ? `${p.cover_emoji} ` : ""}{p.title}</h1>
                 <span className={pillClass(p.status)}>{statusLabel(p.status)}</span>
+                <SignalBadges s={signals} status={p.status} timezone={p.schedule?.timezone} />
               </div>
               <p>{p.summary || p.prompt}</p>
               <div className="tagrow">
@@ -278,7 +276,7 @@ export default async function ProjectPage({
                         </div>
                         <div className="row">
                           {j?.status === "published" ? <span className="pill approved">Published</span> : r ? <span className={pillClass(r.status)}>Video {r.status}</span> : null}
-                          <span className={pillClass(c.status)}>{c.status === "approved" ? "Approved" : "Pending"}</span>
+                          <span className={pillClass(c.on_hold ? "paused" : c.status)}>{c.on_hold ? "On hold" : c.status === "approved" ? "Approved" : "Pending"}</span>
                           <span className="icbtn"><ArrowRight size={14} /></span>
                         </div>
                       </Link>
@@ -350,17 +348,6 @@ export default async function ProjectPage({
               {drafts > 0 && (
                 <div className="row"><Link className="btn small soft" href={`/projects/${p.id}?tab=content`}>▶️ Review one by one</Link></div>
               )}
-              {rejected.length > 0 && (
-                <div className="card pad">
-                  <div className="section"><div><h2 style={{ fontSize: 15 }}>Rejected ideas · {rejected.length}</h2><p className="xs muted">Set aside — not drawn, rendered or published.</p></div></div>
-                  {rejected.map((c) => (
-                    <div key={c.id} className="listrow">
-                      <span className="small">{resolveContent(c.options, c.selection).title}</span>
-                      {editable && <ActionButton path={`/api/contents/${c.id}/restore`} className="btn small ghost">↩️ Restore</ActionButton>}
-                    </div>
-                  ))}
-                </div>
-              )}
               {contents.map((c, i) => {
                 const picked = resolveContent(c.options, c.selection);
                 return (
@@ -371,10 +358,19 @@ export default async function ProjectPage({
                         <h2>{picked.title}</h2>
                       </div>
                       <div className="row">
-                        <span className={pillClass(c.status)}>{c.status === "approved" ? "Approved" : "Pending"}</span>
+                        <span className={pillClass(c.on_hold ? "paused" : c.status)}>{c.on_hold ? "On hold" : c.status === "approved" ? "Approved" : "Pending"}</span>
                         <RenderControls contentId={c.id} approved={c.status === "approved"} render={ws.renders.get(c.id)} />
-                        {editable && ws.jobs.get(c.id)?.status !== "published" && (
-                          <ActionButton path={`/api/contents/${c.id}/reject`} className="btn small ghost" title="Set aside — not drawn, rendered or published">✕ Reject</ActionButton>
+                        {editable && !["published", "publishing"].includes(ws.jobs.get(c.id)?.status ?? "") && (
+                          contentHasMedia(c, ws.renders.get(c.id)) ? (
+                            <>
+                              <ActionButton path={`/api/contents/${c.id}/hold`} body={{ hold: !c.on_hold }} className="btn small ghost" title={c.on_hold ? "Publish it again at its slot" : "Keep it, but don't publish until you resume"}>
+                                {c.on_hold ? "▶ Resume" : "⏸ Hold"}
+                              </ActionButton>
+                              <ActionButton path={`/api/contents/${c.id}/reject`} confirm="Reject this content? Its images and video are discarded and it won't be published." className="btn small ghost" title="Discard — never published">✕ Reject</ActionButton>
+                            </>
+                          ) : (
+                            <ActionButton path={`/api/contents/${c.id}/reject`} className="btn small ghost" title="Remove this idea">🗑 Remove</ActionButton>
+                          )
                         )}
                         {c.status === "approved" && editable && ws.jobs.get(c.id)?.status !== "published" && (
                           <ActionButton path={`/api/contents/${c.id}/unlock`} className="btn small ghost" title="Unlock to change options (removes approval)">🔓 Unlock</ActionButton>
@@ -456,7 +452,7 @@ export default async function ProjectPage({
                     return (
                       <div key={c.id} className="listrow">
                         <div><div className="small semibold">{resolveContent(c.options, c.selection).title}</div><div className="xs muted">{fmtDateTime(j?.scheduled_for ?? c.scheduled_for, p.schedule.timezone)}</div></div>
-                        <span className={pillClass(j?.status ?? c.status)}>{j ? statusLabel(j.status) : c.status === "approved" ? "Approved" : "Pending"}</span>
+                        <span className={pillClass(j?.status ?? c.status)}>{c.on_hold ? "On hold" : j ? statusLabel(j.status) : c.status === "approved" ? "Approved" : "Pending"}</span>
                       </div>
                     );
                   })}

@@ -479,3 +479,5 @@ alter table public.messages add column if not exists meta jsonb;
 
 alter table public.projects add column if not exists setup_similar jsonb;
 alter table public.projects add column if not exists setup_retries smallint not null default 0;
+alter table public.contents add column if not exists on_hold boolean not null default false;
+alter table public.projects add column if not exists auto_approve boolean not null default false;

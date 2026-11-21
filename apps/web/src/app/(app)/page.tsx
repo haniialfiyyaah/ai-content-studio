@@ -7,29 +7,33 @@ import { LiveRefresh } from "@/components/ui/live-refresh";
 import { fmtDateTime } from "@/lib/format";
 import type { ProjectRow } from "@/lib/server/rows";
 import { requireUser } from "@/lib/server/session";
+import { SAVED_PROJECTS_FILTER, projectSignals } from "@/lib/server/signals";
 
 export default async function OverviewPage() {
   const { supabase, user } = await requireUser();
   const [{ data: profile }, { data: projects }, { count: toReview }, { count: videosReady }, { data: nextJob }] = await Promise.all([
     supabase.from("profiles").select("display_name").eq("id", user.id).maybeSingle(),
-    supabase.from("projects").select("*").order("updated_at", { ascending: false }).limit(12),
+    supabase.from("projects").select("*").or(SAVED_PROJECTS_FILTER).order("updated_at", { ascending: false }).limit(24),
     supabase.from("contents").select("id", { count: "exact", head: true }).eq("status", "draft"),
     supabase.from("video_renders").select("id", { count: "exact", head: true }).eq("status", "ready"),
     supabase.from("publish_jobs").select("scheduled_for").eq("status", "scheduled").order("scheduled_for").limit(1).maybeSingle(),
   ]);
   const list = (projects ?? []) as ProjectRow[];
   const active = list.filter((p) => p.status === "active");
+  const signals = await projectSignals(supabase, list);
+  const needs = (p: ProjectRow) => signals.get(p.id)?.needsYou ?? 0;
   const attention = [
-    ...list.filter((p) => p.status === "generating").map((p) => ({ p, text: "Generating content…", icon: "gray" })),
-    ...list.filter((p) => p.status === "draft").map((p) => ({ p, text: "Review content, schedule and activate", icon: "" })),
     ...list.filter((p) => p.status === "failed").map((p) => ({ p, text: "Generation failed — retry", icon: "peach" })),
+    ...list.filter((p) => p.status === "setup" && needs(p)).map((p) => ({ p, text: "Setup is waiting for you", icon: "" })),
+    ...list.filter((p) => p.status !== "setup" && needs(p)).map((p) => ({ p, text: `${needs(p)} content to review`, icon: "" })),
+    ...list.filter((p) => !needs(p) && signals.get(p.id)?.inProgress).map((p) => ({ p, text: "In progress…", icon: "gray" })),
   ].slice(0, 4);
   const hour = Number(new Intl.DateTimeFormat("en-GB", { hour: "numeric", hour12: false, timeZone: "Asia/Jakarta" }).format(new Date()));
   const greet = hour < 11 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
 
   return (
     <main className="page">
-      <LiveRefresh sources={[{ table: "projects" }, { table: "video_renders" }]} />
+      <LiveRefresh sources={[{ table: "projects" }, { table: "video_renders" }, { table: "contents" }]} />
       <div className="eyebrow">STUDIO / OVERVIEW</div>
       <section className="hero">
         <div>
@@ -53,7 +57,7 @@ export default async function OverviewPage() {
           { label: "Projects", value: list.length, icon: Folder },
           { label: "Content to review", value: toReview ?? 0, icon: FileText },
           { label: "Videos ready", value: videosReady ?? 0, icon: Film },
-          { label: "Active projects", value: active.length, icon: Zap },
+          { label: "Live projects", value: active.length, icon: Zap },
         ].map((m) => (
           <div key={m.label} className="card metric">
             <div className="row between"><span>{m.label}</span><span className="iconTile"><m.icon size={16} /></span></div>
@@ -90,9 +94,9 @@ export default async function OverviewPage() {
               <strong>{active[0].title}</strong><br />Publishing {describeSchedule(active[0].schedule)}
             </div>
           ) : (
-            <div className="note" style={{ marginBottom: 12 }}>No active projects yet — activate one to start publishing.</div>
+            <div className="note" style={{ marginBottom: 12 }}>No live projects yet — approve &amp; schedule one to start publishing.</div>
           )}
-          <div className="kv"><label>Active recurring projects</label><strong>{active.length}</strong></div>
+          <div className="kv"><label>Live projects</label><strong>{active.length}</strong></div>
           <div className="kv"><label>Next upload</label><strong>{fmtDateTime(nextJob?.scheduled_for)}</strong></div>
           <div className="kv"><label>Recurring ideation</label><strong>{active.filter((p) => p.ideation_enabled).length} projects</strong></div>
         </div>
@@ -104,7 +108,7 @@ export default async function OverviewPage() {
           <Link href="/projects" className="linklike">All Projects →</Link>
         </div>
         <div className="grid g3">
-          {list.slice(0, 3).map((p) => <ProjectCard key={p.id} p={p} />)}
+          {list.slice(0, 3).map((p) => <ProjectCard key={p.id} p={p} signals={signals.get(p.id)} />)}
         </div>
       </div>
     </main>

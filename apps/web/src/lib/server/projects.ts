@@ -282,6 +282,31 @@ export async function rejectContent(ownerId: string, contentId: string) {
   return { rejected: contentId, nextId: (next?.id as string | undefined) ?? null };
 }
 
+/**
+ * Hold a content that already has images or a video: it keeps everything but
+ * is never published until resumed; later content moves up a slot.
+ */
+export async function holdContent(ownerId: string, contentId: string, hold: boolean) {
+  const db = admin();
+  const { data } = await db.from("contents").select("id, project_id, status, on_hold").eq("id", contentId).eq("owner_id", ownerId).maybeSingle();
+  if (!data) throw notFound("Content");
+  const { data: job } = await db.from("publish_jobs").select("status").eq("content_id", contentId).in("status", ["published", "publishing"]).maybeSingle();
+  if (job) throw conflict("Already published");
+  const project = await loadOwnedProject(ownerId, data.project_id);
+  await db.from("contents").update({ on_hold: hold, ...(hold ? { scheduled_for: null } : {}) }).eq("id", contentId);
+  if (hold) await db.from("publish_jobs").delete().eq("content_id", contentId).eq("status", "scheduled");
+  const schedule = ScheduleSchema.safeParse(project.schedule);
+  if (project.status === "active") await scheduleAndQueue(project);
+  else if (schedule.success) await assignSlots(project.id, schedule.data, false);
+  await logActivity(db, { ownerId, projectId: data.project_id, kind: hold ? "content.held" : "content.resumed", message: hold ? "Content on hold — it won't be published" : "Content resumed" });
+  return { onHold: hold };
+}
+
+/** True once images or a video exist for this content (then: Hold / Reject instead of Remove). */
+export function contentHasMedia(c: { storyboard_status?: string | null }, render?: { status: string } | null) {
+  return c.storyboard_status === "ready" || c.storyboard_status === "generating" || Boolean(render && !["failed", "cancelled"].includes(render.status));
+}
+
 export async function restoreContent(ownerId: string, contentId: string) {
   const db = admin();
   const { data } = await db.from("contents").select("id, project_id, status").eq("id", contentId).eq("owner_id", ownerId).maybeSingle();
@@ -403,6 +428,7 @@ async function assignSlots(projectId: string, schedule: Schedule, syncJobs: bool
     .select("id, position, status")
     .eq("project_id", projectId)
     .neq("status", "archived")
+    .eq("on_hold", false)
     .order("position");
   const { data: published } = await db
     .from("publish_jobs")
@@ -508,6 +534,7 @@ async function scheduleAndQueue(project: ProjectRow): Promise<number> {
     .select("id, scheduled_for, video_prompt")
     .eq("project_id", project.id)
     .eq("status", "approved")
+    .eq("on_hold", false)
     .order("position");
   const contents = rows ?? [];
   if (!contents.length) return 0;
