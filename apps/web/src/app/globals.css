@@ -227,3 +227,7 @@ a.btn,a.navitem,a.newbtn,a.tab,a.manage-nav{text-decoration:none}
 .ref-label{color:#6f6882;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.ref-x{position:absolute;top:4px;right:4px;background:#ffffffe6}
 .ref-add{width:96px;height:96px;border-radius:10px;border:1.5px dashed #d4cbee;background:#faf8ff;color:#7a5fd6;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;cursor:pointer}
 .start-visuals{display:flex;align-items:center;gap:6px}.start-visuals .option-select{padding:6px 26px 6px 10px;font-size:12px}
+/* start box: full width; the visuals dropdown blends in like the ghost buttons */
+.hero-start{grid-column:1/-1}.hero-start .heroform{max-width:none}
+.start-select{appearance:none;border:0;background:transparent url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='none' stroke='%23666077' stroke-width='2'%3E%3Cpath d='m3 4.5 3 3 3-3'/%3E%3C/svg%3E") no-repeat right 8px center;padding:8px 26px 8px 11px;border-radius:10px;font:inherit;font-size:11px;font-weight:740;color:#666077;cursor:pointer}
+.start-select:hover{background-color:#faf8ff}.start-select:focus-visible{outline:3px solid #b7a6fd;outline-offset:2px}

@@ -72,8 +72,7 @@ export function StartProject() {
           <input ref={picker} type="file" accept={ACCEPT} multiple hidden onChange={(e) => { setFiles([...files, ...Array.from(e.target.files ?? [])].slice(0, 10)); e.target.value = ""; }} />
           <button type="button" className="btn ghost small" onClick={() => picker.current?.click()}><ImagePlus size={14} /> Add reference</button>
           <label className="start-visuals" title={VISUAL_SOURCE_LABELS[visuals].help}>
-            <span className="tiny muted">Visuals</span>
-            <select className="option-select" value={visuals} onChange={(e) => setVisuals(e.target.value as VisualSource)}>
+            <select className="start-select" aria-label="Visuals" value={visuals} onChange={(e) => setVisuals(e.target.value as VisualSource)}>
               {VISUAL_SOURCES.map((v) => <option key={v} value={v}>{VISUAL_SOURCE_LABELS[v].label}</option>)}
             </select>
           </label>

@@ -42,12 +42,15 @@ export default async function OverviewPage() {
             <em>{profile?.display_name || "creator"}.</em>
           </h1>
           <p>Start from a thought, a product or a story. Your creative agent turns it into a Project with ready-to-review content, a schedule and automatic YouTube publishing.</p>
-          <StartProject />
         </div>
         <div className="heroart">
           <div className="art-card one"><span className="art-circle" /><span>✳︎</span></div>
           <div className="art-card two"><span className="art-circle" /><span>🎬</span></div>
           <div className="art-caption">✦ IDEA → PROJECT</div>
+        </div>
+        {/* The start box spans the whole hero. */}
+        <div className="hero-start">
+          <StartProject />
         </div>
       </section>
 
