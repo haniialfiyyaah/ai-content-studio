@@ -8,7 +8,6 @@ import { EndingForm } from "@/components/project/ending-form";
 import { LaunchPanel } from "@/components/project/launch-panel";
 import { ScheduleForm } from "@/components/project/schedule-form";
 import { SetupView } from "@/components/project/setup-view";
-import { AutoToggle } from "@/components/project/auto-toggle";
 import { PhaseSteps } from "@/components/project/phase-steps";
 import { PlanView, type PlanCard } from "@/components/project/plan-view";
 import { ProjectBrief } from "@/components/project/project-brief";
@@ -98,9 +97,7 @@ export default async function ProjectPage({
                 <div className="eyebrow">NEW PROJECT · SETUP</div>
                 <h1 style={{ fontSize: 27 }}>{p.emoji ? `${p.emoji} ` : ""}{p.title}</h1>
               </div>
-            </div>
-            <div className="card pad" style={{ marginBottom: 16, padding: "12px 16px" }}>
-              <AutoToggle projectId={p.id} initial={p.auto_approve} disabled={sp.setup_stage === "similar"} />
+              {p.auto_approve && <SignalBadges s={{ needsYou: 0, inProgress: false, nextUpload: null, auto: true }} status="draft" />}
             </div>
             <SetupView
               projectId={p.id}

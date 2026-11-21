@@ -64,7 +64,7 @@ async function webConversation(projectId: string) {
 }
 
 /** New project in setup: the creator's rough idea opens a discovery chat. */
-export async function startSetup(ownerId: string, prompt: string) {
+export async function startSetup(ownerId: string, prompt: string, opts: { auto?: boolean } = {}) {
   const text = prompt.trim();
   if (text.length < 4) throw new AppError(ErrorCodes.VALIDATION_ERROR, "Tell the agent a bit more about your idea", 400);
   const db = admin();
@@ -85,6 +85,7 @@ export async function startSetup(ownerId: string, prompt: string) {
       cover_tone: Math.floor(Math.random() * 4),
       status: "setup",
       setup_stage: "similar",
+      auto_approve: Boolean(opts.auto),
     })
     .select("id")
     .single();
@@ -97,7 +98,7 @@ export async function startSetup(ownerId: string, prompt: string) {
   if (convo) await db.from("messages").insert({ conversation_id: convo.id, owner_id: ownerId, role: "user", content: text });
   await logActivity(db, { ownerId, projectId: project.id, kind: "project.created", message: "Project started — shaping the idea with the agent" });
   await db.from("projects").update({ setup_busy: true, setup_started_at: new Date().toISOString() }).eq("id", project.id);
-  after(() => similarCheck(project.id as string, ownerId, text).catch(() => toConcept(project.id as string)));
+  after(() => similarCheck(project.id as string, ownerId, text, Boolean(opts.auto)).catch(() => toConcept(project.id as string)));
   return { projectId: project.id as string };
 }
 
@@ -106,11 +107,18 @@ export async function startSetup(ownerId: string, prompt: string) {
  * there or a different project?" (no AI needed). Borderline → the agent judges.
  * Nothing similar → straight to the concept.
  */
-async function similarCheck(projectId: string, ownerId: string, idea: string) {
+async function similarCheck(projectId: string, ownerId: string, idea: string, auto: boolean) {
   const db = admin();
   const matches = await findSimilarProjects(ownerId, projectId, idea);
   await db.from("projects").update({ setup_similar: matches }).eq("id", projectId);
   const top = matches[0];
+  // Auto: no question — say so and make this one clearly different (the concept agent gets the avoid list).
+  if (auto) {
+    if (top && top.score >= SIMILAR_STRONG) {
+      await postAssistantMessage(db, ownerId, projectId, `This is close to your project “${top.title}”, so I'll make this one clearly different.`);
+    }
+    return toConcept(projectId);
+  }
   if (top && top.score >= SIMILAR_STRONG) {
     await db.from("projects").update({ setup_busy: false }).eq("id", projectId);
     await postAssistantMessage(db, ownerId, projectId, similarQuestion(top.title, top.status), {

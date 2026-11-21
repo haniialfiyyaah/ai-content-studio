@@ -137,3 +137,5 @@ a.btn,a.navitem,a.newbtn,a.tab,a.manage-nav{text-decoration:none}
 .plan-field{display:flex;flex-direction:column;gap:3px}.plan-k{font-size:10px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;color:#a39bb5}.plan-hook{font-size:13px;font-weight:650;color:#4a4060;font-style:italic;line-height:1.5}
 .plan-tags{font-size:11px;color:#6a4fd0;line-height:1.6}
 @media (max-width:640px){.brief-title{font-size:21px}.brief-row{grid-template-columns:1fr;gap:2px}.plan-grid{grid-template-columns:1fr}}
+.start-bar{display:flex;align-items:center;gap:8px;margin-top:8px;flex-wrap:wrap}.start-auto{display:flex;align-items:center;gap:7px;cursor:pointer;margin-left:auto}.start-send{flex:none}.start-auto-help{margin-top:6px;padding:0 4px;line-height:1.5}
+@media (max-width:520px){.start-auto{margin-left:0}.start-send{margin-left:auto}}

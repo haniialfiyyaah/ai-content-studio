@@ -18,6 +18,7 @@ export function StartProject() {
   const [prompt, setPrompt] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [files, setFiles] = useState<File[]>([]);
+  const [auto, setAuto] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const [pending, start] = useTransition();
   const picker = useRef<HTMLInputElement>(null);
@@ -27,7 +28,7 @@ export function StartProject() {
     setError(null);
     start(async () => {
       try {
-        const { projectId } = await api<{ projectId: string }>("/api/projects", "POST", { idea: prompt });
+        const { projectId } = await api<{ projectId: string }>("/api/projects", "POST", { idea: prompt, auto });
         if (files.length) {
           // References are attached to the project while the agent shapes the idea.
           for (const [i, f] of files.entries()) {
@@ -65,12 +66,21 @@ export function StartProject() {
             ))}
           </div>
         )}
-        <div className="row between" style={{ marginTop: 8 }}>
+        <div className="start-bar">
           <input ref={picker} type="file" accept={ACCEPT} multiple hidden onChange={(e) => { setFiles([...files, ...Array.from(e.target.files ?? [])].slice(0, 10)); e.target.value = ""; }} />
           <button type="button" className="btn ghost small" onClick={() => picker.current?.click()}><ImagePlus size={14} /> Add reference</button>
-          <button className="btn primary" disabled={pending || !prompt.trim()} onClick={submit}>
-            {pending ? <Spinner /> : <Send size={14} />} {pending ? status ?? "Starting…" : "Talk it through"}
+          <label className="start-auto" title="Auto: the agent sets up the whole project without stopping">
+            <button type="button" className={`toggle ${auto ? "on" : ""}`} role="switch" aria-checked={auto} aria-label="Auto" onClick={() => setAuto(!auto)} />
+            <span className="small semibold">⚡ Auto</span>
+          </label>
+          <button className="btn primary start-send" disabled={pending || !prompt.trim()} onClick={submit}>
+            {pending ? <Spinner /> : <Send size={14} />} {pending ? status ?? "Starting…" : "Send"}
           </button>
+        </div>
+        <div className="tiny muted start-auto-help">
+          {auto
+            ? "Auto: I set up the whole project (concept, kit, pillars) without stopping — you see every step and can refine later."
+            : "Step by step: I stop after each part of the setup so you can check it. Turn on ⚡ Auto to skip the stops."}
         </div>
       </div>
       {error && <div className="err">{error}</div>}

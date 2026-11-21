@@ -7,7 +7,7 @@ import { startSetup } from "@/lib/server/setup";
 export async function POST(req: Request) {
   return handle(async () => {
     const { user } = await requireUser();
-    const { idea } = z.object({ idea: z.string().trim().min(1).max(2000) }).parse(await req.json());
-    return startSetup(user.id, idea);
+    const { idea, auto } = z.object({ idea: z.string().trim().min(1).max(2000), auto: z.boolean().default(false) }).parse(await req.json());
+    return startSetup(user.id, idea, { auto });
   }, 201);
 }

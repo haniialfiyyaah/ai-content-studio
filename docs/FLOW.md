@@ -162,8 +162,11 @@ never published until resumed, later content moves up a slot) or **Reject**
 
 ## Content setup (phase 2) — decisions, round 3
 
-- **Auto** toggle in the setup (default off): on = the agent runs concept → kit
-  → pillars and locks the setup by itself; every step still shows. Only an
+- **Auto** toggle on the start box, next to Add reference and Send (default
+  off), with a one-line description. On = no stops in the project setup: a
+  similar project is only mentioned ("I'll make this one clearly different"),
+  then concept → kit → pillars → lock run by themselves; every step still
+  shows. The content concept still stops for a check. Only an
   "⚡ Auto" tag is shown when on — nothing when off. (Auto for later steps: TBD.)
 - No status tags, Approve & schedule or production tabs until the content
   setup is done.
