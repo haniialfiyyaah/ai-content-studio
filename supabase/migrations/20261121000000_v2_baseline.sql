@@ -430,3 +430,4 @@ ALTER TABLE public.projects ADD COLUMN IF NOT EXISTS visual_source text NOT NULL
 -- setup step "character": the project character (AI sheet and/or mascot) + reference uploads
 ALTER TABLE public.projects DROP CONSTRAINT IF EXISTS projects_setup_stage_check;
 ALTER TABLE public.projects ADD CONSTRAINT projects_setup_stage_check CHECK (setup_stage IN ('similar', 'concept', 'kit', 'pillars', 'character', 'done'));
+ALTER TABLE public.projects ALTER COLUMN visual_source SET DEFAULT 'mascot';

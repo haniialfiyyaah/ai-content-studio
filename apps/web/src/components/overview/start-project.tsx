@@ -20,7 +20,7 @@ export function StartProject() {
   const [error, setError] = useState<string | null>(null);
   const [files, setFiles] = useState<File[]>([]);
   const [auto, setAuto] = useState(false);
-  const [visuals, setVisuals] = useState<VisualSource>("ai");
+  const [visuals, setVisuals] = useState<VisualSource>("mascot");
   const [status, setStatus] = useState<string | null>(null);
   const [pending, start] = useTransition();
   const picker = useRef<HTMLInputElement>(null);
@@ -74,7 +74,7 @@ export function StartProject() {
           <label className="start-visuals" title={VISUAL_SOURCE_LABELS[visuals].help}>
             <span className="tiny muted">Visuals</span>
             <select className="option-select" value={visuals} onChange={(e) => setVisuals(e.target.value as VisualSource)}>
-              {VISUAL_SOURCES.map((v) => <option key={v} value={v}>{VISUAL_SOURCE_LABELS[v].label}{v === "mascot" ? " · free" : ""}</option>)}
+              {VISUAL_SOURCES.map((v) => <option key={v} value={v}>{VISUAL_SOURCE_LABELS[v].label}</option>)}
             </select>
           </label>
           <label className="start-auto" title="Auto setup: the agent sets up the whole project without stopping">

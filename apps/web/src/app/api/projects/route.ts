@@ -9,7 +9,7 @@ export async function POST(req: Request) {
   return handle(async () => {
     const { user } = await requireUser();
     const { idea, auto, visualSource } = z
-      .object({ idea: z.string().trim().min(1).max(2000), auto: z.boolean().default(false), visualSource: z.enum(VISUAL_SOURCES).default("ai") })
+      .object({ idea: z.string().trim().min(1).max(2000), auto: z.boolean().default(false), visualSource: z.enum(VISUAL_SOURCES).default("mascot") })
       .parse(await req.json());
     return startSetup(user.id, idea, { auto, visualSource });
   }, 201);

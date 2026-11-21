@@ -102,7 +102,7 @@ export function CharacterStep({
           PREVIEW.map((a, i) => (
             <figure key={i} className={`char-card ${editable ? "clickable-card" : ""}`} onClick={change} title={editable ? "Click to change the mascot" : undefined}>
               <MascotScene spec={mascot} action={a} palette={palette} className="char-img" />
-              {i === 0 && <figcaption className="xs muted">Mascot — drawn by code, free</figcaption>}
+              {i === 0 && <figcaption className="xs muted">Your mascot</figcaption>}
             </figure>
           ))}
       </div>

@@ -92,7 +92,7 @@ export async function startSetup(ownerId: string, prompt: string, opts: { auto?:
       status: "setup",
       setup_stage: "similar",
       auto_approve: Boolean(opts.auto),
-      visual_source: opts.visualSource ?? "ai",
+      visual_source: opts.visualSource ?? "mascot",
     })
     .select("id")
     .single();

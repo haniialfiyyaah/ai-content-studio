@@ -144,7 +144,7 @@ export type VisualSource = (typeof VISUAL_SOURCES)[number];
 export const VISUAL_SOURCE_LABELS: Record<VisualSource, { label: string; help: string }> = {
   ai: { label: "AI illustrations", help: "Every scene is a custom AI image — best looking, uses image credits." },
   mixed: { label: "Mixed", help: "AI images for the hook, payoff and ending; your mascot in the other scenes." },
-  mascot: { label: "Mascot", help: "Your project mascot, drawn by code in every scene — free." },
+  mascot: { label: "Mascot", help: "Your project mascot, drawn in every scene." },
 };
 
 export const IMAGE_ENGINES = ["openai", "fal"] as const;
