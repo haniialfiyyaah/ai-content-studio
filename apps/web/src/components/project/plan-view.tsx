@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import { Plus, SkipForward, Sparkles, Undo2 } from "lucide-react";
 import { InlineAuto } from "./inline-auto";
 import { api } from "@/lib/client/api";
@@ -46,6 +46,7 @@ export function PlanView({
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
+  const [autoOn, setAutoOn] = useState(Boolean(auto));
   const working = busy && !stale;
   const series = plan.format === "series";
   const name = (c: PlanCard) => (series ? c.label || `#${c.n}` : "the video");
@@ -108,9 +109,12 @@ export function PlanView({
         {cards.map((c) => (
           <article
             key={c.id}
-            className={`card plan-card ${working ? "dim" : ""} ${c.skipped ? "skipped" : ""} ${!readOnly && !c.skipped && !working ? "clickable-card" : ""}`}
-            title={!readOnly && !c.skipped && !working ? "Click to change this content" : undefined}
-            onClick={() => !readOnly && !c.skipped && !working && compose(`Change ${name(c)}: `)}
+            className={`card plan-card ${working ? "dim" : ""} ${c.skipped ? "skipped" : ""} ${readOnly || (!c.skipped && !working) ? "clickable-card" : ""}`}
+            title={readOnly ? "Open the content details" : !c.skipped && !working ? "Click to change this content" : undefined}
+            onClick={() => {
+              if (readOnly) router.push(`/projects/${projectId}/content/${c.id}`);
+              else if (!c.skipped && !working) compose(`Change ${name(c)}: `);
+            }}
           >
             <div className="row between" style={{ gap: 8 }}>
               <span className="plan-label">{series ? c.label || `#${c.n}` : "Your video"}{c.skipped ? " · skipped" : ""}</span>
@@ -145,11 +149,11 @@ export function PlanView({
       {!readOnly && <div className="plan-foot">
         <button className="btn small soft" disabled={working} onClick={() => compose("Add 1 more content: ")}><Plus size={13} /> Add content</button>
         <div className="foot-actions">
-        <InlineAuto projectId={projectId} field="autoApprove" initial={Boolean(auto)} hint="Auto: go on to the storyboards without stopping" />
+        <InlineAuto on={autoOn} onChange={setAutoOn} hint="Auto: after this, the next steps run without stopping" />
         <button
           className="btn primary"
           disabled={working || pending}
-          onClick={() => start(async () => { await api(`/api/projects/${projectId}/setup`, "POST", { action: "continue" }).catch(() => undefined); router.refresh(); })}
+          onClick={() => start(async () => { await api(`/api/projects/${projectId}/setup`, "POST", { action: "continue", auto: autoOn }).catch(() => undefined); router.refresh(); })}
         >
           {pending ? <Spinner size={13} /> : null} Continue to storyboard{series ? "s" : ""} →
         </button>

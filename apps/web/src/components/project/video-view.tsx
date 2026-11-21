@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Download, RotateCcw } from "lucide-react";
 import { ActionButton } from "@/components/ui/action-button";
 
@@ -58,7 +59,9 @@ export function VideoView({ items, series }: { items: VideoItem[]; series: boole
                   {series && <span className="plan-label">{it.label || `#${it.n}`}</span>}
                   {r?.status === "ready" && <span className="pill approved">{it.published ? "Published" : it.scheduled ? "Scheduled" : "Video ready"}</span>}
                 </div>
-                <h3 className="vid-title">{it.title}</h3>
+                <h3 className="vid-title">
+                  {r && r.status === "ready" ? <Link href={`/videos/${r.id}`} className="vid-link">{it.title} →</Link> : it.title}
+                </h3>
                 {failed && r?.error && <div className="xs err">{r.error}</div>}
                 <div className="actions" style={{ gap: 6 }}>
                   {r?.status === "ready" && (

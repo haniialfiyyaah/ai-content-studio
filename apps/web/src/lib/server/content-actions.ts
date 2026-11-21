@@ -28,6 +28,9 @@ export async function contentAction(ownerId: string, contentId: string, action: 
       return unlockContent(ownerId, contentId);
     case "storyboard":
       return redrawStoryboard(ownerId, contentId);
+    case "draw_missing":
+      // Draw only the scenes without a finished image (finished ones are kept).
+      return redrawStoryboard(ownerId, contentId, { onlyMissing: true });
     case "render":
       return requestRender(ownerId, contentId);
     case "make_video":

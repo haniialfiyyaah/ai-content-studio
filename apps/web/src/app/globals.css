@@ -216,3 +216,4 @@ a.btn,a.navitem,a.newbtn,a.tab,a.manage-nav{text-decoration:none}
 .clickable-card{cursor:pointer;transition:border-color .15s,box-shadow .15s}.clickable-card:hover{border-color:#c9bcf4;box-shadow:0 0 0 3px #8166e21a}
 .halted-note{margin-bottom:12px}
 .sb-title-click{cursor:pointer;border-radius:10px;padding:4px 6px;margin:-4px -6px}.sb-title-click:hover{background:#f6f3ff}.sb-flip:not([title]){cursor:default}
+.sb-beat-click{cursor:pointer;border-radius:12px}.sb-beat-click:hover .sb-heading{color:#5e43c6}.vid-link{text-decoration:none;color:inherit}.vid-link:hover{color:#5e43c6}

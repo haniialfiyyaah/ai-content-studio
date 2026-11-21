@@ -65,9 +65,9 @@ export function StoryboardView({
       await api(`/api/projects/${projectId}/setup`, "POST", { action: "retry" }).catch(() => undefined);
       router.refresh();
     });
-  const act = (contentId: string, action: "skip" | "restore" | "make_video") => {
+  const act = (contentId: string, action: "skip" | "restore" | "make_video" | "draw_missing") => {
     const it = items.find((x) => x.id === contentId);
-    if (it && action !== "make_video") sentToChat(`${action === "skip" ? "⏭ Skip" : "↩️ Restore"} ${it.label ? `${it.label} · ` : ""}${it.title}`);
+    if (it && (action === "skip" || action === "restore")) sentToChat(`${action === "skip" ? "⏭ Skip" : "↩️ Restore"} ${it.label ? `${it.label} · ` : ""}${it.title}`);
     return start(async () => {
       await api(`/api/contents/${contentId}/actions`, "POST", { action }).catch(() => undefined);
       router.refresh();
@@ -110,11 +110,14 @@ export function StoryboardView({
             {/* Click the title to change every scene of this video (the concept stays). */}
             <div
               style={{ minWidth: 0 }}
-              className={canChange(it) ? "sb-title-click" : ""}
-              role={canChange(it) ? "button" : undefined}
-              tabIndex={canChange(it) ? 0 : undefined}
-              title={canChange(it) ? "Click to change all scenes of this video" : undefined}
-              onClick={() => canChange(it) && compose(`Change ${name(it)} (all scenes): `)}
+              className={canChange(it) || readOnly ? "sb-title-click" : ""}
+              role={canChange(it) || readOnly ? "button" : undefined}
+              tabIndex={canChange(it) || readOnly ? 0 : undefined}
+              title={readOnly ? "Open the content details" : canChange(it) ? "Click to change all scenes of this video" : undefined}
+              onClick={() => {
+                if (readOnly) router.push(`/projects/${projectId}/content/${it.id}`);
+                else if (canChange(it)) compose(`Change ${name(it)} (all scenes): `);
+              }}
             >
               {series && <span className="plan-label">{it.label || `#${it.n}`}{it.skipped ? " · skipped" : ""}</span>}
               <h3 className="sb-title">{it.title}</h3>
@@ -126,6 +129,11 @@ export function StoryboardView({
                   <button className="btn small ghost" disabled={pending} onClick={() => act(it.id, "restore")}><Undo2 size={12} /> Restore</button>
                 ) : (
                   <>
+                    {!it.video && it.status === "ready" && it.frames.some((f) => f?.status === "failed") && (
+                      <button className="btn small soft" disabled={pending} title="Draw only the scenes whose image failed" onClick={() => act(it.id, "draw_missing")}>
+                        <RotateCcw size={12} /> Draw missing images
+                      </button>
+                    )}
                     {it.video && ["queued", "rendering", "ready"].includes(it.video.status) ? (
                       <span className={`pill ${it.video.status === "ready" ? "approved" : "blue"}`}>
                         {it.video.status === "ready" ? "🎬 Video ready" : it.video.phase === "compose" ? "Composing video…" : "Making video…"}
@@ -180,7 +188,15 @@ export function StoryboardView({
                 const f = it.frames[i];
                 const busy = f?.status === "drawing" || f?.status === "editing" || (!f && s.background !== "design");
                 return (
-                  <figure key={i} className="sb-beat">
+                  <figure
+                    key={i}
+                    className={`sb-beat ${canChange(it) && !busy ? "sb-beat-click" : ""}`}
+                    onClick={(e) => {
+                      // the image handles its own click
+                      if ((e.target as HTMLElement).closest(".sb-flip")) return;
+                      if (canChange(it) && !busy) compose(`Change ${name(it)} scene ${i + 1} (“${s.heading}”): `);
+                    }}
+                  >
                     <SceneImage
                       s={s}
                       index={i}

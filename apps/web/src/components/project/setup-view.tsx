@@ -66,6 +66,7 @@ export function SetupView({
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [viewing, setViewing] = useState<SetupStage | null>(null);
+  const [autoOn, setAutoOn] = useState(Boolean(auto));
   const at = STEPS.indexOf(stage as (typeof STEPS)[number]);
   const working = busy && !stale;
   const needRetry = stale || (!busy && stage !== "similar" && !hasResult(stage, concept, kit));
@@ -75,7 +76,7 @@ export function SetupView({
     setError(null);
     start(async () => {
       try {
-        const r = await api<{ redirect?: string }>(`/api/projects/${projectId}/setup`, "POST", { action, targetId });
+        const r = await api<{ redirect?: string }>(`/api/projects/${projectId}/setup`, "POST", { action, targetId, ...(action === "continue" ? { auto: autoOn } : {}) });
         if (r?.redirect) return router.push(r.redirect);
         router.refresh();
       } catch (e) {
@@ -226,7 +227,7 @@ export function SetupView({
               )}
               <div className="foot-actions">
                 {stage !== "similar" && (
-                  <InlineAuto projectId={projectId} field="autoApprove" initial={Boolean(auto)} hint="Auto: the rest of the setup runs without stopping" />
+                  <InlineAuto on={autoOn} onChange={setAutoOn} hint="Auto: after this, the rest of the setup runs without stopping" />
                 )}
                 <button
                   className={`btn ${stage === "similar" ? "" : "primary"}`}

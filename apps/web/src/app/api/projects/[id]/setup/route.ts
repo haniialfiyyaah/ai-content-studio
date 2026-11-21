@@ -8,11 +8,11 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
   return handle(async () => {
     const { id } = await ctx.params;
     const { user } = await requireUser();
-    const { action, targetId } = z
-      .object({ action: z.enum(["continue", "retry", "start_new", "use_similar", "stop", "resume"]), targetId: z.string().uuid().optional() })
+    const { action, targetId, auto } = z
+      .object({ action: z.enum(["continue", "retry", "start_new", "use_similar", "stop", "resume"]), targetId: z.string().uuid().optional(), auto: z.boolean().optional() })
       .parse(await req.json());
     if (action === "stop") return stopGenerating(user.id, id);
     if (action === "resume") return continueGenerating(user.id, id);
-    return setupAction(user.id, id, action, targetId);
+    return setupAction(user.id, id, action, targetId, auto);
   }, 200);
 }

@@ -281,3 +281,12 @@ never published until resumed, later content moves up a slot) or **Reject**
   Stopped · Archived. Shown on project cards, the project header and as the
   Projects filters. Per content: Idea → Approved → Video ready → Scheduled →
   Published (+ Skipped / On hold).
+- The **Auto switch** next to a continue button changes nothing until that
+  button is clicked (the choice is sent with it) — no badge before.
+- **No endless loaders**: a scene spins only while its storyboard is really
+  being drawn (started < 10 min ago); a stuck "drawing" shows as failed with
+  **Draw missing images** (draws only scenes without a finished image). A script
+  whose run already ended shows as failed with Retry.
+- The whole scene card is clickable to refine. Once the concept is locked,
+  concept cards (read-only view) and storyboard titles open the content
+  details; ready video cards open the video details.

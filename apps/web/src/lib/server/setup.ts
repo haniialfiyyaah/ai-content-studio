@@ -164,8 +164,13 @@ export async function setupMessage(ownerId: string, projectId: string, content: 
  * - start_new: dismiss a "similar project" suggestion
  * - use_similar: continue in the similar project instead (this draft is removed)
  */
-export async function setupAction(ownerId: string, projectId: string, action: "continue" | "retry" | "start_new" | "use_similar", targetId?: string) {
-  const p = await loadSetupProject(ownerId, projectId);
+export async function setupAction(ownerId: string, projectId: string, action: "continue" | "retry" | "start_new" | "use_similar", targetId?: string, auto?: boolean) {
+  let p = await loadSetupProject(ownerId, projectId);
+  // The Auto switch next to a continue button takes effect only when that button is clicked.
+  if (action === "continue" && auto !== undefined && auto !== p.auto_approve) {
+    await admin().from("projects").update({ auto_approve: auto }).eq("id", projectId);
+    p = { ...p, auto_approve: auto };
+  }
   if (action === "use_similar") return continueInSimilar(p, targetId);
   const stage = agentStage(p);
   if (!stage) throw conflict("Setup is finished");

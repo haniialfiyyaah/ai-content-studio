@@ -184,9 +184,18 @@ export default async function ProjectPage({
                 scenes: c.scenes,
                 frames: c.scenes.map((_, j) => {
                   const f = frames.find((x) => x.scene === j);
-                  return f ? { status: f.status, url: urls[j] ?? null } : undefined;
+                  // Only spin while images are really being drawn right now; a stuck "drawing" shows as failed.
+                  const sb = c as typeof c & { storyboard_status?: string; storyboard_started_at?: string | null };
+                  const drawingNow =
+                    sb.storyboard_status === "generating" &&
+                    (!sb.storyboard_started_at || Date.now() - new Date(sb.storyboard_started_at).getTime() < 10 * 60_000);
+                  const live = drawingNow || (f?.status === "editing" && busy);
+                  if (!f) return c.script_status === "ready" && !drawingNow ? { status: "failed" as const, url: null } : undefined;
+                  const st = (f.status === "drawing" || f.status === "editing") && !live ? ("failed" as const) : f.status;
+                  return { status: st, url: urls[j] ?? null };
                 }),
-                status: c.script_status ?? "none",
+                // A script whose run already ended (failed / stopped) is failed, not "writing" forever.
+                status: c.script_status === "writing" && runFor(c.id) && ["failed", "succeeded"].includes(runFor(c.id)!.status as string) ? "failed" : (c.script_status ?? "none"),
                 skipped: c.status === "skipped",
                 video: (() => {
                   const r = ws.renders.get(c.id);
