@@ -194,8 +194,8 @@ export async function generateStoryboard(contentId: string, opts: { force?: bool
       const kept = keep(s, i);
       if (kept) return kept;
       // Archived (or stopped) meanwhile: stop drawing.
-      const { data: st } = await db.from("projects").select("status").eq("id", p.id).maybeSingle();
-      if (st?.status === "archived" || st?.status === "stopped") return { ...live[i], status: "failed" };
+      const { data: st } = await db.from("projects").select("status, halted").eq("id", p.id).maybeSingle();
+      if (st?.status === "archived" || st?.status === "stopped" || st?.halted) return { ...live[i], status: "failed" };
       const f = { ...(await drawFrame(s, i)), visual: s.visual };
       live[i] = f;
       await save();

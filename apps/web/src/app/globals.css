@@ -212,3 +212,7 @@ a.btn,a.navitem,a.newbtn,a.tab,a.manage-nav{text-decoration:none}
 .sb-head-actions{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;align-items:center}
 .ready-inline{display:grid;grid-template-columns:auto 1fr auto;gap:14px;align-items:center;padding:14px 16px;margin-bottom:14px;border-color:#d9f0e5;background:linear-gradient(120deg,#f4fcf8,#fff 60%)}.ready-inline .ready-mark{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;background:#e3f6ec;color:#2c9a75}
 @media (max-width:640px){.ready-inline{grid-template-columns:1fr}.ready-inline .btn{width:100%}}
+.gen-stop{border-color:#f1cfcf;color:#b23b3b;background:#fff7f7}.gen-stop:hover{background:#fdecec}
+.clickable-card{cursor:pointer;transition:border-color .15s,box-shadow .15s}.clickable-card:hover{border-color:#c9bcf4;box-shadow:0 0 0 3px #8166e21a}
+.halted-note{margin-bottom:12px}
+.sb-title-click{cursor:pointer;border-radius:10px;padding:4px 6px;margin:-4px -6px}.sb-title-click:hover{background:#f6f3ff}.sb-flip:not([title]){cursor:default}

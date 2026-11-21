@@ -241,18 +241,20 @@ export async function startRender(renderId: string) {
       });
     }
 
-    await db
+    const { error: saveError } = await db
       .from("video_renders")
       .update({
         steps,
         captions,
         narration_path: narrationPath,
-        provider: [...new Set(steps.map((st) => st.source))].join("+") + "+remotion",
-        model: [...new Set(steps.map((s) => s.model ?? s.source))].join(", "),
+        // which image engines/models were used, e.g. "openai:gpt-image-2.6-flare+remotion"
+        provider: [...new Set(steps.map((st) => (st.model ? `${st.source}:${st.model}` : st.source)))].join("+") + "+remotion",
         prompt: c.video_prompt,
         attempts: render.attempts + 1,
       })
       .eq("id", render.id);
+    // Never continue silently: without saved steps the renderer would get an empty job.
+    if (saveError) throw new AppError(ErrorCodes.INTERNAL_ERROR, `Could not save the render steps: ${saveError.message}`, 500);
     return { claimed: true, status: "rendering", scenes: steps.length };
   } catch (error) {
     await failRender(render.id, error instanceof Error ? error.message : "Render failed to start");

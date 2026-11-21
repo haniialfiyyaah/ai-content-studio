@@ -50,8 +50,14 @@ export function AgentPanel({
         input.current?.setSelectionRange(text.length, text.length);
       });
     };
+    // Buttons elsewhere (skip, restore…) show their chat message right away.
+    const onSent = (e: Event) => setPendingText((e as CustomEvent<string>).detail ?? null);
     window.addEventListener("acs:compose", onCompose);
-    return () => window.removeEventListener("acs:compose", onCompose);
+    window.addEventListener("acs:sent", onSent);
+    return () => {
+      window.removeEventListener("acs:compose", onCompose);
+      window.removeEventListener("acs:sent", onSent);
+    };
   }, []);
 
 

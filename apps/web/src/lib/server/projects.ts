@@ -14,7 +14,8 @@ import {
 import { createAdminClient } from "@/lib/supabase/admin";
 import { dispatchToN8n } from "./dispatch";
 import { queueStoryboards } from "./storyboard";
-import { agentStage, autoContinue, autoVideos, fixSeriesNumbers, setupMessage } from "./setup";
+import { agentStage, fixSeriesNumbers, setupMessage } from "./setup";
+import { after } from "next/server";
 import { setImageEngine, setVisualMode } from "./assets";
 import { logActivity, notifyTelegram, postAssistantMessage } from "./events";
 import type { ContentRow, ProjectRow } from "./rows";
@@ -266,7 +267,7 @@ export async function skipContent(ownerId: string, contentId: string) {
   await db.from("publish_jobs").delete().eq("content_id", contentId).eq("status", "scheduled");
   await db.from("video_renders").update({ status: "cancelled" }).eq("content_id", contentId).in("status", ["queued"]);
   await chatNote(ownerId, data.project_id, `⏭ Skip ${contentName(data)}`);
-  await fixSeriesNumbers(data.project_id);
+  after(() => fixSeriesNumbers(data.project_id).catch(() => undefined));
   await logActivity(db, { ownerId, projectId: data.project_id, kind: "content.skipped", message: `Skipped ${contentName(data)}` });
   return { skipped: contentId };
 }
@@ -278,7 +279,7 @@ export async function restoreContent(ownerId: string, contentId: string) {
   if (data.status !== "skipped" && data.status !== "removed") return { restored: contentId };
   await db.from("contents").update({ status: "idea" }).eq("id", contentId);
   await chatNote(ownerId, data.project_id, `↩️ Restore ${contentName(data)}`);
-  await fixSeriesNumbers(data.project_id);
+  after(() => fixSeriesNumbers(data.project_id).catch(() => undefined));
   await logActivity(db, { ownerId, projectId: data.project_id, kind: "content.restored", message: `Restored ${contentName(data)}` });
   return { restored: contentId };
 }
@@ -388,12 +389,10 @@ export async function updateProjectSettings(ownerId: string, projectId: string, 
   if (input.autoApprove !== undefined) {
     await admin().from("projects").update({ auto_approve: input.autoApprove }).eq("id", projectId);
     out.autoApprove = input.autoApprove;
-    if (input.autoApprove) await autoContinue(ownerId, projectId);
   }
   if (input.autoVideo !== undefined) {
     await admin().from("projects").update({ auto_video: input.autoVideo }).eq("id", projectId);
     out.autoVideo = input.autoVideo;
-    if (input.autoVideo) await autoVideos(projectId);
   }
   return out;
 }

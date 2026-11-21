@@ -9,10 +9,10 @@ export function SignalBadges({ s, timezone, compact }: { s?: ProjectSignals; sta
     <div className="signals">
       {s.needsYou > 0 && (
         <span className="signal needs" title="Waiting for your confirm">
-          <Bell size={11} /> Needs you{s.needsYou > 1 ? ` (${s.needsYou})` : ""}
+          <Bell size={11} /> Needs you ({s.needsYou})
         </span>
       )}
-      {s.inProgress && (
+      {s.inProgress && !compact && (
         <span className="signal busy" title="Generating or rendering now">
           <Loader2 size={11} className="spin" /> In progress
         </span>
@@ -22,7 +22,7 @@ export function SignalBadges({ s, timezone, compact }: { s?: ProjectSignals; sta
           <CalendarClock size={11} /> {compact ? "Next" : "Next upload"} {fmtDateTime(s.nextUpload, timezone)}
         </span>
       )}
-      {s.auto && (
+      {s.auto && !compact && (
         <span className="signal auto" title="The agent sets up the project without stopping">
           <Zap size={11} /> Auto setup
         </span>

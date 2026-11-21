@@ -36,6 +36,7 @@ export interface ProjectRow {
   schedule: Partial<Schedule>;
   auto_approve: boolean;
   auto_video?: boolean;
+  halted?: boolean;
   archived_from?: string | null;
   content_stage: "none" | "plan" | "storyboard" | "production";
   content_plan: Record<string, unknown>;

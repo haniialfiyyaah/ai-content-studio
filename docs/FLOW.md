@@ -257,3 +257,21 @@ never published until resumed, later content moves up a slot) or **Reject**
   done).
 - **Ready pop-up: Not now** stops the countdown and turns auto off; an inline
   "Your project is ready" bar with Generate content stays.
+
+## Round 8
+
+- **No pencil buttons.** Click a field (setup), a card (content concept), a
+  scene (storyboard) or a video's title (all scenes) — the refine message is
+  pre-filled in the chat. Scene images flip on hover (desktop).
+- **Auto switches only save the preference**; the continue button next to them
+  does the work. No auto switch on the storyboards (the last step before video).
+- **Skip / Restore** shows in the chat instantly; renumbering runs after the
+  response.
+- **Stop / Continue generating** (header, while the agent is making anything):
+  Stop sets `projects.halted`, fails queued runs, marks writing scripts and
+  drawing frames as failed, cancels renders; results arriving later are
+  ignored. Continue resumes what was left at the current step (setup task,
+  plan, unfinished scripts, missing images only, cancelled videos).
+- Project cards show only counted badges ("Needs you (n)").
+- Fix: renders saved a removed column (`model`) → steps never saved → empty
+  job → "Renderer rejected the job (400)". Saving now fails loudly.

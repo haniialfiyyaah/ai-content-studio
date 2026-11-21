@@ -2,10 +2,10 @@
 
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
-import { Pencil, Plus, SkipForward, Sparkles, Undo2 } from "lucide-react";
+import { Plus, SkipForward, Sparkles, Undo2 } from "lucide-react";
 import { InlineAuto } from "./inline-auto";
 import { api } from "@/lib/client/api";
-import { compose } from "@/lib/client/compose";
+import { compose, sentToChat } from "@/lib/client/compose";
 import { Spinner } from "@/components/ui/spinner";
 
 export interface PlanCard {
@@ -50,11 +50,14 @@ export function PlanView({
   const series = plan.format === "series";
   const name = (c: PlanCard) => (series ? c.label || `#${c.n}` : "the video");
   const active = cards.filter((c) => !c.skipped).length;
-  const act = (id: string, action: "skip" | "restore") =>
-    start(async () => {
+  const act = (id: string, action: "skip" | "restore") => {
+    const c = cards.find((x) => x.id === id);
+    if (c) sentToChat(`${action === "skip" ? "⏭ Skip" : "↩️ Restore"} ${c.label ? `${c.label} · ` : ""}${c.title}`);
+    return start(async () => {
       await api(`/api/contents/${id}/actions`, "POST", { action }).catch(() => undefined);
       router.refresh();
     });
+  };
 
   if (working && !cards.length) {
     return (
@@ -103,22 +106,22 @@ export function PlanView({
 
       <div className={series ? "plan-grid" : "plan-single"}>
         {cards.map((c) => (
-          <article key={c.id} className={`card plan-card ${working ? "dim" : ""} ${c.skipped ? "skipped" : ""}`}>
+          <article
+            key={c.id}
+            className={`card plan-card ${working ? "dim" : ""} ${c.skipped ? "skipped" : ""} ${!readOnly && !c.skipped && !working ? "clickable-card" : ""}`}
+            title={!readOnly && !c.skipped && !working ? "Click to change this content" : undefined}
+            onClick={() => !readOnly && !c.skipped && !working && compose(`Change ${name(c)}: `)}
+          >
             <div className="row between" style={{ gap: 8 }}>
               <span className="plan-label">{series ? c.label || `#${c.n}` : "Your video"}{c.skipped ? " · skipped" : ""}</span>
               {!readOnly && (
                 <span className="row" style={{ gap: 4 }}>
                   {c.skipped ? (
-                    <button className="btn small ghost" disabled={working || pending} onClick={() => act(c.id, "restore")}><Undo2 size={12} /> Restore</button>
+                    <button className="btn small ghost" disabled={working || pending} onClick={(e) => { e.stopPropagation(); act(c.id, "restore"); }}><Undo2 size={12} /> Restore</button>
                   ) : (
-                    <>
-                      {active > 1 && series && (
-                        <button className="btn small ghost" title="Skip — kept here, can be restored" disabled={working || pending} onClick={() => act(c.id, "skip")}><SkipForward size={12} /> Skip</button>
-                      )}
-                      <button className="icbtn tinybtn" title={`Change ${name(c)}`} disabled={working} onClick={() => compose(`Change ${name(c)}: `)}>
-                        <Pencil size={11} />
-                      </button>
-                    </>
+                    active > 1 && series && (
+                      <button className="btn small ghost" title="Skip — kept here, can be restored" disabled={working || pending} onClick={(e) => { e.stopPropagation(); act(c.id, "skip"); }}><SkipForward size={12} /> Skip</button>
+                    )
                   )}
                 </span>
               )}

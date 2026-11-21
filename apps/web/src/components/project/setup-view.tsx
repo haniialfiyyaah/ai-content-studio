@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { ArrowRight, Check, Pencil, RotateCcw } from "lucide-react";
+import { ArrowRight, Check, RotateCcw } from "lucide-react";
 import {
   CTA_LABELS,
   SETUP_STAGES,
@@ -222,7 +222,7 @@ export function SetupView({
               {stage === "similar" ? (
                 <span className="xs muted">Or tell the agent which way you want to go.</span>
               ) : (
-                <span className="xs muted">Tap ✏️ on any field to change it, or tell the agent.</span>
+                <span className="xs muted">Click any field to change it, or tell the agent.</span>
               )}
               <div className="foot-actions">
                 {stage !== "similar" && (
@@ -263,41 +263,30 @@ function Summary({ label, text }: { label: string; text: string }) {
   );
 }
 
-function EditBtn({ text, size = 11 }: { text: string; size?: number }) {
-  return (
-    <button className="icbtn tinybtn" title={text.replace(/: $/, "")} onClick={() => compose(text)}>
-      <Pencil size={size} />
-    </button>
-  );
-}
-
 function Field({ label, value, wide, edit, hint, children }: { label: string; value?: string; wide?: boolean; edit?: boolean; hint?: string; children?: React.ReactNode }) {
   if (!value) return null;
   return (
-    <div className={`setup-field ${wide ? "wide" : ""}`}>
-      <div className="row between" style={{ gap: 6 }}>
-        <label>{label}{hint ? <span className="faint" style={{ textTransform: "none", letterSpacing: 0 }}> · {hint}</span> : null}</label>
-        {edit && <EditBtn text={`Change the ${label.toLowerCase()}: `} />}
-      </div>
+    <div
+      className={`setup-field ${wide ? "wide" : ""} ${edit ? "clickable-card" : ""}`}
+      title={edit ? `Click to change the ${label.toLowerCase()}` : undefined}
+      onClick={() => edit && compose(`Change the ${label.toLowerCase()}: `)}
+    >
+      <label>{label}{hint ? <span className="faint" style={{ textTransform: "none", letterSpacing: 0 }}> · {hint}</span> : null}</label>
       <div className="small line">{value}</div>
       {children}
     </div>
   );
 }
 
-/** Short scannable points; ✏️ per point. */
+/** Short scannable points; click a point (or the box) to change it. */
 function Points({ label, items }: { label: string; items: string[] }) {
   return (
     <div className="setup-field">
-      <div className="row between" style={{ gap: 6 }}>
-        <label>{label}</label>
-        <EditBtn text={`Change the ${label.toLowerCase()}: `} />
-      </div>
+      <label>{label}</label>
       <ul className="setup-points">
         {items.map((x, i) => (
-          <li key={i}>
+          <li key={i} className="clickable-card" title="Click to change this point" onClick={() => compose(`Change ${label.toLowerCase()} point ${i + 1} (“${x}”): `)}>
             <span>{x}</span>
-            <EditBtn size={10} text={`Change ${label.toLowerCase()} point ${i + 1} (“${x}”): `} />
           </li>
         ))}
       </ul>

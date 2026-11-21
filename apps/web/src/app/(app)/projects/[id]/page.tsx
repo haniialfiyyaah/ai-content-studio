@@ -14,6 +14,7 @@ import { ProjectBrief } from "@/components/project/project-brief";
 import { StoryboardView } from "@/components/project/storyboard-view";
 import { ReadyModal } from "@/components/project/ready-modal";
 import { ArchiveButton } from "@/components/project/archive-button";
+import { GenerationControl } from "@/components/project/generation-control";
 import { SetupSummary } from "@/components/project/setup-summary";
 import { VideoView } from "@/components/project/video-view";
 import { WorkspaceFrame } from "@/components/project/workspace-frame";
@@ -119,6 +120,7 @@ export default async function ProjectPage({
               </div>
               <div className="row" style={{ gap: 8 }}>
                 {p.auto_approve && <SignalBadges s={{ needsYou: 0, inProgress: false, nextUpload: null, auto: true }} status="draft" />}
+                <GenerationControl projectId={p.id} working={sp.setup_busy && !setupStale(sp) && sp.setup_stage !== "similar"} halted={Boolean(p.halted)} />
                 <ArchiveButton projectId={p.id} />
               </div>
             </div>
@@ -197,6 +199,12 @@ export default async function ProjectPage({
           )
         : [];
     const drawing = boards.some((b) => b.frames.some((f) => f?.status === "drawing" || f?.status === "editing"));
+    // Anything the agent is making right now (Stop is shown while this is true).
+    const working =
+      busy ||
+      contents.some((c) => c.script_status === "writing" || (c as typeof c & { storyboard_status?: string }).storyboard_status === "generating") ||
+      drawing ||
+      [...ws.renders.values()].some((r) => r.status === "queued" || r.status === "rendering");
     return (
       <>
         <LiveRefresh
@@ -232,6 +240,7 @@ export default async function ProjectPage({
               />
               <div className="row" style={{ gap: 8 }}>
                 {p.auto_approve && <SignalBadges s={{ needsYou: 0, inProgress: false, nextUpload: null, auto: true }} status={p.status} />}
+                <GenerationControl projectId={p.id} working={working} halted={Boolean(p.halted)} />
                 <ArchiveButton projectId={p.id} />
               </div>
             </div>
@@ -269,7 +278,7 @@ export default async function ProjectPage({
             ) : p.content_stage === "plan" ? (
               <PlanView projectId={p.id} plan={plan} cards={cards} busy={p.setup_busy} stale={setupStale(p)} auto={p.auto_approve} />
             ) : (
-              <StoryboardView projectId={p.id} series={plan.format === "series"} items={boards} autoVideo={Boolean(p.auto_video)} />
+              <StoryboardView projectId={p.id} series={plan.format === "series"} items={boards} />
             )}
           </main>
         </WorkspaceFrame>

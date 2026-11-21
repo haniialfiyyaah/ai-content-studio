@@ -137,9 +137,9 @@ export async function generationComplete(raw: unknown) {
 
   const { data: project } = await db.from("projects").select("*").eq("id", r.project_id).single();
   const p = project as ProjectRow;
-  if (p.status === "archived") {
-    await db.from("generation_runs").update({ status: "failed", error: "Project archived", finished_at: new Date().toISOString() }).eq("id", r.id);
-    return { runId: r.id, ignored: "archived" };
+  if (p.status === "archived" || p.halted) {
+    await db.from("generation_runs").update({ status: "failed", error: p.halted ? "Stopped" : "Project archived", finished_at: new Date().toISOString() }).eq("id", r.id);
+    return { runId: r.id, ignored: p.halted ? "stopped" : "archived" };
   }
 
   const n = payload.contents.length;
@@ -272,8 +272,8 @@ async function storyboardComplete(p: ProjectRow, r: RunRow, out: GenerationCompl
       p.owner_id,
       p.id,
       total && total > 1
-        ? "All storyboards are ready ✏️ Check the scenes and script of each video and tell me anything to change."
-        : "The storyboard is ready ✏️ Check the scenes and the script and tell me anything to change.",
+        ? "All storyboards are ready ✅ Click a scene to change it, or a video's title to change all its scenes."
+        : "The storyboard is ready ✅ Click a scene to change it, or the title to change all its scenes.",
     );
   }
   return { runId: r.id, storyboard: id };

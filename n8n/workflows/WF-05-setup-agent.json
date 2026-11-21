@@ -2,9 +2,9 @@
  "name": "WF-05 Setup Agent",
  "nodes": [
   {
-   "id": "fdaefc03-ff3a-4979-add3-e51e8a33a899",
+   "id": "1b6b1734-69d4-488d-8652-b576c7598014",
    "name": "05-01 Webhook",
-   "webhookId": "4217b411-0d06-4789-b329-bda193a88957",
+   "webhookId": "01d083ee-50d7-4d3c-a53a-5b0dcaa9c924",
    "type": "n8n-nodes-base.webhook",
    "typeVersion": 2,
    "position": [
@@ -18,7 +18,7 @@
    }
   },
   {
-   "id": "e02c08e4-5ae5-4ad4-8ec9-e9ebba932b81",
+   "id": "7cc4d7d4-fa48-40e8-bcf3-9fdc0e650e8b",
    "name": "05-02 Load context",
    "type": "n8n-nodes-base.httpRequest",
    "typeVersion": 4.2,
@@ -52,7 +52,7 @@
    }
   },
   {
-   "id": "7384dbdf-aac6-4e45-80cf-e91d1c71666c",
+   "id": "2755710f-b44f-46d5-8f07-c5741dca8606",
    "name": "05-90 Mark failed",
    "type": "n8n-nodes-base.httpRequest",
    "typeVersion": 4.2,
@@ -86,7 +86,7 @@
    }
   },
   {
-   "id": "850e7a1c-b581-4260-9aad-167f4d40d58d",
+   "id": "673c1a33-379a-450d-97b4-73a9507971ee",
    "name": "05-10 Task chat?",
    "type": "n8n-nodes-base.if",
    "typeVersion": 2.2,
@@ -104,7 +104,7 @@
      },
      "conditions": [
       {
-       "id": "a5787cc9-8404-4dd8-9b47-1a74a49346a6",
+       "id": "ee92779b-f64f-402b-860d-4bb2d9bf15bb",
        "leftValue": "={{ $('05-02 Load context').item.json.data.task }}",
        "rightValue": "chat",
        "operator": {
@@ -119,7 +119,7 @@
    }
   },
   {
-   "id": "fe983dbf-58e4-4f9c-a79d-f8b98cd6fb45",
+   "id": "05417b1a-2976-42ff-b007-b66b14971f73",
    "name": "05-20 Chat",
    "type": "@n8n/n8n-nodes-langchain.chainLlm",
    "typeVersion": 1.9,
@@ -136,14 +136,14 @@
      "messageValues": [
       {
        "type": "SystemMessagePromptTemplate",
-       "message": "You are the Creative Agent of AI Content Studio. You help a creator turn a rough idea into a short-form video project (YouTube Shorts / Reels / TikTok, 9:16, 20-45 s) BEFORE anything is generated. The creator stays in control.\n\nAlways reply in the APP LANGUAGE given below (not the content language), warm and concrete, max 60 words. Ask at most 2 short questions per turn - keep it light, never interrogate. Offer 2-4 quick-reply chips (each max 6 words) that answer your question; empty when you ask nothing.\n\nSTAGE \"discovery\" - the ONLY job here is avoiding duplicate projects. Do NOT ask about audience, goal, tone or language (details are adjusted later on the concept).\n- similarCandidates are the creator's projects scored by similarity (>=0.55 = same idea; 0.35-0.55 = maybe; cross-language matches score lower, so judge by topic).\n- If a candidate is clearly about the same topic/niche and the creator has not answered this yet: action.type=\"similar\", action.projectId=its id, and ask ONE question: continue in that project, or create a different one?\n- Otherwise, or when the creator chose a different/new project: action.type=\"propose\" and say in one line that you are sketching the concept now.\n- If the creator wants the existing project: action.type=\"similar\" with that id again and tell them to tap \"Continue there\".\n\nSTAGE \"plan\" - the project setup is locked; the creator is reviewing the CONTENT PLAN cards (single video or series; each with title, hook, description, hashtags). Changes -> action.type=\"refine\", action.feedback naming the items (\"Day 2: make the hook a question\", \"#3 title shorter\", \"make it 7 days\"); accept -> action.type=\"continue\" and say storyboards come next. Never change the concept, kit or pillars here - they are locked.\n\nSTAGE \"storyboard\" - the creator is reviewing the STORYBOARDS (each scene: image, narration, shot). Changes -> action.type=\"refine\" with action.feedback = the video plus, when they meant one scene, the scene number and the change (\"Day 2 scene 3: show the pan, not the chef\") or, for the whole video, the change without a scene (\"Day 2 all scenes: make it funnier\"); reply confirms in one line. The content concept (title, hook, description, hashtags) stays locked. If it is not clear which video, action.type=\"ask\". Accept -> action.type=\"continue\" and say the video comes next. Concept, kit, pillars and the content plan are locked here.\n\nNEW CONTENT (stages \"plan\" and \"storyboard\"): when the creator wants more / new content ideas, action.type=\"add\", action.count = how many (1-5, default 1), action.feedback = what they should be about (empty if anything). Reply that you are adding them.\n\nSTAGES \"concept\", \"kit\", \"pillars\" - the creator is reviewing that stage's result (shown next to the chat).\n- They want changes -> action.type=\"refine\", action.feedback = a precise instruction for that stage only, naming the field when they did (messages like \"Change the niche: ...\" target that field; keep their words, e.g. \"niche: budget cooking for university students\"); reply confirms in one line.\n- They accept / say continue / ok / lanjut -> action.type=\"continue\".\nFill in sensible defaults instead of asking; the creator edits fields with the pencil buttons.\n- A question -> answer it, action.type=\"ask\".\n\nNever write the concept, kit or pillars yourself in the reply. action.feedback and action.projectId are empty strings when unused."
+       "message": "You are the Creative Agent of AI Content Studio. You help a creator turn a rough idea into a short-form video project (YouTube Shorts / Reels / TikTok, 9:16, 20-45 s) BEFORE anything is generated. The creator stays in control.\n\nAlways reply in the APP LANGUAGE given below (not the content language), warm and concrete, max 60 words. Ask at most 2 short questions per turn - keep it light, never interrogate. Offer 2-4 quick-reply chips (each max 6 words) that answer your question; empty when you ask nothing.\n\nSTAGE \"discovery\" - the ONLY job here is avoiding duplicate projects. Do NOT ask about audience, goal, tone or language (details are adjusted later on the concept).\n- similarCandidates are the creator's projects scored by similarity (>=0.55 = same idea; 0.35-0.55 = maybe; cross-language matches score lower, so judge by topic).\n- If a candidate is clearly about the same topic/niche and the creator has not answered this yet: action.type=\"similar\", action.projectId=its id, and ask ONE question: continue in that project, or create a different one?\n- Otherwise, or when the creator chose a different/new project: action.type=\"propose\" and say in one line that you are sketching the concept now.\n- If the creator wants the existing project: action.type=\"similar\" with that id again and tell them to tap \"Continue there\".\n\nSTAGE \"plan\" - the project setup is locked; the creator is reviewing the CONTENT PLAN cards (single video or series; each with title, hook, description, hashtags). Changes -> action.type=\"refine\", action.feedback naming the items (\"Day 2: make the hook a question\", \"#3 title shorter\", \"make it 7 days\"); accept -> action.type=\"continue\" and say storyboards come next. Never change the concept, kit or pillars here - they are locked.\n\nSTAGE \"storyboard\" - the creator is reviewing the STORYBOARDS (each scene: image, narration, shot). Changes -> action.type=\"refine\" with action.feedback = the video plus, when they meant one scene, the scene number and the change (\"Day 2 scene 3: show the pan, not the chef\") or, for the whole video, the change without a scene (\"Day 2 all scenes: make it funnier\"); reply confirms in one line. The content concept (title, hook, description, hashtags) stays locked. If it is not clear which video, action.type=\"ask\". Accept -> action.type=\"continue\" and say the video comes next. Concept, kit, pillars and the content plan are locked here.\n\nNEW CONTENT (stages \"plan\" and \"storyboard\"): when the creator wants more / new content ideas, action.type=\"add\", action.count = how many (1-5, default 1), action.feedback = what they should be about (empty if anything). Reply that you are adding them.\n\nSTAGES \"concept\", \"kit\", \"pillars\" - the creator is reviewing that stage's result (shown next to the chat).\n- They want changes -> action.type=\"refine\", action.feedback = a precise instruction for that stage only, naming the field when they did (messages like \"Change the niche: ...\" target that field; keep their words, e.g. \"niche: budget cooking for university students\"); reply confirms in one line.\n- They accept / say continue / ok / lanjut -> action.type=\"continue\".\nFill in sensible defaults instead of asking; the creator clicks a field to change it.\n- A question -> answer it, action.type=\"ask\".\n\nNever write the concept, kit or pillars yourself in the reply. action.feedback and action.projectId are empty strings when unused."
       }
      ]
     }
    }
   },
   {
-   "id": "c6b4c33c-70e5-4121-a09e-36c25f8e09e7",
+   "id": "97745b32-9cf0-41d0-a52e-cc4709b40cb0",
    "name": "OpenAI (Chat)",
    "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
    "typeVersion": 1.3,
@@ -171,7 +171,7 @@
    }
   },
   {
-   "id": "bae69cff-51eb-4f1c-91e4-305ee307148c",
+   "id": "cc3c3a66-ec49-47d3-ae9f-58e02de60c6a",
    "name": "Schema (Chat)",
    "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
    "typeVersion": 1.3,
@@ -185,7 +185,7 @@
    }
   },
   {
-   "id": "50447544-654c-4ebc-8399-34dfeebcad38",
+   "id": "a928e55b-b47b-44fb-831a-0ba36d71af65",
    "name": "05-30 Save chat",
    "type": "n8n-nodes-base.httpRequest",
    "typeVersion": 4.2,
@@ -219,7 +219,7 @@
    }
   },
   {
-   "id": "d2ff57af-7ae0-42f1-85c6-808ed61076b5",
+   "id": "d2fab42e-63ef-4b2e-a441-69246928a9e7",
    "name": "05-11 Task concept?",
    "type": "n8n-nodes-base.if",
    "typeVersion": 2.2,
@@ -237,7 +237,7 @@
      },
      "conditions": [
       {
-       "id": "e7feb4de-dbc6-459a-a88b-95ef7013810a",
+       "id": "38aac54a-7ae9-40e3-bc48-c380e9466db4",
        "leftValue": "={{ $('05-02 Load context').item.json.data.task }}",
        "rightValue": "concept",
        "operator": {
@@ -252,7 +252,7 @@
    }
   },
   {
-   "id": "d8ecd86e-0403-443c-8cb1-498b62c84802",
+   "id": "d38a3746-cf42-4998-be82-1753f8bb7fda",
    "name": "05-21 Concept",
    "type": "@n8n/n8n-nodes-langchain.chainLlm",
    "typeVersion": 1.9,
@@ -276,7 +276,7 @@
    }
   },
   {
-   "id": "25bae995-1da0-4e1b-aacc-f3d1700b2c11",
+   "id": "2ec66fcc-5016-4207-b5ad-4cb202c1ee24",
    "name": "OpenAI (Concept)",
    "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
    "typeVersion": 1.3,
@@ -304,7 +304,7 @@
    }
   },
   {
-   "id": "4ef6669f-a3d6-466a-b697-71cdb25f35b2",
+   "id": "fbcec395-fd86-4dfd-951d-bd19f794e6d1",
    "name": "Schema (Concept)",
    "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
    "typeVersion": 1.3,
@@ -318,7 +318,7 @@
    }
   },
   {
-   "id": "239ac2a3-daec-4011-9312-180251bf2c25",
+   "id": "9f28d051-205c-451a-85fd-7909536f1280",
    "name": "05-31 Save concept",
    "type": "n8n-nodes-base.httpRequest",
    "typeVersion": 4.2,
@@ -352,7 +352,7 @@
    }
   },
   {
-   "id": "c924c553-8d67-4374-81c3-39b5bbae7ca6",
+   "id": "39aef06c-b70c-453b-8467-8bd266f7afdc",
    "name": "05-12 Task kit?",
    "type": "n8n-nodes-base.if",
    "typeVersion": 2.2,
@@ -370,7 +370,7 @@
      },
      "conditions": [
       {
-       "id": "42d7eef0-304c-4e7c-842e-61e5dcd6d9b0",
+       "id": "58d3d98e-46d5-4f46-a8c1-1c002ae8aada",
        "leftValue": "={{ $('05-02 Load context').item.json.data.task }}",
        "rightValue": "kit",
        "operator": {
@@ -385,7 +385,7 @@
    }
   },
   {
-   "id": "f4d0e59f-af70-47ce-a639-cd654d54c407",
+   "id": "8a321455-fe4c-4260-8d4b-a4a67757fda2",
    "name": "05-22 Kit",
    "type": "@n8n/n8n-nodes-langchain.chainLlm",
    "typeVersion": 1.9,
@@ -409,7 +409,7 @@
    }
   },
   {
-   "id": "8a6d4151-a0eb-4b4c-8572-d2a16361154d",
+   "id": "e8216820-e509-4e29-a56d-43b5143f4ae9",
    "name": "OpenAI (Kit)",
    "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
    "typeVersion": 1.3,
@@ -437,7 +437,7 @@
    }
   },
   {
-   "id": "8da3080b-b452-480c-8683-0a8152b93724",
+   "id": "c70a5c1e-34f6-4a87-992f-555f33015e5e",
    "name": "Schema (Kit)",
    "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
    "typeVersion": 1.3,
@@ -451,7 +451,7 @@
    }
   },
   {
-   "id": "b6c78038-d79b-4730-b2b5-f72802ca44f7",
+   "id": "c5fcde5f-0f65-4e29-aac4-70bbefc97d0f",
    "name": "05-32 Save kit",
    "type": "n8n-nodes-base.httpRequest",
    "typeVersion": 4.2,
@@ -485,7 +485,7 @@
    }
   },
   {
-   "id": "fd786862-6c30-4572-b21e-3935de5b3f5a",
+   "id": "f7471ab9-5ead-436e-8873-0a136a3faff3",
    "name": "05-13 Task pillars?",
    "type": "n8n-nodes-base.if",
    "typeVersion": 2.2,
@@ -503,7 +503,7 @@
      },
      "conditions": [
       {
-       "id": "964fc2d5-2193-4ff1-ba80-c640d9a53489",
+       "id": "b2ffad00-1954-4a90-9da3-05795765a7d7",
        "leftValue": "={{ $('05-02 Load context').item.json.data.task }}",
        "rightValue": "pillars",
        "operator": {
@@ -518,7 +518,7 @@
    }
   },
   {
-   "id": "8580deb0-75d3-4541-8963-9cd80f79c8ce",
+   "id": "c96f2be1-7940-43f5-be91-f55aee08540b",
    "name": "05-23 Pillars",
    "type": "@n8n/n8n-nodes-langchain.chainLlm",
    "typeVersion": 1.9,
@@ -542,7 +542,7 @@
    }
   },
   {
-   "id": "cdee59b0-9d8e-44ed-ace6-58707ec2d971",
+   "id": "882493e6-2ef4-4767-8c93-3c4759432f9b",
    "name": "OpenAI (Pillars)",
    "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
    "typeVersion": 1.3,
@@ -570,7 +570,7 @@
    }
   },
   {
-   "id": "affb5804-ac71-4535-818d-34e10e62cdfb",
+   "id": "efa53285-c272-4fb7-9ae9-3e4997d4c552",
    "name": "Schema (Pillars)",
    "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
    "typeVersion": 1.3,
@@ -584,7 +584,7 @@
    }
   },
   {
-   "id": "9bd00593-aca1-4aba-8a79-f6d2055038e2",
+   "id": "d20514e3-eee6-40e1-8496-0efb6736d06a",
    "name": "05-33 Save pillars",
    "type": "n8n-nodes-base.httpRequest",
    "typeVersion": 4.2,
@@ -618,7 +618,7 @@
    }
   },
   {
-   "id": "08a809ee-bedb-4cd0-9d99-d68bd000f6ec",
+   "id": "6d8d4ffc-0846-473a-ba4c-7c336ee801a5",
    "name": "05-14 Task scene?",
    "type": "n8n-nodes-base.if",
    "typeVersion": 2.2,
@@ -636,7 +636,7 @@
      },
      "conditions": [
       {
-       "id": "26ac121b-e4d9-4299-8616-dc08f6c51e90",
+       "id": "e4b27dd8-fd68-40d5-aedb-087f7f556a70",
        "leftValue": "={{ $('05-02 Load context').item.json.data.task }}",
        "rightValue": "scene",
        "operator": {
@@ -651,7 +651,7 @@
    }
   },
   {
-   "id": "6d8af195-5d78-4fa1-b62e-fbc619892529",
+   "id": "a766bdc1-8665-4c29-a36a-31c696958ca1",
    "name": "05-24 Scene",
    "type": "@n8n/n8n-nodes-langchain.chainLlm",
    "typeVersion": 1.9,
@@ -675,7 +675,7 @@
    }
   },
   {
-   "id": "70dd7c63-48a0-4112-8fed-4bff0b29d097",
+   "id": "0b9d8496-da3b-41f6-924e-5d903889841e",
    "name": "OpenAI (Scene)",
    "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
    "typeVersion": 1.3,
@@ -703,7 +703,7 @@
    }
   },
   {
-   "id": "5031f6b6-2c35-47e3-a6a1-6ae6fef81f2e",
+   "id": "291f507e-d202-45ef-9058-b43830645435",
    "name": "Schema (Scene)",
    "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
    "typeVersion": 1.3,
@@ -717,7 +717,7 @@
    }
   },
   {
-   "id": "808e875f-26be-47b4-915b-4755b12eb11b",
+   "id": "21aee6e3-c977-4989-b77a-d0133cbbe72f",
    "name": "05-34 Save scene",
    "type": "n8n-nodes-base.httpRequest",
    "typeVersion": 4.2,
@@ -751,7 +751,7 @@
    }
   },
   {
-   "id": "da781fc5-b43d-44c4-a82b-f576e195d1e3",
+   "id": "8d23279b-515c-4383-8237-2f33c202ab24",
    "name": "05-15 Task renumber?",
    "type": "n8n-nodes-base.if",
    "typeVersion": 2.2,
@@ -769,7 +769,7 @@
      },
      "conditions": [
       {
-       "id": "49c6384d-d46d-4624-986d-287417a0a8fe",
+       "id": "62233873-42bc-400f-a108-328bb128cc5b",
        "leftValue": "={{ $('05-02 Load context').item.json.data.task }}",
        "rightValue": "renumber",
        "operator": {
@@ -784,7 +784,7 @@
    }
   },
   {
-   "id": "d14fdf22-f638-4001-908f-7cc5258a2c4a",
+   "id": "00d6ba28-6899-4910-88a6-d13a088c4938",
    "name": "05-25 Renumber",
    "type": "@n8n/n8n-nodes-langchain.chainLlm",
    "typeVersion": 1.9,
@@ -808,7 +808,7 @@
    }
   },
   {
-   "id": "c51798f5-50e8-4b8e-baea-e592ccf843bd",
+   "id": "6d1c3847-7d7f-479b-a0dc-4638000e7a68",
    "name": "OpenAI (Renumber)",
    "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
    "typeVersion": 1.3,
@@ -836,7 +836,7 @@
    }
   },
   {
-   "id": "89df7db4-b5c2-4c6c-95cf-248a3aa597f4",
+   "id": "2fceb196-864e-4d24-b1d1-04811346dff3",
    "name": "Schema (Renumber)",
    "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
    "typeVersion": 1.3,
@@ -850,7 +850,7 @@
    }
   },
   {
-   "id": "c6682012-c208-4079-973d-30e2bd74f1bc",
+   "id": "346b2cca-e99e-4cc9-be13-ff442cc3cb09",
    "name": "05-35 Save renumber",
    "type": "n8n-nodes-base.httpRequest",
    "typeVersion": 4.2,
@@ -884,7 +884,7 @@
    }
   },
   {
-   "id": "a5c0b44a-527e-48c0-a0dd-dff5fbf8d5ca",
+   "id": "5e70443e-ccca-4ced-9e4b-baf5a4d19a14",
    "name": "05-16 Task more?",
    "type": "n8n-nodes-base.if",
    "typeVersion": 2.2,
@@ -902,7 +902,7 @@
      },
      "conditions": [
       {
-       "id": "4bea6d34-2f8b-48b7-8c3e-befd4d680829",
+       "id": "505bb067-0895-409f-ad38-862b3169593c",
        "leftValue": "={{ $('05-02 Load context').item.json.data.task }}",
        "rightValue": "more",
        "operator": {
@@ -917,7 +917,7 @@
    }
   },
   {
-   "id": "b927a1a9-2cef-457a-8d06-8d501a953f31",
+   "id": "0b1f2407-f46c-4b53-9b4d-a80873db27f8",
    "name": "05-26 More",
    "type": "@n8n/n8n-nodes-langchain.chainLlm",
    "typeVersion": 1.9,
@@ -941,7 +941,7 @@
    }
   },
   {
-   "id": "584b69b8-4b95-4525-b7c2-ebc8bbdcc9a7",
+   "id": "b7a013ea-bb5a-4b4c-8b56-1991ae699b88",
    "name": "OpenAI (More)",
    "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
    "typeVersion": 1.3,
@@ -969,7 +969,7 @@
    }
   },
   {
-   "id": "1fdfa2f5-bc6c-47fd-949d-e9cf1b653053",
+   "id": "62cf928c-96b9-45e0-a36b-1ab1d50c784b",
    "name": "Schema (More)",
    "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
    "typeVersion": 1.3,
@@ -983,7 +983,7 @@
    }
   },
   {
-   "id": "f726bb19-1e94-4012-8c25-e79f834b89b2",
+   "id": "efb7ab24-347d-4c29-85b3-4e1d27d4ae36",
    "name": "05-36 Save more",
    "type": "n8n-nodes-base.httpRequest",
    "typeVersion": 4.2,
@@ -1017,7 +1017,7 @@
    }
   },
   {
-   "id": "82b88726-5634-435e-ac06-d8001b8da6da",
+   "id": "7afb4a4a-0c53-4733-9540-31d1fd2dd036",
    "name": "05-17 Task plan?",
    "type": "n8n-nodes-base.if",
    "typeVersion": 2.2,
@@ -1035,7 +1035,7 @@
      },
      "conditions": [
       {
-       "id": "05ee3005-84d5-4efe-b506-ed5941125a6e",
+       "id": "f13233d2-a237-4bd8-8bd6-48d2fdd62c32",
        "leftValue": "={{ $('05-02 Load context').item.json.data.task }}",
        "rightValue": "plan",
        "operator": {
@@ -1050,7 +1050,7 @@
    }
   },
   {
-   "id": "056cb65a-f8b2-4909-b280-e1385f40c482",
+   "id": "d41b5e9c-c1ea-4071-9fdb-77cd46ddbbe9",
    "name": "05-27 Plan",
    "type": "@n8n/n8n-nodes-langchain.chainLlm",
    "typeVersion": 1.9,
@@ -1074,7 +1074,7 @@
    }
   },
   {
-   "id": "773eb4e5-a84d-43a8-a519-d57b6c80c243",
+   "id": "43530b21-f338-4bb7-aecb-9bfe35231b37",
    "name": "OpenAI (Plan)",
    "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
    "typeVersion": 1.3,
@@ -1102,7 +1102,7 @@
    }
   },
   {
-   "id": "dfe71fe3-78b1-40f4-b9e7-5d38a4cfdf7b",
+   "id": "ad9e0506-af3a-4c33-9672-abf489cdb1af",
    "name": "Schema (Plan)",
    "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
    "typeVersion": 1.3,
@@ -1116,7 +1116,7 @@
    }
   },
   {
-   "id": "9111ad95-2134-4805-b35f-50453bbf062e",
+   "id": "fe6f2ac3-26c2-4d84-9785-1f4838b71ef2",
    "name": "05-37 Save plan",
    "type": "n8n-nodes-base.httpRequest",
    "typeVersion": 4.2,

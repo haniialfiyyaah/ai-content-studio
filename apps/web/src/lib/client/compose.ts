@@ -2,3 +2,8 @@
 export function compose(text: string) {
   window.dispatchEvent(new CustomEvent("acs:compose", { detail: text }));
 }
+
+/** Show a button press in the agent chat immediately (the real message replaces it). */
+export function sentToChat(text: string) {
+  window.dispatchEvent(new CustomEvent("acs:sent", { detail: text }));
+}

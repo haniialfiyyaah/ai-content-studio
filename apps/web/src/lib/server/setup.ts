@@ -20,7 +20,7 @@ import { after } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { SIMILAR_STRONG, findSimilarProjects, type SimilarProject } from "./similar";
 import { dispatchToN8n } from "./dispatch";
-import { markFrame, queueSceneRedraw } from "./storyboard";
+import { markFrame, queueSceneRedraw, queueStoryboards } from "./storyboard";
 import { queueGeneration, requestRender } from "./projects";
 import { logActivity, postAssistantMessage } from "./events";
 import type { ProjectRow } from "./rows";
@@ -58,7 +58,7 @@ export function setupStale(p: Pick<SetupProject, "setup_busy" | "setup_started_a
 
 /** Marks the agent busy and sends the task to n8n. */
 async function runTask(projectId: string, task: SetupTask, feedback = "", target?: { contentId: string; scene: number }, count?: number) {
-  await admin().from("projects").update({ setup_busy: true, setup_started_at: new Date().toISOString() }).eq("id", projectId);
+  await admin().from("projects").update({ setup_busy: true, setup_started_at: new Date().toISOString(), halted: false }).eq("id", projectId);
   dispatchToN8n("setup", { projectId, task, feedback, ...(target ? { target } : {}), ...(count ? { count } : {}) });
 }
 
@@ -344,6 +344,11 @@ export async function setupComplete(raw: unknown) {
   const p = data as SetupProject;
   const stage = agentStage(p);
   if (!stage) return { ok: true, ignored: true };
+  // Stopped by the creator: a reply that was already on its way is dropped.
+  if (p.halted) {
+    await db.from("projects").update({ setup_busy: false }).eq("id", p.id);
+    return { ok: true, ignored: "stopped" };
+  }
   const kit = p.kit ?? {};
   const meta: MessageMeta = {};
 
@@ -361,7 +366,7 @@ export async function setupComplete(raw: unknown) {
       });
       return { ok: true, retried: true };
     }
-    if (overlap) input.reply = `${input.reply.trim()}\n\nHeads-up: this still overlaps with your project “${overlap.title}”. Change the niche or audience with ✏️ to keep them apart.`;
+    if (overlap) input.reply = `${input.reply.trim()}\n\nHeads-up: this still overlaps with your project “${overlap.title}”. Click the niche or audience to change them and keep them apart.`;
     await db
       .from("projects")
       .update({
@@ -520,7 +525,7 @@ async function writeStoryboards(p: SetupProject, opts: { feedback?: string; only
     if (named.length) targets = named;
   }
   if (!targets.length) return { stage: "storyboard" as const, writing: 0 };
-  await db.from("projects").update({ content_stage: "storyboard", setup_busy: false }).eq("id", p.id);
+  await db.from("projects").update({ content_stage: "storyboard", setup_busy: false, halted: false }).eq("id", p.id);
   await db.from("contents").update({ script_status: "writing" }).in("id", targets.map((c) => c.id));
   for (const c of targets) {
     await queueGeneration(p.owner_id, p.id, "storyboard", 1, true, { targetIds: [c.id], feedback: opts.feedback });
@@ -559,7 +564,7 @@ async function refineScene(p: SetupProject, feedback: string) {
   const m = feedback.match(/scene\s*(\d{1,2})/i);
   const index = m ? Number(m[1]) - 1 : -1;
   if (!content) {
-    await postAssistantMessage(db, p.owner_id, p.id, "Which video should I change? Tap ✏️ on a scene, or on the video to change all its scenes.");
+    await postAssistantMessage(db, p.owner_id, p.id, "Which video should I change? Click a scene, or a video's title to change all its scenes.");
     return;
   }
   // No scene named → the whole video's scenes are rewritten (the content concept stays locked).
@@ -622,7 +627,7 @@ async function startVideos(p: SetupProject) {
   if (unfinished.length) throw conflict("Wait until every storyboard is finished (scripts and images), then continue.");
   // The storyboard is the confirmation: every video is approved and rendered (images are reused).
   await db.from("contents").update({ status: "approved", approved_at: new Date().toISOString() }).eq("project_id", p.id).in("id", list.map((c) => c.id)).neq("status", "approved");
-  await db.from("projects").update({ content_stage: "production", setup_busy: false }).eq("id", p.id);
+  await db.from("projects").update({ content_stage: "production", setup_busy: false, halted: false }).eq("id", p.id);
   // Videos already made (or being made) are not made again.
   const { data: have } = await db.from("video_renders").select("content_id").in("content_id", list.map((c) => c.id)).in("status", ["queued", "rendering", "ready"]);
   const made = new Set((have ?? []).map((r) => r.content_id));
@@ -765,4 +770,74 @@ export async function autoVideos(projectId: string) {
   const p = data as SetupProject | null;
   if (!p?.auto_video || agentStage(p) !== "storyboard") return;
   await startVideos(p).catch(() => undefined); // not all finished yet → it simply waits for the next one
+}
+
+// ---------------------------------------------------------------------------
+// Stop generating / Continue generating
+// ---------------------------------------------------------------------------
+/**
+ * Stop: everything the agent is making for this project stops (setup step,
+ * plan, scripts, image drawing, video renders). Nothing is deleted; Continue
+ * picks up exactly what was left unfinished.
+ */
+export async function stopGenerating(ownerId: string, projectId: string) {
+  await loadSetupProject(ownerId, projectId);
+  const db = admin();
+  const now = new Date().toISOString();
+  await db.from("projects").update({ halted: true, setup_busy: false }).eq("id", projectId);
+  await db.from("generation_runs").update({ status: "failed", error: "Stopped", finished_at: now }).eq("project_id", projectId).in("status", ["queued", "running"]);
+  await db.from("contents").update({ script_status: "failed" }).eq("project_id", projectId).eq("script_status", "writing");
+  await db.from("contents").update({ storyboard_status: "failed" }).eq("project_id", projectId).eq("storyboard_status", "generating");
+  // Frames still waiting to be drawn are marked so the cards stop spinning.
+  const { data: drawing } = await db.from("contents").select("id, storyboard").eq("project_id", projectId).not("storyboard", "is", null);
+  for (const c of drawing ?? []) {
+    const frames = (c.storyboard ?? []) as { status: string }[];
+    if (frames.some((f) => f.status === "drawing" || f.status === "editing")) {
+      await db.from("contents").update({ storyboard: frames.map((f) => (f.status === "drawing" || f.status === "editing" ? { ...f, status: "failed" } : f)) }).eq("id", c.id);
+    }
+  }
+  await db.from("video_renders").update({ status: "cancelled", error: "Stopped", finished_at: now }).eq("project_id", projectId).in("status", ["queued", "rendering"]);
+  await userMessage(ownerId, projectId, "■ Stop generating");
+  return { halted: true };
+}
+
+/** Continue: resume whatever was left unfinished at the current step. */
+export async function continueGenerating(ownerId: string, projectId: string) {
+  const p = await loadSetupProject(ownerId, projectId);
+  const db = admin();
+  await db.from("projects").update({ halted: false }).eq("id", projectId);
+  await userMessage(ownerId, projectId, "▶ Continue generating");
+  const fresh = { ...p, halted: false, setup_busy: false };
+  const stage = agentStage(p);
+  if (p.status === "setup" && stage && stage !== "similar" && stage !== "done") {
+    await runTask(projectId, stage as SetupTask);
+    return { resumed: stage };
+  }
+  if (stage === "plan") {
+    const { count } = await db.from("contents").select("id", { count: "exact", head: true }).eq("project_id", projectId).in("status", ["idea", "approved"]);
+    if (!count) await runTask(projectId, "plan");
+    return { resumed: "plan" };
+  }
+  if (stage === "storyboard") {
+    await writeStoryboards(fresh, { onlyFailed: true }).catch(() => undefined);
+    // Scripts that are done but whose images didn't finish: draw the missing ones (finished images are kept).
+    const { data: rows } = await db.from("contents").select("id, script_status, storyboard").eq("project_id", projectId).in("status", ["idea", "approved"]);
+    const redraw = (rows ?? []).filter(
+      (c) => c.script_status === "ready" && (!(c.storyboard as unknown[] | null)?.length || ((c.storyboard ?? []) as { status: string }[]).some((f) => f.status !== "completed")),
+    );
+    if (redraw.length) {
+      await db.from("contents").update({ storyboard_status: "none" }).in("id", redraw.map((c) => c.id));
+      queueStoryboards(redraw.map((c) => c.id as string));
+    }
+    return { resumed: "storyboard" };
+  }
+  if (p.content_stage === "production") {
+    const { data: rows } = await db.from("contents").select("id").eq("project_id", projectId).eq("status", "approved");
+    for (const c of rows ?? []) {
+      const { data: last } = await db.from("video_renders").select("status").eq("content_id", c.id).order("created_at", { ascending: false }).limit(1).maybeSingle();
+      if (!last || last.status === "cancelled" || last.status === "failed") await requestRender(ownerId, c.id as string);
+    }
+    return { resumed: "production" };
+  }
+  return { resumed: null };
 }
