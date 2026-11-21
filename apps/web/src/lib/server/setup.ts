@@ -107,11 +107,26 @@ export async function setupAction(ownerId: string, projectId: string, action: "c
     await runTask(projectId, p.setup_stage === "discovery" ? "chat" : (p.setup_stage as SetupTask));
     return { stage: p.setup_stage };
   }
+  // Every button press is part of the conversation.
   if (action === "start_new") {
-    await postAssistantMessage(admin(), ownerId, projectId, "Got it — a fresh project it is. Let me sketch the concept.");
+    await userMessage(ownerId, projectId, "Start a new project");
+    await postAssistantMessage(admin(), ownerId, projectId, "Got it, a fresh project it is. Let me sketch the concept.");
     return advance(p);
   }
+  await userMessage(ownerId, projectId, CONTINUE_TEXT[p.setup_stage] ?? "Continue");
   return advance(p);
+}
+
+const CONTINUE_TEXT: Partial<Record<SetupStage, string>> = {
+  discovery: "Sketch the concept",
+  concept: "✅ Concept looks good — continue to the Creative Kit",
+  kit: "✅ Kit looks good — continue to pillars & guardrails",
+  pillars: "✅ Lock the setup and draft my first content",
+};
+
+async function userMessage(ownerId: string, projectId: string, content: string) {
+  const convoId = await webConversation(projectId);
+  if (convoId) await admin().from("messages").insert({ conversation_id: convoId, owner_id: ownerId, role: "user", content });
 }
 
 /** Carries the idea into an existing project's chat and removes this empty draft. */
@@ -121,6 +136,7 @@ async function continueInSimilar(p: SetupProject, targetId?: string) {
   const { data: target } = await db.from("projects").select("id, status").eq("id", targetId ?? "").eq("owner_id", p.owner_id).maybeSingle();
   if (!target || target.status === "setup") throw notFound("Project");
   await db.from("projects").delete().eq("id", p.id).eq("status", "setup");
+  // The idea moves into the similar project's chat (its agent answers there).
   await sendProjectMessage(p.owner_id, target.id as string, `New idea for this project: ${p.prompt}`);
   return { redirect: `/projects/${target.id}` };
 }
@@ -171,6 +187,8 @@ export async function setupContext(input: { projectId: string; task: SetupTask; 
     task: input.task,
     feedback: input.feedback ?? "",
     stage: p.setup_stage,
+    /** Language of the chat and the setup cards (the app's language). Scripts use concept.language. */
+    appLanguage: "English",
     idea: p.prompt,
     history: (msgs ?? []).reverse(),
     concept: p.concept ?? {},
@@ -218,6 +236,7 @@ export async function setupComplete(raw: unknown) {
       })
       .eq("id", p.id);
     meta.stage = "concept";
+    meta.data = c;
   } else if (input.task === "kit" && input.kit) {
     const { ending, ...rest } = input.kit;
     const current = parseEnding(p.ending);
@@ -226,9 +245,11 @@ export async function setupComplete(raw: unknown) {
       .update({ creative_kit: { ...kit, ...rest }, ending: { ...current, ...(ending ?? {}) } })
       .eq("id", p.id);
     meta.stage = "kit";
+    meta.data = { ...rest, ending: { ...current, ...(ending ?? {}) } };
   } else if (input.task === "pillars" && input.pillars) {
     await db.from("projects").update({ creative_kit: { ...kit, ...input.pillars } }).eq("id", p.id);
     meta.stage = "pillars";
+    meta.data = input.pillars;
   }
 
   const action = input.action ?? {};

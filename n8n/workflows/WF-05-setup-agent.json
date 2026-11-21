@@ -2,9 +2,9 @@
  "name": "WF-05 Setup Agent",
  "nodes": [
   {
-   "id": "e22a02c0-78be-4eb3-9bac-f42c34646120",
+   "id": "f70d11bf-a642-4d01-a9e1-06b7a8647800",
    "name": "05-01 Webhook",
-   "webhookId": "fec203b7-4a43-4e1e-931a-c3b85955672a",
+   "webhookId": "0e6bace5-7dec-44c7-8a56-b63617a79f00",
    "type": "n8n-nodes-base.webhook",
    "typeVersion": 2,
    "position": [
@@ -18,7 +18,7 @@
    }
   },
   {
-   "id": "232e2545-53ed-4aee-8328-ec2c10b05f6d",
+   "id": "88cd3d48-d7f9-4816-8c3a-3b1bf00946ca",
    "name": "05-02 Load context",
    "type": "n8n-nodes-base.httpRequest",
    "typeVersion": 4.2,
@@ -52,7 +52,7 @@
    }
   },
   {
-   "id": "c23690fd-0336-447c-9897-d9cedda043d1",
+   "id": "7f7e928d-78de-4456-aac6-b2b2f532a4fa",
    "name": "05-90 Mark failed",
    "type": "n8n-nodes-base.httpRequest",
    "typeVersion": 4.2,
@@ -86,7 +86,7 @@
    }
   },
   {
-   "id": "d3f630b1-057f-4e5b-9ed7-1c38053ad3fe",
+   "id": "49403272-cee0-4aa2-8dcf-43e0a498884d",
    "name": "05-10 Task chat?",
    "type": "n8n-nodes-base.if",
    "typeVersion": 2.2,
@@ -104,7 +104,7 @@
      },
      "conditions": [
       {
-       "id": "9b3bbd7b-af18-4672-b942-558f32233530",
+       "id": "62d97699-c640-4634-9afd-c27b23eaaf3b",
        "leftValue": "={{ $('05-02 Load context').item.json.data.task }}",
        "rightValue": "chat",
        "operator": {
@@ -119,7 +119,7 @@
    }
   },
   {
-   "id": "f5642a32-064b-45f5-b7fa-58a42cef874f",
+   "id": "fd7d21ba-0674-4e1f-b4c6-ddd199d5c26e",
    "name": "05-20 Chat",
    "type": "@n8n/n8n-nodes-langchain.chainLlm",
    "typeVersion": 1.9,
@@ -131,19 +131,19 @@
    "parameters": {
     "promptType": "define",
     "hasOutputParser": true,
-    "text": "=Stage: {{ $('05-02 Load context').item.json.data.stage }}\nExisting projects of this creator: {{ JSON.stringify($('05-02 Load context').item.json.data.existingProjects) }}\nIdea: {{ $('05-02 Load context').item.json.data.idea }}\nConversation (oldest first): {{ JSON.stringify($('05-02 Load context').item.json.data.history) }}\nCurrent concept: {{ JSON.stringify($('05-02 Load context').item.json.data.concept) }}\nCurrent Creative Kit: {{ JSON.stringify($('05-02 Load context').item.json.data.kit) }}\nCurrent pillars & guardrails: {{ JSON.stringify($('05-02 Load context').item.json.data.pillars) }}\nChange request (empty = first draft): {{ $('05-02 Load context').item.json.data.feedback }}\nReply to the creator's latest message.",
+    "text": "=Stage: {{ $('05-02 Load context').item.json.data.stage }}\nExisting projects of this creator: {{ JSON.stringify($('05-02 Load context').item.json.data.existingProjects) }}\nApp language (write the reply and every field in it): {{ $('05-02 Load context').item.json.data.appLanguage }}\nIdea: {{ $('05-02 Load context').item.json.data.idea }}\nConversation (oldest first): {{ JSON.stringify($('05-02 Load context').item.json.data.history) }}\nCurrent concept: {{ JSON.stringify($('05-02 Load context').item.json.data.concept) }}\nCurrent Creative Kit: {{ JSON.stringify($('05-02 Load context').item.json.data.kit) }}\nCurrent pillars & guardrails: {{ JSON.stringify($('05-02 Load context').item.json.data.pillars) }}\nChange request (empty = first draft): {{ $('05-02 Load context').item.json.data.feedback }}\nReply to the creator's latest message.",
     "messages": {
      "messageValues": [
       {
        "type": "SystemMessagePromptTemplate",
-       "message": "You are the Creative Agent of AI Content Studio. You help a creator turn a rough idea into a short-form video project (YouTube Shorts / Reels / TikTok, 9:16, 20-45 s) BEFORE anything is generated. The creator stays in control.\n\nAlways reply in the creator's language, warm and concrete, max 70 words. Ask at most 2 short questions per turn. Offer 2-4 quick-reply chips (each max 6 words) that answer your question; empty when you ask nothing.\n\nSTAGE \"discovery\" - understand the idea: niche/theme, who it is for, the goal (grow followers, sell a product, teach, entertain), the feel, the language. Only ask what is still missing; never more than about 2 rounds in total. As soon as it is clear enough to sketch a concept (or the creator says go / skip / terserah), set action.type=\"propose\" and say you will sketch the concept now.\nSIMILAR PROJECTS - only in discovery and only once: if one of the existing projects is clearly about the same topic or niche, set action.type=\"similar\", action.projectId=its id, and ask whether to continue in that project or start a new one. If the creator then wants a new one anyway, continue normally.\n\nSTAGES \"concept\", \"kit\", \"pillars\" - the creator is reviewing that stage's result (shown next to the chat).\n- They want changes -> action.type=\"refine\", action.feedback = a precise instruction for that stage only (keep their words, e.g. \"make the audience university students, tone more playful\"); reply confirms in one line.\n- They accept / say continue / ok / lanjut -> action.type=\"continue\".\n- A question -> answer it, action.type=\"ask\".\n\nNever write the concept, kit or pillars yourself in the reply. action.feedback and action.projectId are empty strings when unused."
+       "message": "You are the Creative Agent of AI Content Studio. You help a creator turn a rough idea into a short-form video project (YouTube Shorts / Reels / TikTok, 9:16, 20-45 s) BEFORE anything is generated. The creator stays in control.\n\nAlways reply in the APP LANGUAGE given below (not the content language), warm and concrete, max 60 words. Ask exactly ONE question per turn and wait for the answer. Offer 2-4 quick-reply chips (each max 6 words) that answer your question; empty when you ask nothing.\n\nSTAGE \"discovery\" - understand the idea, one question at a time, only what is still missing, in this order: niche/theme, who it is for, the goal (grow followers, sell a product, teach, entertain), the feel, and the CONTENT LANGUAGE for the scripts (one language, or a mix such as \"Indonesian with English terms\" - offer both as chips). Usually 3-5 questions in total. When it is clear enough to sketch a concept (or the creator says go / skip / just do it), set action.type=\"propose\" and say you will sketch the concept now. You may add a chip \"Just sketch it\".\nSIMILAR PROJECTS - only in discovery and only once: if one of the existing projects is clearly about the same topic or niche, set action.type=\"similar\", action.projectId=its id, and ask whether to continue in that project or start a new one. If the creator then wants a new one anyway, continue normally.\n\nSTAGES \"concept\", \"kit\", \"pillars\" - the creator is reviewing that stage's result (shown next to the chat).\n- They want changes -> action.type=\"refine\", action.feedback = a precise instruction for that stage only, naming the field when they did (messages like \"Change the niche: ...\" target that field; keep their words, e.g. \"niche: budget cooking for university students\"); reply confirms in one line.\n- They accept / say continue / ok / lanjut -> action.type=\"continue\".\n- A question -> answer it, action.type=\"ask\".\n\nNever write the concept, kit or pillars yourself in the reply. action.feedback and action.projectId are empty strings when unused."
       }
      ]
     }
    }
   },
   {
-   "id": "bea9523d-9f8b-41ae-a8ae-d6bf57ebe9f6",
+   "id": "ffbe0da9-77ff-4b66-8a54-1caf7edd1c9c",
    "name": "OpenAI (Chat)",
    "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
    "typeVersion": 1.3,
@@ -171,7 +171,7 @@
    }
   },
   {
-   "id": "f1e44fb5-a4bc-45f1-85c8-d3d7eadad9b4",
+   "id": "e6da108d-7b14-4459-957d-2b3b7018074b",
    "name": "Schema (Chat)",
    "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
    "typeVersion": 1.3,
@@ -185,7 +185,7 @@
    }
   },
   {
-   "id": "e8ba2fc3-4cd0-42e8-9c1e-da133cffea99",
+   "id": "38cc753d-d8ac-439d-9d23-1c9f0ac74c5a",
    "name": "05-30 Save chat",
    "type": "n8n-nodes-base.httpRequest",
    "typeVersion": 4.2,
@@ -219,7 +219,7 @@
    }
   },
   {
-   "id": "8953dd6e-39b0-472a-a0c9-834e07a8b32b",
+   "id": "74e5eb82-43d6-43a9-b969-b62438045fdf",
    "name": "05-11 Task concept?",
    "type": "n8n-nodes-base.if",
    "typeVersion": 2.2,
@@ -237,7 +237,7 @@
      },
      "conditions": [
       {
-       "id": "c4889903-b1d7-4868-841c-85e9bfa375c3",
+       "id": "9bf5e9c9-a19e-4c13-a4cd-5424f513ad77",
        "leftValue": "={{ $('05-02 Load context').item.json.data.task }}",
        "rightValue": "concept",
        "operator": {
@@ -252,7 +252,7 @@
    }
   },
   {
-   "id": "440ba645-429e-47b4-97ed-d6899d3726f5",
+   "id": "30c3fe5d-57aa-4310-8665-c831ee42ac92",
    "name": "05-21 Concept",
    "type": "@n8n/n8n-nodes-langchain.chainLlm",
    "typeVersion": 1.9,
@@ -264,19 +264,19 @@
    "parameters": {
     "promptType": "define",
     "hasOutputParser": true,
-    "text": "=Idea: {{ $('05-02 Load context').item.json.data.idea }}\nConversation (oldest first): {{ JSON.stringify($('05-02 Load context').item.json.data.history) }}\nCurrent concept: {{ JSON.stringify($('05-02 Load context').item.json.data.concept) }}\nCurrent Creative Kit: {{ JSON.stringify($('05-02 Load context').item.json.data.kit) }}\nCurrent pillars & guardrails: {{ JSON.stringify($('05-02 Load context').item.json.data.pillars) }}\nChange request (empty = first draft): {{ $('05-02 Load context').item.json.data.feedback }}",
+    "text": "=App language (write the reply and every field in it): {{ $('05-02 Load context').item.json.data.appLanguage }}\nIdea: {{ $('05-02 Load context').item.json.data.idea }}\nConversation (oldest first): {{ JSON.stringify($('05-02 Load context').item.json.data.history) }}\nCurrent concept: {{ JSON.stringify($('05-02 Load context').item.json.data.concept) }}\nCurrent Creative Kit: {{ JSON.stringify($('05-02 Load context').item.json.data.kit) }}\nCurrent pillars & guardrails: {{ JSON.stringify($('05-02 Load context').item.json.data.pillars) }}\nChange request (empty = first draft): {{ $('05-02 Load context').item.json.data.feedback }}",
     "messages": {
      "messageValues": [
       {
        "type": "SystemMessagePromptTemplate",
-       "message": "You are the creative director of a short-form video studio. Write the project CONCEPT - the \"what and for whom\" - from the creator's idea and the conversation (the conversation is the source of truth). If a change request is given, apply exactly that to the current concept and keep everything else.\n\n- title: punchy project name, max 6 words\n- emoji: one emoji\n- summary: one sentence, what the channel/series is\n- niche: the specific theme or territory, narrow enough to be ownable (e.g. \"budget cooking for Indonesian university students\", not \"food\")\n- audience: who exactly watches, with one detail about their situation\n- goal: what success means for the creator (e.g. \"grow to 10k followers by teaching quick wins\", \"sell the handmade candles\")\n- language: the language the creator writes in (e.g. \"Indonesian (casual, Jakarta slang)\")\n- reply: ONE short line in the creator's language presenting the concept and asking if they want to refine anything or continue."
+       "message": "You are the creative director of a short-form video studio. Write the project CONCEPT - the \"what and for whom\" - from the creator's idea and the conversation (the conversation is the source of truth). If a change request is given, apply exactly that to the current concept and keep everything else.\n\n- title: punchy project name, max 6 words\n- emoji: one emoji\n- summary: one sentence, what the channel/series is\n- niche: the specific theme or territory, narrow enough to be ownable (e.g. \"budget cooking for Indonesian university students\", not \"food\")\n- audience: who exactly watches, with one detail about their situation\n- goal: what success means for the creator (e.g. \"grow to 10k followers by teaching quick wins\", \"sell the handmade candles\")\n- language: the CONTENT language for the scripts as agreed in the chat - one language or a mix (e.g. \"Indonesian, casual Jakarta style, with English food terms\"); if never discussed, the language the creator writes in\nWrite every field except language in the APP LANGUAGE.\n- reply: ONE short line presenting the concept and asking if they want to refine anything or continue."
       }
      ]
     }
    }
   },
   {
-   "id": "80ec0cc3-a748-4a65-8090-7e0fb0a4b633",
+   "id": "1b7796d6-b835-4625-9225-dc55090c50a4",
    "name": "OpenAI (Concept)",
    "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
    "typeVersion": 1.3,
@@ -304,7 +304,7 @@
    }
   },
   {
-   "id": "ab10c1f7-5dd0-4eec-b072-5ac93ddf1f2a",
+   "id": "b0b1e596-5ba4-45bc-8cd1-8dc2da0a0c5c",
    "name": "Schema (Concept)",
    "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
    "typeVersion": 1.3,
@@ -318,7 +318,7 @@
    }
   },
   {
-   "id": "23fd4fa1-1450-4b4d-a025-45de92d0b1d9",
+   "id": "54c5ac24-7df3-4fc3-af21-65cd10a1b9b2",
    "name": "05-31 Save concept",
    "type": "n8n-nodes-base.httpRequest",
    "typeVersion": 4.2,
@@ -352,7 +352,7 @@
    }
   },
   {
-   "id": "1c6181f7-07f7-48e4-8c35-31e7ed30f7bd",
+   "id": "80ae2580-f401-4e09-b311-5c297be65787",
    "name": "05-12 Task kit?",
    "type": "n8n-nodes-base.if",
    "typeVersion": 2.2,
@@ -370,7 +370,7 @@
      },
      "conditions": [
       {
-       "id": "b0f47891-5c12-4179-b983-ee163c11f488",
+       "id": "0a34517b-8b23-4277-b620-21118620eff2",
        "leftValue": "={{ $('05-02 Load context').item.json.data.task }}",
        "rightValue": "kit",
        "operator": {
@@ -385,7 +385,7 @@
    }
   },
   {
-   "id": "9d67996a-9199-4502-be9a-86291f33dd25",
+   "id": "0033c447-af3f-4162-8aa9-5c606e904c5b",
    "name": "05-22 Kit",
    "type": "@n8n/n8n-nodes-langchain.chainLlm",
    "typeVersion": 1.9,
@@ -397,19 +397,19 @@
    "parameters": {
     "promptType": "define",
     "hasOutputParser": true,
-    "text": "=Idea: {{ $('05-02 Load context').item.json.data.idea }}\nConversation (oldest first): {{ JSON.stringify($('05-02 Load context').item.json.data.history) }}\nCurrent concept: {{ JSON.stringify($('05-02 Load context').item.json.data.concept) }}\nCurrent Creative Kit: {{ JSON.stringify($('05-02 Load context').item.json.data.kit) }}\nCurrent pillars & guardrails: {{ JSON.stringify($('05-02 Load context').item.json.data.pillars) }}\nChange request (empty = first draft): {{ $('05-02 Load context').item.json.data.feedback }}",
+    "text": "=App language (write the reply and every field in it): {{ $('05-02 Load context').item.json.data.appLanguage }}\nIdea: {{ $('05-02 Load context').item.json.data.idea }}\nConversation (oldest first): {{ JSON.stringify($('05-02 Load context').item.json.data.history) }}\nCurrent concept: {{ JSON.stringify($('05-02 Load context').item.json.data.concept) }}\nCurrent Creative Kit: {{ JSON.stringify($('05-02 Load context').item.json.data.kit) }}\nCurrent pillars & guardrails: {{ JSON.stringify($('05-02 Load context').item.json.data.pillars) }}\nChange request (empty = first draft): {{ $('05-02 Load context').item.json.data.feedback }}",
     "messages": {
      "messageValues": [
       {
        "type": "SystemMessagePromptTemplate",
-       "message": "You are the creative director of a short-form video studio. Videos are edited content Shorts: AI-generated stylized ILLUSTRATIONS as backgrounds with animated text, captions and narration - never photorealistic footage. Write the CREATIVE KIT - the \"how it looks and sounds\" - for the confirmed concept. If a change request is given, apply exactly that to the current kit and keep everything else.\n\n- tone: 3-6 words\n- voice: the narrator persona the scripts must sound like - who is talking (e.g. \"a cheeky Jakarta street-food uncle\"), sentence style, energy, 2-3 signature phrases, words to avoid\n- visualStyle: ONE consistent art direction reused verbatim in every image prompt (e.g. \"flat vector illustration, thick navy outlines, soft grain, rounded shapes\"), never photorealistic\n- palette: 3-5 named colors with hex codes that work together (e.g. \"coral #E8735A, deep navy #1F2A44, cream #FFF4E0, teal #2BA59A\")\n- recurringSubject: the character, mascot or product that appears across videos, described concretely and visually; empty only for purely abstract topics\n- format: the main video format - explainer, listicle, story, compare or product - plus a few words why\n- opening: how every video grabs the first 1.5 s (bold question, surprising fact, common mistake, tiny story...)\n- ending.cta: one of follow, subscribe, comment, save, link, visit - what fits the goal; ending.series: true when videos should tease the next one\n- reply: ONE short line in the creator's language presenting the kit and asking if they want to refine anything or continue."
+       "message": "You are the creative director of a short-form video studio. Videos are edited content Shorts: AI-generated stylized ILLUSTRATIONS as backgrounds with animated text, captions and narration - never photorealistic footage. Write the CREATIVE KIT - the \"how it looks and sounds\" - for the confirmed concept. If a change request is given, apply exactly that to the current kit and keep everything else.\n\n- tone: 3-6 words\n- voice: the narrator persona the scripts must sound like - who is talking (e.g. \"a cheeky Jakarta street-food uncle\"), sentence style, energy, 2-3 signature phrases (quoted in the CONTENT language from the concept), words to avoid\nWrite every field in the APP LANGUAGE (only the quoted signature phrases use the content language).\n- visualStyle: ONE consistent art direction reused verbatim in every image prompt (e.g. \"flat vector illustration, thick navy outlines, soft grain, rounded shapes\"), never photorealistic\n- palette: 3-5 named colors with hex codes that work together (e.g. \"coral #E8735A, deep navy #1F2A44, cream #FFF4E0, teal #2BA59A\")\n- recurringSubject: the character, mascot or product that appears across videos, described concretely and visually; empty only for purely abstract topics\n- format: the main video format - explainer, listicle, story, compare or product - plus a few words why\n- opening: how every video grabs the first 1.5 s (bold question, surprising fact, common mistake, tiny story...)\n- ending.cta: one of follow, subscribe, comment, save, link, visit - what fits the goal; ending.series: true when videos should tease the next one\n- reply: ONE short line presenting the kit and asking if they want to refine anything or continue."
       }
      ]
     }
    }
   },
   {
-   "id": "a2780e9f-044b-45ed-a501-c41cb6454e31",
+   "id": "b4da55b8-e664-4065-9d49-e6dc1a70a63c",
    "name": "OpenAI (Kit)",
    "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
    "typeVersion": 1.3,
@@ -437,7 +437,7 @@
    }
   },
   {
-   "id": "1f8265bb-c798-409b-a67c-d4a1278e6a01",
+   "id": "d40fd003-cfca-4402-99ef-f15ed424206f",
    "name": "Schema (Kit)",
    "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
    "typeVersion": 1.3,
@@ -451,7 +451,7 @@
    }
   },
   {
-   "id": "c2a918d0-00ce-43d6-8f05-11b98b6f8a6c",
+   "id": "a6b4f424-dc83-4bcb-842f-2cf0e6f74d65",
    "name": "05-32 Save kit",
    "type": "n8n-nodes-base.httpRequest",
    "typeVersion": 4.2,
@@ -485,7 +485,7 @@
    }
   },
   {
-   "id": "7d678e59-54e0-46e6-a629-c670ed7aebe2",
+   "id": "be6ece77-7b85-41cd-b6a1-cc654a39921c",
    "name": "05-13 Task pillars?",
    "type": "n8n-nodes-base.if",
    "typeVersion": 2.2,
@@ -503,7 +503,7 @@
      },
      "conditions": [
       {
-       "id": "441cf25b-7022-40cb-a29c-51db38d701f7",
+       "id": "79987658-3dde-4406-b727-e89767286e62",
        "leftValue": "={{ $('05-02 Load context').item.json.data.task }}",
        "rightValue": "pillars",
        "operator": {
@@ -518,7 +518,7 @@
    }
   },
   {
-   "id": "dd583c4d-a4e9-43d1-a184-1cf7136c13af",
+   "id": "5f33750d-5f65-4102-b55a-08de40952fdc",
    "name": "05-23 Pillars",
    "type": "@n8n/n8n-nodes-langchain.chainLlm",
    "typeVersion": 1.9,
@@ -530,19 +530,19 @@
    "parameters": {
     "promptType": "define",
     "hasOutputParser": true,
-    "text": "=Idea: {{ $('05-02 Load context').item.json.data.idea }}\nConversation (oldest first): {{ JSON.stringify($('05-02 Load context').item.json.data.history) }}\nCurrent concept: {{ JSON.stringify($('05-02 Load context').item.json.data.concept) }}\nCurrent Creative Kit: {{ JSON.stringify($('05-02 Load context').item.json.data.kit) }}\nCurrent pillars & guardrails: {{ JSON.stringify($('05-02 Load context').item.json.data.pillars) }}\nChange request (empty = first draft): {{ $('05-02 Load context').item.json.data.feedback }}",
+    "text": "=App language (write the reply and every field in it): {{ $('05-02 Load context').item.json.data.appLanguage }}\nIdea: {{ $('05-02 Load context').item.json.data.idea }}\nConversation (oldest first): {{ JSON.stringify($('05-02 Load context').item.json.data.history) }}\nCurrent concept: {{ JSON.stringify($('05-02 Load context').item.json.data.concept) }}\nCurrent Creative Kit: {{ JSON.stringify($('05-02 Load context').item.json.data.kit) }}\nCurrent pillars & guardrails: {{ JSON.stringify($('05-02 Load context').item.json.data.pillars) }}\nChange request (empty = first draft): {{ $('05-02 Load context').item.json.data.feedback }}",
     "messages": {
      "messageValues": [
       {
        "type": "SystemMessagePromptTemplate",
-       "message": "You are the content strategist of a short-form video studio. From the confirmed concept and Creative Kit write the content PILLARS and GUARDRAILS. If a change request is given, apply exactly that and keep the rest.\n\n- pillars: 3-5 recurring content themes that serve the goal and stay inside the niche; each one specific line (e.g. \"10-minute meals under Rp20k\"), in the creator's language\n- guardrails: 2-4 rules every video must respect (claims, safety, brand, tone), in the creator's language\n- reply: ONE short line in the creator's language asking if they want to refine anything, or lock the setup and start drafting content."
+       "message": "You are the content strategist of a short-form video studio. From the confirmed concept and Creative Kit write the content PILLARS and GUARDRAILS. If a change request is given, apply exactly that and keep the rest.\n\n- pillars: 3-5 recurring content themes that serve the goal and stay inside the niche; each a short scannable point, max 8 words (e.g. \"10-minute meals under Rp20k\")\n- guardrails: 2-4 rules every video must respect (claims, safety, brand, tone); each a short point, max 10 words\nWrite everything in the APP LANGUAGE.\n- reply: ONE short line asking if they want to refine anything, or lock the setup and start drafting content."
       }
      ]
     }
    }
   },
   {
-   "id": "c50c391b-d6b9-4924-b0a7-98c05415c7d1",
+   "id": "2e5365fc-78d1-4b81-8dde-204341ccbbd5",
    "name": "OpenAI (Pillars)",
    "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
    "typeVersion": 1.3,
@@ -570,7 +570,7 @@
    }
   },
   {
-   "id": "05de247c-e07c-4b00-a4f5-085ea39009bc",
+   "id": "9bfbdb91-e98b-4249-b2f7-370466533600",
    "name": "Schema (Pillars)",
    "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
    "typeVersion": 1.3,
@@ -584,7 +584,7 @@
    }
   },
   {
-   "id": "9876ec06-426a-4425-95a6-34b0bad6fe3a",
+   "id": "c3e0709b-9c36-4878-bd67-adc82691fa5f",
    "name": "05-33 Save pillars",
    "type": "n8n-nodes-base.httpRequest",
    "typeVersion": 4.2,

@@ -20,11 +20,14 @@ export function StartProject() {
   const [files, setFiles] = useState<File[]>([]);
   const [status, setStatus] = useState<string | null>(null);
   const [pending, start] = useTransition();
+  const [launching, setLaunching] = useState<string | null>(null);
   const picker = useRef<HTMLInputElement>(null);
 
   function submit() {
     if (!prompt.trim()) return;
     setError(null);
+    // The home box turns into the agent chat right away; the setup page continues it.
+    setLaunching(prompt.trim());
     start(async () => {
       try {
         const { projectId } = await api<{ projectId: string }>("/api/projects/start", "POST", { prompt });
@@ -38,6 +41,7 @@ export function StartProject() {
         router.push(`/projects/${projectId}`);
       } catch (e) {
         setStatus(null);
+        setLaunching(null);
         setError(e instanceof Error ? e.message : "Could not start");
       }
     });
@@ -45,6 +49,16 @@ export function StartProject() {
 
   return (
     <div id="create">
+      {launching && (
+        <div className="launch-overlay" aria-live="polite">
+          <div className="setup-log">
+            <div className="setup-col">
+              <div className="bubble user big launch-bubble">{launching}</div>
+              <div className="bubble agent big typing"><span className="dots"><i /><i /><i /></span> {status ?? "Opening a chat with your agent…"}</div>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="heroform">
         <textarea
           value={prompt}

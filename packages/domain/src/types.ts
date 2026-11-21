@@ -270,4 +270,6 @@ export interface MessageMeta {
   chips?: string[];
   stage?: SetupStage;
   similar?: { projectId: string; title: string };
+  /** Snapshot of the stage result this message presented (cards keep their version). */
+  data?: Record<string, unknown>;
 }

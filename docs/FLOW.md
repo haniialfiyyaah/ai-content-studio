@@ -108,3 +108,18 @@ Free = manual approve. Paid = Autopilot, trending mode, more redraws.
 - Buttons call `/api/projects/:id/setup` (`continue`, `refine`, `start-new`).
 - After Pillars & guardrails → setup_stage `done`, status `generating`, and the
   existing WF-01 runs as `ideation` (it skips the plan step and uses the kit).
+
+### Phase 1 UI decisions (feedback round 1)
+
+- Setup is a **full-page agent chat** (the home box animates into it). Stage
+  results (concept, kit, pillars) are **cards inside the chat**; each keeps its
+  own version (snapshot in `messages.meta.data`), only the newest card is
+  editable. After *Lock setup* the chat **slides to the side** into the split
+  workspace.
+- **One question at a time**; an open question (incl. "similar project?") must be
+  answered — no skip button.
+- **Every button press is also a chat message** ("✅ Concept looks good…").
+- **Refine per field:** ✏️ on any field / point pre-fills "Change the <field>: ".
+- **Language:** chat and setup cards use the app language (English for now);
+  the concept's *Content language* (one language or a mix) only drives scripts.
+- Pillars and guardrails are shown as two lists of short points.

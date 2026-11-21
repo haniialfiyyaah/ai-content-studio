@@ -12,7 +12,7 @@ import { EndingForm } from "@/components/project/ending-form";
 import { LaunchPanel } from "@/components/project/launch-panel";
 import { GeneratingView } from "@/components/project/generating-view";
 import { ScheduleForm } from "@/components/project/schedule-form";
-import { SetupView } from "@/components/project/setup-view";
+import { SetupChat } from "@/components/setup/setup-chat";
 import { WorkspaceFrame } from "@/components/project/workspace-frame";
 import { ActionButton } from "@/components/ui/action-button";
 import { LiveRefresh } from "@/components/ui/live-refresh";
@@ -74,36 +74,45 @@ export default async function ProjectPage({
     return (
       <>
         <LiveRefresh
-          pollMs={sp.setup_busy ? 3000 : undefined}
+          pollMs={sp.setup_busy || ws.messages.at(-1)?.role === "user" ? 3000 : undefined}
           sources={[
             { table: "projects", filter: `id=eq.${p.id}` },
             ...(ws.conversationId ? [{ table: "messages", filter: `conversation_id=eq.${ws.conversationId}` }] : []),
           ]}
         />
-        <WorkspaceFrame
-          agent={
-            <AgentPanel
-              projectId={p.id}
-              projectTitle={p.title}
-              messages={ws.messages}
-              thinking={sp.setup_busy && !setupStale(sp) && sp.setup_stage === "discovery"}
-              placeholder="Answer the agent, or ask to change anything…"
-            />
-          }
-        >
+        <SetupChat
+          projectId={p.id}
+          title={`${p.cover_emoji ? `${p.cover_emoji} ` : ""}${p.title}`}
+          stage={sp.setup_stage}
+          busy={sp.setup_busy}
+          stale={setupStale(sp)}
+          messages={ws.messages}
+        />
+      </>
+    );
+  }
+
+  // Right after guided setup: the chat moves to the side while the first content is drafted.
+  const fromSetup = Boolean((p as typeof p & { concept?: Partial<Concept> }).concept?.title);
+  if (p.status === "generating" && fromSetup) {
+    const progress = Math.max(run?.progress ?? 5, 5);
+    return (
+      <>
+        {live}
+        <WorkspaceFrame splitKey={p.id} agent={<AgentPanel projectId={p.id} projectTitle={p.title} messages={ws.messages} />}>
           <main className="page">
-            <div className="eyebrow">NEW PROJECT · SETUP</div>
+            <div className="eyebrow">PROJECT WORKSPACE</div>
             <h1 style={{ fontSize: 27, marginBottom: 18 }}>{p.cover_emoji ? `${p.cover_emoji} ` : ""}{p.title}</h1>
-            <SetupView
-              projectId={p.id}
-              stage={sp.setup_stage}
-              busy={sp.setup_busy}
-              stale={setupStale(sp)}
-              idea={p.prompt}
-              concept={(p as typeof p & { concept?: Partial<Concept> }).concept ?? {}}
-              kit={p.creative_kit ?? {}}
-              ending={(p as typeof p & { ending?: unknown }).ending}
-            />
+            <div className="card pad">
+              <div className="row" style={{ gap: 12 }}>
+                <span className="spin" style={{ display: "inline-flex" }}><Clock size={18} /></span>
+                <div>
+                  <div className="semibold">Drafting your first content from the setup…</div>
+                  <div className="xs muted">Hooks, scripts and scenes in your narrator&apos;s voice. It opens here automatically.</div>
+                </div>
+              </div>
+              <div className="progressbar" style={{ marginTop: 16 }}><span style={{ width: `${progress}%` }} /></div>
+            </div>
           </main>
         </WorkspaceFrame>
       </>
@@ -144,6 +153,7 @@ export default async function ProjectPage({
     <>
       {live}
       <WorkspaceFrame
+        splitKey={p.id}
         agent={
           <AgentPanel
             projectId={p.id}
