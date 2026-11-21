@@ -259,7 +259,7 @@ async function storyboardComplete(p: ProjectRow, r: RunRow, out: GenerationCompl
     queueStoryboards([id]);
   }
   await db.from("generation_runs").update({ status: "succeeded", stage: "done", progress: 100, finished_at: new Date().toISOString() }).eq("id", r.id);
-  const { count } = await db.from("contents").select("id", { count: "exact", head: true }).eq("project_id", p.id).eq("script_status", "writing");
+  const { count } = await db.from("contents").select("id", { count: "exact", head: true }).eq("project_id", p.id).eq("script_status", "writing").neq("status", "removed");
   if (!count) {
     const { count: total } = await db.from("contents").select("id", { count: "exact", head: true }).eq("project_id", p.id).neq("status", "removed");
     await logActivity(db, { ownerId: p.owner_id, projectId: p.id, kind: "storyboards.ready", message: "Storyboards ready" });

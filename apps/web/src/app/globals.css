@@ -201,3 +201,6 @@ a.btn,a.navitem,a.newbtn,a.tab,a.manage-nav{text-decoration:none}
 .vid-body{display:flex;flex-direction:column;gap:6px}.vid-title{font-size:14px;font-weight:800;line-height:1.35}
 @media (prefers-reduced-motion:reduce){.vid-pulse{animation:none}}
 @media (max-width:640px){.vid-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.sb-bar{position:sticky;top:76px;z-index:5;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;padding:10px 12px 10px 16px;border:1px solid var(--border);border-radius:14px;background:#ffffffeb;backdrop-filter:blur(8px);box-shadow:0 8px 24px #2a1d430f}
+.sb-bar-info{display:flex;align-items:center;gap:12px;flex-wrap:wrap;min-width:0}
+@media (max-width:850px){.sb-bar{top:128px}.sb-bar-hint{display:none}.sb-bar .btn{width:100%}}

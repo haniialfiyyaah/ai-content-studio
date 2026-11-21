@@ -216,3 +216,6 @@ never published until resumed, later content moves up a slot) or **Reject**
   video with live status (waiting → preparing voice & images → composing →
   ready), player, Download, Retry. Finished steps (incl. storyboards) can be
   viewed read-only. Publishing comes next.
+- On the storyboards each video has **Remove** (skip it — never rendered; hidden
+  when only one is left) and the **Continue to video** bar sits at the top
+  (sticky) with the progress.

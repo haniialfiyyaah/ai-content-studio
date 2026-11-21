@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { ImageOff, Pencil, RotateCcw } from "lucide-react";
+import { ImageOff, Pencil, RotateCcw, Trash2 } from "lucide-react";
 import type { Scene } from "@acs/domain";
 import { api } from "@/lib/client/api";
 import { compose } from "@/lib/client/compose";
@@ -52,6 +52,11 @@ export function StoryboardView({ projectId, items, series, readOnly }: { project
       await api(`/api/projects/${projectId}/setup`, "POST", { action: "retry" }).catch(() => undefined);
       router.refresh();
     });
+  const remove = (contentId: string) =>
+    start(async () => {
+      await api(`/api/contents/${contentId}/actions`, "POST", { action: "remove" }).catch(() => undefined);
+      router.refresh();
+    });
   const toVideo = () =>
     start(async () => {
       await api(`/api/projects/${projectId}/setup`, "POST", { action: "continue" }).catch(() => undefined);
@@ -64,10 +69,16 @@ export function StoryboardView({ projectId, items, series, readOnly }: { project
 
   return (
     <div className="stack" style={{ gap: 18 }}>
-      {series && (
-        <div className="sb-progress">
-          <span className="small semibold">{ready} of {items.length} storyboards</span>
-          <div className="progressbar" style={{ flex: 1, maxWidth: 220 }}><span style={{ width: `${(ready / Math.max(items.length, 1)) * 100}%` }} /></div>
+      {!readOnly && (
+        <div className="sb-bar">
+          <div className="sb-bar-info">
+            <span className="small semibold">{ready < items.length ? `${ready} of ${items.length} storyboard${items.length > 1 ? "s" : ""} ready` : `${items.length} storyboard${items.length > 1 ? "s" : ""} ready`}</span>
+            {series && <div className="progressbar" style={{ width: 140 }}><span style={{ width: `${(ready / Math.max(items.length, 1)) * 100}%` }} /></div>}
+            <span className="xs muted sb-bar-hint">✏️ changes one scene · Remove skips a video</span>
+          </div>
+          <button className="btn primary" disabled={pending || ready < items.length} onClick={toVideo}>
+            {pending ? <Spinner size={13} /> : null} Continue to video →
+          </button>
         </div>
       )}
 
@@ -79,6 +90,18 @@ export function StoryboardView({ projectId, items, series, readOnly }: { project
               <h3 className="sb-title">{it.title}</h3>
               <div className="sb-hook">“{it.hook}”</div>
             </div>
+            {!readOnly && items.length > 1 && (
+              <button
+                className="btn small ghost"
+                disabled={pending}
+                title="Skip this video — it won't be rendered"
+                onClick={() => {
+                  if (window.confirm(`Remove ${series ? it.label || `#${it.n}` : "this video"}? It won't be rendered or published.`)) remove(it.id);
+                }}
+              >
+                <Trash2 size={12} /> Remove
+              </button>
+            )}
           </header>
 
           {/* Writing the script: one honest status (the scenes appear together when it's done) */}
@@ -134,16 +157,7 @@ export function StoryboardView({ projectId, items, series, readOnly }: { project
         </section>
       ))}
 
-      {!readOnly && (
-        <div className="plan-foot">
-          <span className="xs muted">
-            {ready < items.length ? "Storyboards are still being written and drawn…" : "Tap ✏️ on a scene to change it — only that scene is rewritten and redrawn."}
-          </span>
-          <button className="btn primary" disabled={pending || ready < items.length} onClick={toVideo}>
-            {pending ? <Spinner size={13} /> : null} Continue to video →
-          </button>
-        </div>
-      )}
+
     </div>
   );
 }
