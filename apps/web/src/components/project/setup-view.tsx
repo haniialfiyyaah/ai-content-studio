@@ -17,6 +17,7 @@ import { api } from "@/lib/client/api";
 import { compose } from "@/lib/client/compose";
 import { Spinner } from "@/components/ui/spinner";
 import { SetupSummary } from "./setup-summary";
+import { InlineAuto } from "./inline-auto";
 
 const STEPS = SETUP_STAGES.filter((s) => s !== "done");
 
@@ -47,6 +48,7 @@ export function SetupView({
   kit,
   ending,
   similar,
+  auto,
 }: {
   projectId: string;
   stage: SetupStage;
@@ -58,6 +60,7 @@ export function SetupView({
   ending: unknown;
   /** The agent asked "continue in a similar project?" and it isn't answered yet. */
   similar?: { projectId: string; title: string } | null;
+  auto?: boolean;
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
@@ -221,13 +224,18 @@ export function SetupView({
               ) : (
                 <span className="xs muted">Tap ✏️ on any field to change it, or tell the agent.</span>
               )}
-              <button
-                className={`btn ${stage === "similar" ? "" : "primary"}`}
-                disabled={pending}
-                onClick={() => act(stage === "similar" ? "start_new" : "continue")}
-              >
-                {pending ? <Spinner size={13} /> : null} {NEXT_LABEL[stage]} <ArrowRight size={14} />
-              </button>
+              <div className="foot-actions">
+                {stage !== "similar" && (
+                  <InlineAuto projectId={projectId} field="autoApprove" initial={Boolean(auto)} hint="Auto: the rest of the setup runs without stopping" />
+                )}
+                <button
+                  className={`btn ${stage === "similar" ? "" : "primary"}`}
+                  disabled={pending}
+                  onClick={() => act(stage === "similar" ? "start_new" : "continue")}
+                >
+                  {pending ? <Spinner size={13} /> : null} {NEXT_LABEL[stage]} <ArrowRight size={14} />
+                </button>
+              </div>
             </div>
           </>
         )}

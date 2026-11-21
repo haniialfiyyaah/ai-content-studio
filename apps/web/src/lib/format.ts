@@ -31,6 +31,7 @@ const PILL: Record<string, string> = {
   live: "active",
   paused: "paused",
   stopped: "stopped",
+  archived: "stopped",
   failed: "paused",
   idea: "pending",
   approved: "approved",

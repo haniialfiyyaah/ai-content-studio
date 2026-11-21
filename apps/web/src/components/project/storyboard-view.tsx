@@ -2,7 +2,8 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { ImageOff, Pencil, RotateCcw, SkipForward, Undo2 } from "lucide-react";
+import { Clapperboard, ImageOff, Pencil, Plus, RotateCcw, SkipForward, Undo2 } from "lucide-react";
+import { InlineAuto } from "./inline-auto";
 import type { Scene } from "@acs/domain";
 import { api } from "@/lib/client/api";
 import { compose } from "@/lib/client/compose";
@@ -23,6 +24,8 @@ export interface StoryboardItem {
   frames: (StoryboardFrameView | undefined)[];
   status: "none" | "writing" | "ready" | "failed";
   skipped?: boolean;
+  /** Its video, once "Make this video" / "Create all videos" started it. */
+  video?: { status: string; phase?: string | null } | null;
   /** The script run's progress while writing (stage from WF-01). */
   writing?: { stage: string; progress: number } | null;
 }
@@ -45,7 +48,19 @@ const stepIndex = (stage?: string) => {
  * Content setup step 2: the storyboard of each video — every scene with its
  * image, narration and shot. Changes happen one scene at a time (✏️).
  */
-export function StoryboardView({ projectId, items, series, readOnly }: { projectId: string; items: StoryboardItem[]; series: boolean; readOnly?: boolean }) {
+export function StoryboardView({
+  projectId,
+  items,
+  series,
+  readOnly,
+  autoVideo,
+}: {
+  projectId: string;
+  items: StoryboardItem[];
+  series: boolean;
+  readOnly?: boolean;
+  autoVideo?: boolean;
+}) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const retry = () =>
@@ -53,7 +68,7 @@ export function StoryboardView({ projectId, items, series, readOnly }: { project
       await api(`/api/projects/${projectId}/setup`, "POST", { action: "retry" }).catch(() => undefined);
       router.refresh();
     });
-  const act = (contentId: string, action: "skip" | "restore") =>
+  const act = (contentId: string, action: "skip" | "restore" | "make_video") =>
     start(async () => {
       await api(`/api/contents/${contentId}/actions`, "POST", { action }).catch(() => undefined);
       router.refresh();
@@ -68,6 +83,7 @@ export function StoryboardView({ projectId, items, series, readOnly }: { project
     it.status === "ready" && it.scenes.every((s, i) => s.background === "design" || ["completed", "failed"].includes(it.frames[i]?.status ?? ""));
   const live = items.filter((i) => !i.skipped);
   const ready = live.filter(done).length;
+  const made = live.filter((i) => i.video && ["queued", "rendering", "ready"].includes(i.video.status)).length;
 
   return (
     <div className="stack" style={{ gap: 18 }}>
@@ -76,11 +92,15 @@ export function StoryboardView({ projectId, items, series, readOnly }: { project
           <div className="sb-bar-info">
             <span className="small semibold">{ready < live.length ? `${ready} of ${live.length} storyboard${live.length > 1 ? "s" : ""} ready` : `${live.length} storyboard${live.length > 1 ? "s" : ""} ready`}</span>
             {series && <div className="progressbar" style={{ width: 140 }}><span style={{ width: `${(ready / Math.max(live.length, 1)) * 100}%` }} /></div>}
-            <span className="xs muted sb-bar-hint">✏️ changes one scene · Skip sets a content aside</span>
+            <button className="btn small soft" onClick={() => compose("Add 1 more content: ")}><Plus size={12} /> Add content</button>
           </div>
-          <button className="btn primary" disabled={pending || !live.length || ready < live.length} onClick={toVideo}>
-            {pending ? <Spinner size={13} /> : null} Continue to video →
-          </button>
+          <div className="foot-actions">
+            <InlineAuto projectId={projectId} field="autoVideo" initial={Boolean(autoVideo)} label="Auto video" hint="Create the videos by themselves as soon as every storyboard is done" />
+            <button className="btn primary" disabled={pending || !live.length || ready < live.length} onClick={toVideo}>
+              {pending ? <Spinner size={13} /> : <Clapperboard size={14} />}{" "}
+              {made > 0 && made < live.length ? `Ready — create the other ${live.length - made} video${live.length - made > 1 ? "s" : ""}` : `Ready — create all video${live.length > 1 ? "s" : ""}`}
+            </button>
+          </div>
         </div>
       )}
 
@@ -92,13 +112,36 @@ export function StoryboardView({ projectId, items, series, readOnly }: { project
               <h3 className="sb-title">{it.title}</h3>
               <div className="sb-hook">“{it.hook}”</div>
             </div>
-            {!readOnly && it.skipped && (
-              <button className="btn small ghost" disabled={pending} onClick={() => act(it.id, "restore")}><Undo2 size={12} /> Restore</button>
-            )}
-            {!readOnly && !it.skipped && live.length > 1 && (
-              <button className="btn small ghost" disabled={pending} title="Skip — kept here, can be restored; it won't be made into a video" onClick={() => act(it.id, "skip")}>
-                <SkipForward size={12} /> Skip
-              </button>
+            {!readOnly && (
+              <div className="sb-head-actions">
+                {it.skipped ? (
+                  <button className="btn small ghost" disabled={pending} onClick={() => act(it.id, "restore")}><Undo2 size={12} /> Restore</button>
+                ) : (
+                  <>
+                    {it.video && ["queued", "rendering", "ready"].includes(it.video.status) ? (
+                      <span className={`pill ${it.video.status === "ready" ? "approved" : "blue"}`}>
+                        {it.video.status === "ready" ? "🎬 Video ready" : it.video.phase === "compose" ? "Composing video…" : "Making video…"}
+                      </span>
+                    ) : (
+                      done(it) && (
+                        <button className="btn small soft" disabled={pending} title="Make only this video now" onClick={() => act(it.id, "make_video")}>
+                          <Clapperboard size={12} /> Make this video
+                        </button>
+                      )
+                    )}
+                    {it.status === "ready" && !it.video && (
+                      <button className="btn small ghost" title="Change all scenes of this video (the concept stays)" onClick={() => compose(`Change ${name(it)} (all scenes): `)}>
+                        <Pencil size={12} /> Change scenes
+                      </button>
+                    )}
+                    {live.length > 1 && !it.video && (
+                      <button className="btn small ghost" disabled={pending} title="Skip — kept here, can be restored; it won't be made into a video" onClick={() => act(it.id, "skip")}>
+                        <SkipForward size={12} /> Skip
+                      </button>
+                    )}
+                  </>
+                )}
+              </div>
             )}
           </header>
 
@@ -139,7 +182,7 @@ export function StoryboardView({ projectId, items, series, readOnly }: { project
                     <figcaption>
                       <div className="sb-beat-head">
                         <span className="sb-heading">{s.heading}</span>
-                        {!readOnly && it.status === "ready" && !busy && (
+                        {!readOnly && it.status === "ready" && !busy && !it.video && (
                           <button className="icbtn tinybtn" title={`Change scene ${i + 1}`} onClick={() => compose(`Change ${name(it)} scene ${i + 1} (“${s.heading}”): `)}>
                             <Pencil size={10} />
                           </button>
@@ -169,7 +212,18 @@ function SceneImage({ s, index, frame, busy }: { s: Scene; index: number; frame?
     <button
       type="button"
       className="sb-flip"
+      onMouseEnter={(e) => {
+        if (e.nativeEvent instanceof MouseEvent && window.matchMedia("(hover: hover)").matches) {
+          setTouched(true);
+          setBack(true);
+        }
+      }}
+      onMouseLeave={() => {
+        if (window.matchMedia("(hover: hover)").matches) setBack(false);
+      }}
       onClick={() => {
+        // Touch screens: tap to flip.
+        if (window.matchMedia("(hover: hover)").matches) return;
         setTouched(true);
         setBack(!back);
       }}

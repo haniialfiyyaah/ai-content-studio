@@ -4,7 +4,7 @@ import { z } from "zod";
 // Status vocabularies (mirror DB CHECK constraints)
 // ---------------------------------------------------------------------------
 /** setup → draft → live (schedule running) → paused / stopped. "Generating" / "failed" are run signals, not states. */
-export const PROJECT_STATUSES = ["setup", "draft", "live", "paused", "stopped"] as const;
+export const PROJECT_STATUSES = ["setup", "draft", "live", "paused", "stopped", "archived"] as const;
 export type ProjectStatus = (typeof PROJECT_STATUSES)[number];
 
 export type RunStatus = "queued" | "running" | "succeeded" | "failed";
@@ -246,7 +246,7 @@ export const SetupPillarsSchema = z.object({
 });
 export type SetupPillars = z.infer<typeof SetupPillarsSchema>;
 
-export const SETUP_TASKS = ["chat", "concept", "kit", "pillars", "plan", "scene", "renumber"] as const;
+export const SETUP_TASKS = ["chat", "concept", "kit", "pillars", "plan", "scene", "renumber", "more"] as const;
 export type SetupTask = (typeof SETUP_TASKS)[number];
 
 /** n8n WF-05 → /api/internal/setup/complete */
@@ -258,7 +258,9 @@ export const SetupCompleteSchema = z.object({
   /** chat only: what the server should do next. */
   action: z
     .object({
-      type: z.enum(["ask", "propose", "refine", "continue", "similar"]).catch("ask"),
+      type: z.enum(["ask", "propose", "refine", "continue", "similar", "add"]).catch("ask"),
+      /** add: how many new contents (1-5). */
+      count: z.coerce.number().int().min(1).max(5).catch(1),
       feedback: z.string().max(1500).default(""),
       projectId: z.string().default(""),
       chips: z.array(z.string().max(80)).max(4).default([]),
@@ -336,12 +338,14 @@ export const ProjectSettingsSchema = z
     imageEngine: z.enum(IMAGE_ENGINES),
     visualMode: z.enum(VISUAL_MODES),
     autoApprove: z.boolean(),
+    /** Create the videos automatically once every storyboard is done. */
+    autoVideo: z.boolean(),
   })
   .partial();
 export type ProjectSettings = z.infer<typeof ProjectSettingsSchema>;
 
 /** POST /api/contents/:id/actions */
-export const CONTENT_ACTIONS = ["approve", "remove", "skip", "restore", "hold", "resume", "unlock", "storyboard", "render", "publish"] as const;
+export const CONTENT_ACTIONS = ["approve", "remove", "skip", "restore", "hold", "resume", "unlock", "storyboard", "render", "make_video", "publish"] as const;
 export type ContentAction = (typeof CONTENT_ACTIONS)[number];
 
 // ---------------------------------------------------------------------------

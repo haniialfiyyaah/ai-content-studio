@@ -15,7 +15,13 @@ const CONFETTI = ["#8166e2", "#f2a65a", "#2c9a75", "#e8735a", "#5aa9e6", "#f5c84
  */
 export function ReadyModal({ projectId, seconds, auto }: { projectId: string; seconds: number; auto: boolean }) {
   const router = useRouter();
+  const key = `acs.ready.later.${projectId}`;
   const [open, setOpen] = useState(true);
+  const [later, setLater] = useState(false);
+  // "Not now" survives a reload: the inline bar stays instead of the pop-up.
+  useEffect(() => {
+    try { if (sessionStorage.getItem(key) === "1") { setLater(true); setOpen(false); } } catch {} // eslint-disable-line react-hooks/set-state-in-effect
+  }, [key]);
   const [left, setLeft] = useState(seconds);
   const [busy, setBusy] = useState(false);
   const fired = useRef(false);
@@ -30,6 +36,15 @@ export function ReadyModal({ projectId, seconds, auto }: { projectId: string; se
     router.refresh();
   }, [projectId, router]);
 
+  const notNow = useCallback(async () => {
+    try { sessionStorage.setItem(key, "1"); } catch {}
+    setOpen(false);
+    setLater(true);
+    // Not now = stop the countdown and the auto setup; nothing starts until Generate content.
+    await api(`/api/projects/${projectId}/settings`, "PATCH", { autoApprove: false }).catch(() => undefined);
+    router.refresh();
+  }, [key, projectId, router]);
+
   useEffect(() => {
     if (!open || busy) return;
     primary.current?.focus();
@@ -41,6 +56,20 @@ export function ReadyModal({ projectId, seconds, auto }: { projectId: string; se
     return () => clearTimeout(t);
   }, [open, busy, left, generate]);
 
+  if (!open && later) {
+    return (
+      <div className="card ready-inline">
+        <div className="ready-mark"><Sparkles size={18} /></div>
+        <div style={{ minWidth: 0 }}>
+          <div className="semibold">Your project is ready</div>
+          <div className="xs muted">Generate the content when you&apos;re ready — or tell the agent what you want first.</div>
+        </div>
+        <button className="btn primary" disabled={busy} onClick={() => void generate()}>
+          {busy ? <Spinner size={13} /> : <Sparkles size={14} />} Generate content
+        </button>
+      </div>
+    );
+  }
   if (!open) return null;
   const pct = ((seconds - left) / seconds) * 100;
 
@@ -62,8 +91,9 @@ export function ReadyModal({ projectId, seconds, auto }: { projectId: string; se
             {busy ? <Spinner size={13} /> : <Sparkles size={14} />}
             {busy ? "Starting…" : `Generate content · ${left}s`}
           </button>
+          <button className="btn ghost" onClick={() => void notNow()} disabled={busy}>Not now</button>
         </div>
-        <div className="tiny faint">Starts by itself when the timer ends.</div>
+        <div className="tiny faint">Starts by itself when the timer ends. Not now stops it{auto ? " and turns auto off" : ""}.</div>
       </div>
     </div>
   );

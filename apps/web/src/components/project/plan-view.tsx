@@ -2,7 +2,8 @@
 
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
-import { Pencil, SkipForward, Sparkles, Undo2 } from "lucide-react";
+import { Pencil, Plus, SkipForward, Sparkles, Undo2 } from "lucide-react";
+import { InlineAuto } from "./inline-auto";
 import { api } from "@/lib/client/api";
 import { compose } from "@/lib/client/compose";
 import { Spinner } from "@/components/ui/spinner";
@@ -32,6 +33,7 @@ export function PlanView({
   busy,
   stale,
   readOnly,
+  auto,
 }: {
   projectId: string;
   plan: { format?: string; style?: string; seriesTitle?: string; why?: string };
@@ -40,6 +42,7 @@ export function PlanView({
   stale: boolean;
   /** Looking back at a finished step: no edits, no continue. */
   readOnly?: boolean;
+  auto?: boolean;
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
@@ -137,7 +140,9 @@ export function PlanView({
       </div>
 
       {!readOnly && <div className="plan-foot">
-        <span className="xs muted">Check {series ? "the videos" : "the video"} and tell the agent anything to change — ✏️ pre-fills it.</span>
+        <button className="btn small soft" disabled={working} onClick={() => compose("Add 1 more content: ")}><Plus size={13} /> Add content</button>
+        <div className="foot-actions">
+        <InlineAuto projectId={projectId} field="autoApprove" initial={Boolean(auto)} hint="Auto: go on to the storyboards without stopping" />
         <button
           className="btn primary"
           disabled={working || pending}
@@ -145,6 +150,7 @@ export function PlanView({
         >
           {pending ? <Spinner size={13} /> : null} Continue to storyboard{series ? "s" : ""} →
         </button>
+        </div>
       </div>}
     </div>
   );

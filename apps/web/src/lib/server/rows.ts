@@ -35,6 +35,8 @@ export interface ProjectRow {
   ending: unknown;
   schedule: Partial<Schedule>;
   auto_approve: boolean;
+  auto_video?: boolean;
+  archived_from?: string | null;
   content_stage: "none" | "plan" | "storyboard" | "production";
   content_plan: Record<string, unknown>;
   visual_mode: "ai" | "ai_with_references" | "references";

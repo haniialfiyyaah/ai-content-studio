@@ -418,3 +418,8 @@ ALTER TABLE public.generation_runs ADD CONSTRAINT generation_runs_kind_check CHE
 -- skipped = set aside by the creator (kept, restorable, never rendered); removed = gone (remembered for duplicates)
 ALTER TABLE public.contents DROP CONSTRAINT IF EXISTS contents_status_check;
 ALTER TABLE public.contents ADD CONSTRAINT contents_status_check CHECK (status IN ('idea', 'approved', 'skipped', 'removed'));
+-- archive (stops everything; archived_from = status to return to) + auto-create videos when storyboards are done
+ALTER TABLE public.projects DROP CONSTRAINT IF EXISTS projects_status_check;
+ALTER TABLE public.projects ADD CONSTRAINT projects_status_check CHECK (status IN ('setup', 'draft', 'live', 'paused', 'stopped', 'archived'));
+ALTER TABLE public.projects ADD COLUMN IF NOT EXISTS archived_from text;
+ALTER TABLE public.projects ADD COLUMN IF NOT EXISTS auto_video boolean NOT NULL DEFAULT false;

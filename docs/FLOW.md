@@ -231,3 +231,29 @@ never published until resumed, later content moves up a slot) or **Reject**
   `renumber` fixes only the words — numbers in titles / hooks, "Day N" in
   narration / on-screen text, and each video's teaser so it points to the new
   next one. Text only, no redraws; concept and storyboard steps.
+
+## Round 7 additions
+
+- Scene images **flip on hover** (desktop; tap on touch) to the scene description.
+- **Change all scenes of one video** (✏️ "Change scenes" on the video): the
+  storyboard is rewritten with the creator's note; the **content concept stays
+  locked**. Images whose shot didn't change are **reused** (frames remember the
+  shot text they were drawn from) — only new shots are drawn.
+- **Make this video** per storyboard (approve + render just that one). The bar
+  button reads **"Ready — create all videos"** (or "create the other N") and
+  never re-makes a video that is made or in progress.
+- **Add content** mid-way (concept and storyboard steps, button or chat): WF-05
+  task `more` writes only NEW cards (no repeats of current or skipped ones);
+  labels continue; on the storyboard step their storyboards + images start
+  right away.
+- **Archive** (header): status `archived` (`archived_from` remembered) — stops
+  scripts, image drawing (checked per frame), renders (even mid-render; the
+  callback is ignored), scheduled uploads; hidden from lists (Projects →
+  Archived filter). **Unarchive** returns to the previous status (live comes
+  back as paused); nothing restarts by itself.
+- **Auto switch next to every continue button**: setup / concept = keep going
+  without stopping (concept → storyboards); storyboards = **Auto video**
+  (`projects.auto_video`: videos start by themselves once every storyboard is
+  done).
+- **Ready pop-up: Not now** stops the countdown and turns auto off; an inline
+  "Your project is ready" bar with Generate content stays.

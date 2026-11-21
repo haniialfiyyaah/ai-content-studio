@@ -14,18 +14,20 @@ const FILTERS = [
   ["setup", "Setting up"],
   ["draft", "Draft"],
   ["paused", "Paused / stopped"],
+  ["archived", "Archived"],
 ] as const;
 type Filter = (typeof FILTERS)[number][0];
 
 function matches(f: Filter, p: ProjectRow, s?: ProjectSignals) {
   switch (f) {
-    case "needs": return (s?.needsYou ?? 0) > 0;
-    case "progress": return Boolean(s?.inProgress);
+    case "needs": return p.status !== "archived" && (s?.needsYou ?? 0) > 0;
+    case "progress": return p.status !== "archived" && Boolean(s?.inProgress);
     case "live": return p.status === "live";
     case "setup": return p.status === "setup";
     case "draft": return p.status === "draft";
     case "paused": return p.status === "paused" || p.status === "stopped";
-    default: return true;
+    case "archived": return p.status === "archived";
+    default: return p.status !== "archived";
   }
 }
 

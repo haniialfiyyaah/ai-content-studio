@@ -39,6 +39,8 @@ export interface StoryboardFrame {
   model?: string;
   imagePath?: string;
   referencePath?: string;
+  /** The shot text this image was drawn from (unchanged shot → the image is reused). */
+  visual?: string;
   /** drawing = image being made · editing = the scene text is being rewritten first */
   status: "completed" | "failed" | "drawing" | "editing";
   url: string | null;
@@ -166,13 +168,18 @@ export async function generateStoryboard(contentId: string, opts: { force?: bool
     const falOk = Boolean(process.env.FAL_KEY?.trim());
     const engines = (p.image_engine === "fal" ? ["fal", "openai"] : ["openai", "fal"]).filter((e) => (e === "fal" ? falOk : openAiOk));
 
+    // Images carry no text: a scene whose shot didn't change keeps its image (unless forced).
+    const previous = ((c as ContentRow & { storyboard?: StoryboardFrame[] | null }).storyboard ?? []) as StoryboardFrame[];
+    const keep = (s: Scene, i: number) => {
+      const f = previous.find((x) => x.scene === i);
+      return !opts.force && f?.imagePath && f.status === "completed" && (f.visual ?? "") === (s.visual ?? "") ? f : null;
+    };
     // Placeholders first, then each image is saved as soon as it lands (the UI fills in live).
-    const live: StoryboardFrame[] = scenes.map((s, i) => ({
-      scene: i,
-      source: "none",
-      status: p.visual_mode === "references" || s.background === "design" ? "completed" : "drawing",
-      url: null,
-    }));
+    const live: StoryboardFrame[] = scenes.map((s, i) => {
+      const kept = keep(s, i);
+      if (kept) return kept;
+      return { scene: i, source: "none", status: p.visual_mode === "references" || s.background === "design" ? "completed" : "drawing", url: null };
+    });
     let writes = Promise.resolve();
     const save = () => {
       const snapshot = live.map((f) => ({ ...f }));
@@ -184,7 +191,12 @@ export async function generateStoryboard(contentId: string, opts: { force?: bool
     await save();
 
     const frames = await pool(scenes, 3, async (s, i): Promise<StoryboardFrame> => {
-      const f = await drawFrame(s, i);
+      const kept = keep(s, i);
+      if (kept) return kept;
+      // Archived (or stopped) meanwhile: stop drawing.
+      const { data: st } = await db.from("projects").select("status").eq("id", p.id).maybeSingle();
+      if (st?.status === "archived" || st?.status === "stopped") return { ...live[i], status: "failed" };
+      const f = { ...(await drawFrame(s, i)), visual: s.visual };
       live[i] = f;
       await save();
       return f;
@@ -230,6 +242,8 @@ export async function generateStoryboard(contentId: string, opts: { force?: bool
     const wanted = scenes.filter((s) => p.visual_mode !== "references" && s.background !== "design").length;
     const status = wanted && !drawn ? "failed" : "ready";
     await db.from("contents").update({ storyboard: frames, storyboard_status: status, storyboard_key: key }).eq("id", c.id);
+    // "Auto-create videos" on: the last finished storyboard starts the videos.
+    if (p.auto_video) await import("./setup").then((m) => m.autoVideos(p.id)).catch(() => undefined);
     return { status, drawn, total: frames.length };
   } catch (e) {
     await db.from("contents").update({ storyboard_status: "failed" }).eq("id", c.id);
@@ -344,7 +358,7 @@ export async function redrawScene(contentId: string, index: number) {
     if (p.image_engine === "fal" && process.env.FAL_KEY?.trim()) img = await falImage(prompt, null);
     else img = refs.length ? await editOpenAiImage(prompt, refs) : await generateOpenAiImage(prompt);
     const imagePath = await storeImage(c.owner_id, c.id, index, img.bytes);
-    await setFrame({ scene: index, source: "openai", model: img.model, imagePath, status: "completed", url: null });
+    await setFrame({ scene: index, source: "openai", model: img.model, imagePath, status: "completed", url: null, visual: s.visual });
     return { scene: index, drawn: true };
   } catch (e) {
     await setFrame({ ...(frames[index] ?? { scene: index, source: "none", url: null }), status: "failed" });

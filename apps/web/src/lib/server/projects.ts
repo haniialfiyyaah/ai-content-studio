@@ -14,7 +14,7 @@ import {
 import { createAdminClient } from "@/lib/supabase/admin";
 import { dispatchToN8n } from "./dispatch";
 import { queueStoryboards } from "./storyboard";
-import { agentStage, autoContinue, fixSeriesNumbers, setupMessage } from "./setup";
+import { agentStage, autoContinue, autoVideos, fixSeriesNumbers, setupMessage } from "./setup";
 import { setImageEngine, setVisualMode } from "./assets";
 import { logActivity, notifyTelegram, postAssistantMessage } from "./events";
 import type { ContentRow, ProjectRow } from "./rows";
@@ -390,6 +390,11 @@ export async function updateProjectSettings(ownerId: string, projectId: string, 
     out.autoApprove = input.autoApprove;
     if (input.autoApprove) await autoContinue(ownerId, projectId);
   }
+  if (input.autoVideo !== undefined) {
+    await admin().from("projects").update({ auto_video: input.autoVideo }).eq("id", projectId);
+    out.autoVideo = input.autoVideo;
+    if (input.autoVideo) await autoVideos(projectId);
+  }
   return out;
 }
 
@@ -584,6 +589,48 @@ export async function setLifecycle(ownerId: string, projectId: string, action: "
   }
   await logActivity(db, { ownerId, projectId, kind: `project.${action}`, message: `Project ${next}` });
   return { status: next };
+}
+
+/**
+ * Archive: everything in progress stops — scripts, image drawing, video renders
+ * (even mid-render; the renderer's callback is ignored) and scheduled uploads.
+ * Unarchive returns to the previous status; nothing restarts by itself.
+ */
+export async function archiveProject(ownerId: string, projectId: string, archive: boolean) {
+  const project = await loadOwnedProject(ownerId, projectId);
+  const db = admin();
+  if (archive) {
+    if (project.status === "archived") return { status: "archived" };
+    const now = new Date().toISOString();
+    await db.from("projects").update({ status: "archived", archived_from: project.status, setup_busy: false, auto_approve: false, auto_video: false }).eq("id", projectId);
+    await db.from("generation_runs").update({ status: "failed", error: "Project archived", finished_at: now }).eq("project_id", projectId).in("status", ["queued", "running"]);
+    await db.from("video_renders").update({ status: "cancelled", error: "Project archived", finished_at: now }).eq("project_id", projectId).in("status", ["queued", "rendering"]);
+    await db.from("publish_jobs").update({ status: "cancelled" }).eq("project_id", projectId).eq("status", "scheduled");
+    await db.from("contents").update({ storyboard_status: "failed" }).eq("project_id", projectId).eq("storyboard_status", "generating");
+    await db.from("contents").update({ script_status: "failed" }).eq("project_id", projectId).eq("script_status", "writing");
+    await logActivity(db, { ownerId, projectId, kind: "project.archived", message: "Project archived — everything in progress stopped" });
+    return { status: "archived" };
+  }
+  if (project.status !== "archived") return { status: project.status };
+  const back = (project.archived_from as string | null) || "draft";
+  await db.from("projects").update({ status: back === "live" ? "paused" : back, archived_from: null }).eq("id", projectId);
+  await logActivity(db, { ownerId, projectId, kind: "project.unarchived", message: "Project restored from the archive" });
+  return { status: back === "live" ? "paused" : back };
+}
+
+/** "Make this video" on a storyboard: approve that content and render it now (not if already made / in progress). */
+export async function makeVideo(ownerId: string, contentId: string) {
+  const db = admin();
+  const { data: c } = await db.from("contents").select("id, status, script_status, storyboard").eq("id", contentId).eq("owner_id", ownerId).maybeSingle();
+  if (!c) throw notFound("Content");
+  if (c.status === "skipped" || c.status === "removed") throw conflict("Restore it first");
+  if (c.script_status !== "ready" || ((c.storyboard ?? []) as { status: string }[]).some((f) => f.status === "drawing" || f.status === "editing")) {
+    throw conflict("Wait until its storyboard is finished");
+  }
+  const { data: have } = await db.from("video_renders").select("id").eq("content_id", contentId).in("status", ["queued", "rendering", "ready"]).limit(1).maybeSingle();
+  if (have) return { renderId: have.id as string, already: true };
+  if (c.status !== "approved") await db.from("contents").update({ status: "approved", approved_at: new Date().toISOString() }).eq("id", contentId);
+  return requestRender(ownerId, contentId);
 }
 
 export async function retryRender(ownerId: string, renderId: string) {

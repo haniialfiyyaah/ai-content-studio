@@ -14,6 +14,7 @@ export async function POST(req: Request) {
         task: z.enum(SETUP_TASKS),
         feedback: z.string().max(1500).optional(),
         target: z.object({ contentId: z.string().uuid(), scene: z.number().int().min(0) }).optional(),
+        count: z.number().int().min(1).max(5).optional(),
       })
       .parse(await req.json());
     return setupContext(body);

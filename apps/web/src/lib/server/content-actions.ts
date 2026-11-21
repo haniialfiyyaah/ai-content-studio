@@ -1,7 +1,7 @@
 import "server-only";
 import { after } from "next/server";
 import type { ContentAction } from "@acs/domain";
-import { approveContent, holdContent, rejectContent, requestRender, restoreContent, skipContent, unlockContent } from "./projects";
+import { approveContent, holdContent, makeVideo, rejectContent, requestRender, restoreContent, skipContent, unlockContent } from "./projects";
 import { publishNow, runPublishJob } from "./publishing";
 import { redrawStoryboard } from "./storyboard";
 
@@ -30,6 +30,8 @@ export async function contentAction(ownerId: string, contentId: string, action: 
       return redrawStoryboard(ownerId, contentId);
     case "render":
       return requestRender(ownerId, contentId);
+    case "make_video":
+      return makeVideo(ownerId, contentId);
     case "publish": {
       const { jobId } = await publishNow(ownerId, contentId);
       after(() => runPublishJob(jobId).then(() => undefined));

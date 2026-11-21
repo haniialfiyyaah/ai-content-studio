@@ -13,7 +13,7 @@ export default async function OverviewPage() {
   const { supabase, user } = await requireUser();
   const [{ data: profile }, { data: projects }, { count: toReview }, { count: videosReady }, { data: nextJob }] = await Promise.all([
     supabase.from("profiles").select("display_name").eq("id", user.id).maybeSingle(),
-    supabase.from("projects").select("*").or(SAVED_PROJECTS_FILTER).order("updated_at", { ascending: false }).limit(24),
+    supabase.from("projects").select("*").or(SAVED_PROJECTS_FILTER).neq("status", "archived").order("updated_at", { ascending: false }).limit(24),
     supabase.from("contents").select("id", { count: "exact", head: true }).eq("status", "idea"),
     supabase.from("video_renders").select("id", { count: "exact", head: true }).eq("status", "ready"),
     supabase.from("publish_jobs").select("scheduled_for").eq("status", "scheduled").order("scheduled_for").limit(1).maybeSingle(),

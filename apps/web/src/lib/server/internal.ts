@@ -137,6 +137,10 @@ export async function generationComplete(raw: unknown) {
 
   const { data: project } = await db.from("projects").select("*").eq("id", r.project_id).single();
   const p = project as ProjectRow;
+  if (p.status === "archived") {
+    await db.from("generation_runs").update({ status: "failed", error: "Project archived", finished_at: new Date().toISOString() }).eq("id", r.id);
+    return { runId: r.id, ignored: "archived" };
+  }
 
   const n = payload.contents.length;
   const title = payload.project?.title ?? p.title;
@@ -250,7 +254,7 @@ async function storyboardComplete(p: ProjectRow, r: RunRow, out: GenerationCompl
         format: out.format,
         video_prompt: out.videoPrompt,
         script_status: "ready",
-        storyboard: null,
+        // Old frames stay: images whose shot didn't change are reused when drawing.
         storyboard_status: "none",
         storyboard_key: null,
       })

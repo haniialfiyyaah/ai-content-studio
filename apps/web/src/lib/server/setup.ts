@@ -40,6 +40,7 @@ type SetupProject = ProjectRow & { setup_stage: SetupStage; setup_busy: boolean;
 
 /** The step the agent is on, or null once the project is in production. */
 export function agentStage(p: Pick<SetupProject, "status" | "setup_stage" | "content_stage">): SetupStage | "plan" | "storyboard" | null {
+  if (p.status === "archived" || p.status === "stopped") return null;
   if (p.status === "setup") return p.setup_stage;
   if (p.content_stage === "plan" || p.content_stage === "storyboard") return p.content_stage;
   return null;
@@ -56,9 +57,9 @@ export function setupStale(p: Pick<SetupProject, "setup_busy" | "setup_started_a
 }
 
 /** Marks the agent busy and sends the task to n8n. */
-async function runTask(projectId: string, task: SetupTask, feedback = "", target?: { contentId: string; scene: number }) {
+async function runTask(projectId: string, task: SetupTask, feedback = "", target?: { contentId: string; scene: number }, count?: number) {
   await admin().from("projects").update({ setup_busy: true, setup_started_at: new Date().toISOString() }).eq("id", projectId);
-  dispatchToN8n("setup", { projectId, task, feedback, ...(target ? { target } : {}) });
+  dispatchToN8n("setup", { projectId, task, feedback, ...(target ? { target } : {}), ...(count ? { count } : {}) });
 }
 
 async function webConversation(projectId: string) {
@@ -251,7 +252,7 @@ async function finishSetup(p: SetupProject) {
 // ---------------------------------------------------------------------------
 // n8n side (service token)
 // ---------------------------------------------------------------------------
-export async function setupContext(input: { projectId: string; task: SetupTask; feedback?: string; target?: { contentId: string; scene: number } }) {
+export async function setupContext(input: { projectId: string; task: SetupTask; feedback?: string; target?: { contentId: string; scene: number }; count?: number }) {
   const db = admin();
   const { data } = await db.from("projects").select("*").eq("id", input.projectId).maybeSingle();
   if (!data) throw notFound("Project");
@@ -302,9 +303,11 @@ export async function setupContext(input: { projectId: string; task: SetupTask; 
     /** Existing projects the new concept and pillars must stay clearly different from. */
     avoidProjects,
     /** Content setup: the current plan (refine keeps what the creator did not ask to change). */
-    contentPlan: input.task === "plan" || agentStage(p) === "plan" ? await currentPlan(p) : null,
+    contentPlan: input.task === "plan" || input.task === "more" || agentStage(p) === "plan" || agentStage(p) === "storyboard" ? await currentPlan(p) : null,
     /** task "scene": the one scene to rewrite, with its neighbours for flow. */
     sceneEdit: input.task === "scene" && input.target ? await sceneEditContext(input.target) : null,
+    /** task "more": how many NEW contents to add to the plan. */
+    moreCount: input.task === "more" ? Math.min(Math.max(input.count ?? 1, 1), 5) : 0,
     /** task "renumber": the active series after a skip / restore (labels already renumbered). */
     renumber: input.task === "renumber" ? await renumberContext(p) : null,
     endingBrief: endingBrief(p.ending, p.title),
@@ -383,6 +386,8 @@ export async function setupComplete(raw: unknown) {
     await db.from("projects").update({ kit: { ...kit, ...input.pillars } }).eq("id", p.id);
     meta.stage = "pillars";
     meta.data = input.pillars;
+  } else if (input.task === "more" && input.plan) {
+    await addPlanItems(p, input.plan.items);
   } else if (input.task === "renumber" && input.patches) {
     await applyTextPatches(p.id, input.patches);
   } else if (input.task === "scene" && input.scene && input.target) {
@@ -416,6 +421,7 @@ export async function setupComplete(raw: unknown) {
   const inSetup = p.status === "setup";
   if (action.type === "propose" && stage === "similar") await advance(fresh);
   else if (action.type === "continue" && inSetup && stage !== "similar") await advance(fresh);
+  else if (action.type === "add" && (stage === "plan" || stage === "storyboard")) await runTask(p.id, "more", action.feedback ?? "", undefined, action.count ?? 1);
   else if (action.type === "continue" && stage === "plan") await writeStoryboards(fresh, {});
   else if (action.type === "continue" && stage === "storyboard") await startVideos(fresh).catch(async (e) => {
     await postAssistantMessage(admin(), p.owner_id, p.id, e instanceof Error ? e.message : "Not ready for the video yet.");
@@ -488,6 +494,12 @@ async function savePlan(p: SetupProject, plan: ContentPlan) {
 /** Auto turned on mid-setup: if a stage result is waiting, continue right away. */
 export async function autoContinue(ownerId: string, projectId: string) {
   const p = await loadSetupProject(ownerId, projectId);
+  // Content setup: auto on with the concept shown → straight to the storyboards.
+  if (agentStage(p) === "plan" && !p.setup_busy) {
+    const { count } = await admin().from("contents").select("id", { count: "exact", head: true }).eq("project_id", projectId).eq("status", "idea").eq("script_status", "none");
+    if (count) await writeStoryboards(p, {});
+    return;
+  }
   if (p.status !== "setup" || p.setup_busy || !["concept", "kit", "pillars"].includes(p.setup_stage)) return;
   const ready = p.setup_stage === "concept" ? Boolean(p.concept?.title) : p.setup_stage === "kit" ? Boolean(p.kit?.tone) : Boolean(p.kit?.pillars?.length);
   if (ready) await advance(p);
@@ -498,11 +510,11 @@ export async function autoContinue(ownerId: string, projectId: string) {
  * and scenes; cards fill in one by one. With feedback, only the contents it
  * names are rewritten (Day 2, Episode 3, #4…); a single video is always the one.
  */
-async function writeStoryboards(p: SetupProject, opts: { feedback?: string; onlyFailed?: boolean }) {
+async function writeStoryboards(p: SetupProject, opts: { feedback?: string; onlyFailed?: boolean; ids?: string[] }) {
   const db = admin();
   const { data } = await db.from("contents").select("id, label, script_status").eq("project_id", p.id).not("status", "in", "(removed,skipped)").order("position");
   const list = data ?? [];
-  let targets = opts.onlyFailed ? list.filter((c) => c.script_status === "failed" || c.script_status === "none") : list;
+  let targets = opts.ids ? list.filter((c) => opts.ids!.includes(c.id)) : opts.onlyFailed ? list.filter((c) => c.script_status === "failed" || c.script_status === "none") : list;
   if (opts.feedback && list.length > 1) {
     const named = pickNamed(list, opts.feedback);
     if (named.length) targets = named;
@@ -513,7 +525,7 @@ async function writeStoryboards(p: SetupProject, opts: { feedback?: string; only
   for (const c of targets) {
     await queueGeneration(p.owner_id, p.id, "storyboard", 1, true, { targetIds: [c.id], feedback: opts.feedback });
   }
-  if (!opts.feedback && !opts.onlyFailed) {
+  if (!opts.feedback && !opts.onlyFailed && !opts.ids) {
     await postAssistantMessage(db, p.owner_id, p.id, list.length > 1 ? `Writing the storyboards — scenes and script for all ${list.length} videos. They appear one by one.` : "Writing the storyboard — the scenes and the script.");
   }
   return { stage: "storyboard" as const, writing: targets.length };
@@ -546,8 +558,13 @@ async function refineScene(p: SetupProject, feedback: string) {
   const content = list.length === 1 ? list[0] : pickNamed(list, feedback)[0];
   const m = feedback.match(/scene\s*(\d{1,2})/i);
   const index = m ? Number(m[1]) - 1 : -1;
-  if (!content || index < 0 || index >= ((content.scenes as unknown[]) ?? []).length) {
-    await postAssistantMessage(db, p.owner_id, p.id, "Which scene should I change? Tap ✏️ on that scene so I know exactly which one.");
+  if (!content) {
+    await postAssistantMessage(db, p.owner_id, p.id, "Which video should I change? Tap ✏️ on a scene, or on the video to change all its scenes.");
+    return;
+  }
+  // No scene named → the whole video's scenes are rewritten (the content concept stays locked).
+  if (index < 0 || index >= ((content.scenes as unknown[]) ?? []).length) {
+    await writeStoryboards(p, { feedback, ids: [content.id as string] });
     return;
   }
   await markFrame(content.id as string, index, "editing");
@@ -606,7 +623,10 @@ async function startVideos(p: SetupProject) {
   // The storyboard is the confirmation: every video is approved and rendered (images are reused).
   await db.from("contents").update({ status: "approved", approved_at: new Date().toISOString() }).eq("project_id", p.id).in("id", list.map((c) => c.id)).neq("status", "approved");
   await db.from("projects").update({ content_stage: "production", setup_busy: false }).eq("id", p.id);
-  for (const c of list) await requestRender(p.owner_id, c.id);
+  // Videos already made (or being made) are not made again.
+  const { data: have } = await db.from("video_renders").select("content_id").in("content_id", list.map((c) => c.id)).in("status", ["queued", "rendering", "ready"]);
+  const made = new Set((have ?? []).map((r) => r.content_id));
+  for (const c of list) if (!made.has(c.id)) await requestRender(p.owner_id, c.id);
   await logActivity(db, { ownerId: p.owner_id, projectId: p.id, kind: "videos.started", message: `Rendering ${list.length} video${list.length > 1 ? "s" : ""}` });
   await postAssistantMessage(
     db,
@@ -704,4 +724,45 @@ async function applyTextPatches(
     if (pt.scenes.length) o.script = [scenes.map((s) => s.narration).filter(Boolean).join(" ")];
     await db.from("contents").update({ options: o, scenes }).eq("id", pt.contentId);
   }
+}
+
+// ---------------------------------------------------------------------------
+// Add content in the middle of the content setup; auto-create the videos
+// ---------------------------------------------------------------------------
+/** New concept cards appended to the plan (labels continue); on the storyboard step they get storyboards right away. */
+async function addPlanItems(p: SetupProject, items: ContentPlan["items"]) {
+  const db = admin();
+  const { data: rows } = await db.from("contents").select("position, label, status").eq("project_id", p.id).neq("status", "removed").order("position");
+  const all = rows ?? [];
+  const plan = (p.content_plan ?? {}) as { format?: string; style?: string };
+  const series = plan.format === "series" || all.length + items.length > 1;
+  const activeCount = all.filter((r) => r.status === "idea" || r.status === "approved").length;
+  const prefix = (all.map((r) => (r.label ?? "").match(/^(.*?)\d+\s*$/)?.[1]).find(Boolean)) ?? (plan.style === "daily" ? "Day " : plan.style === "episodic" ? "Episode " : "Part ");
+  const maxPos = Math.max(-1, ...all.map((r) => r.position as number));
+  const { data: inserted } = await db
+    .from("contents")
+    .insert(
+      items.map((it, i) => ({
+        owner_id: p.owner_id,
+        project_id: p.id,
+        position: maxPos + 1 + i,
+        status: "idea",
+        label: series ? `${prefix}${activeCount + i + 1}` : null,
+        options: { title: [it.title], hook: [it.hook], caption: [it.description], hashtags: [it.hashtags.map((h) => (h.startsWith("#") ? h : `#${h}`)).join(" ")], script: [] },
+        selection: {},
+        scenes: [],
+      })),
+    )
+    .select("id");
+  if (series && plan.format !== "series") await db.from("projects").update({ content_plan: { ...plan, format: "series", style: plan.style || "standalone" } }).eq("id", p.id);
+  await logActivity(db, { ownerId: p.owner_id, projectId: p.id, kind: "plan.added", message: `Added ${items.length} content` });
+  if (agentStage(p) === "storyboard" && inserted?.length) await writeStoryboards(p, { ids: inserted.map((r) => r.id as string) });
+}
+
+/** auto_video: when every active storyboard is finished, the videos start by themselves. */
+export async function autoVideos(projectId: string) {
+  const { data } = await admin().from("projects").select("*").eq("id", projectId).maybeSingle();
+  const p = data as SetupProject | null;
+  if (!p?.auto_video || agentStage(p) !== "storyboard") return;
+  await startVideos(p).catch(() => undefined); // not all finished yet → it simply waits for the next one
 }

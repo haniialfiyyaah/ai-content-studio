@@ -13,6 +13,7 @@ import { PlanView, type PlanCard } from "@/components/project/plan-view";
 import { ProjectBrief } from "@/components/project/project-brief";
 import { StoryboardView } from "@/components/project/storyboard-view";
 import { ReadyModal } from "@/components/project/ready-modal";
+import { ArchiveButton } from "@/components/project/archive-button";
 import { SetupSummary } from "@/components/project/setup-summary";
 import { VideoView } from "@/components/project/video-view";
 import { WorkspaceFrame } from "@/components/project/workspace-frame";
@@ -73,6 +74,21 @@ export default async function ProjectPage({
     />
   );
 
+  if (p.status === "archived") {
+    return (
+      <main className="page">
+        <div className="ws-head">
+          <ProjectBrief title={p.title} emoji={p.emoji} kit={projectKit(p)} ending={p.ending} format={null} />
+        </div>
+        <div className="note amber row between" style={{ flexWrap: "wrap", gap: 10, marginBottom: 16 }}>
+          <span>This project is archived — everything in progress was stopped. Its setup, content and videos are kept.</span>
+          <ActionButton path={`/api/projects/${p.id}/lifecycle`} body={{ action: "unarchive" }} className="btn small primary">Unarchive</ActionButton>
+        </div>
+        <SetupSummary concept={p.concept ?? {}} kit={p.kit ?? {}} ending={p.ending} />
+      </main>
+    );
+  }
+
   if (p.status === "setup") {
     const sp = p as typeof p & { setup_stage: SetupStage; setup_busy: boolean; setup_started_at: string | null };
     return (
@@ -101,7 +117,10 @@ export default async function ProjectPage({
                 <div className="eyebrow">NEW PROJECT · SETUP</div>
                 <h1 style={{ fontSize: 27 }}>{p.emoji ? `${p.emoji} ` : ""}{p.title}</h1>
               </div>
-              {p.auto_approve && <SignalBadges s={{ needsYou: 0, inProgress: false, nextUpload: null, auto: true }} status="draft" />}
+              <div className="row" style={{ gap: 8 }}>
+                {p.auto_approve && <SignalBadges s={{ needsYou: 0, inProgress: false, nextUpload: null, auto: true }} status="draft" />}
+                <ArchiveButton projectId={p.id} />
+              </div>
             </div>
             <SetupView
               projectId={p.id}
@@ -113,6 +132,7 @@ export default async function ProjectPage({
               kit={p.kit ?? {}}
               ending={(p as typeof p & { ending?: unknown }).ending}
               similar={ws.messages.at(-1)?.role === "assistant" ? ws.messages.at(-1)?.meta?.similar ?? null : null}
+              auto={p.auto_approve}
             />
           </main>
         </WorkspaceFrame>
@@ -164,6 +184,10 @@ export default async function ProjectPage({
                 }),
                 status: c.script_status ?? "none",
                 skipped: c.status === "skipped",
+                video: (() => {
+                  const r = ws.renders.get(c.id);
+                  return r && r.status !== "cancelled" && r.status !== "failed" ? { status: r.status, phase: r.phase } : null;
+                })(),
                 writing: (() => {
                   const r = runFor(c.id);
                   return r ? { stage: r.status === "queued" ? "queued" : (r.stage as string), progress: (r.progress as number) ?? 0 } : null;
@@ -206,7 +230,10 @@ export default async function ProjectPage({
                 ending={p.ending}
                 format={plan.format === "series" ? `Series · ${cards.length} videos` : plan.format === "single" ? "Single video" : null}
               />
-              {p.auto_approve && <SignalBadges s={{ needsYou: 0, inProgress: false, nextUpload: null, auto: true }} status={p.status} />}
+              <div className="row" style={{ gap: 8 }}>
+                {p.auto_approve && <SignalBadges s={{ needsYou: 0, inProgress: false, nextUpload: null, auto: true }} status={p.status} />}
+                <ArchiveButton projectId={p.id} />
+              </div>
             </div>
             {/* While the "project ready" pop-up shows, the step is still Project setup. */}
             <PhaseSteps current={ready ? "setup" : p.content_stage} projectId={p.id} viewing={ready ? null : viewing} />
@@ -218,8 +245,8 @@ export default async function ProjectPage({
             )}
             {viewing === "setup" || ready ? (
               <>
-                <SetupSummary concept={p.concept ?? {}} kit={p.kit ?? {}} ending={p.ending} />
                 {ready && !viewing && <ReadyModal projectId={p.id} seconds={p.auto_approve ? 5 : 8} auto={p.auto_approve} />}
+                <SetupSummary concept={p.concept ?? {}} kit={p.kit ?? {}} ending={p.ending} />
               </>
             ) : viewing === "plan" ? (
               <PlanView projectId={p.id} plan={plan} cards={cards} busy={false} stale={false} readOnly />
@@ -240,9 +267,9 @@ export default async function ProjectPage({
                 })}
               />
             ) : p.content_stage === "plan" ? (
-              <PlanView projectId={p.id} plan={plan} cards={cards} busy={p.setup_busy} stale={setupStale(p)} />
+              <PlanView projectId={p.id} plan={plan} cards={cards} busy={p.setup_busy} stale={setupStale(p)} auto={p.auto_approve} />
             ) : (
-              <StoryboardView projectId={p.id} series={plan.format === "series"} items={boards} />
+              <StoryboardView projectId={p.id} series={plan.format === "series"} items={boards} autoVideo={Boolean(p.auto_video)} />
             )}
           </main>
         </WorkspaceFrame>
