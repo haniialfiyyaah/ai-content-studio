@@ -1,7 +1,5 @@
 "use client";
 
-import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { Send, Sparkles, X } from "lucide-react";
 import { api } from "@/lib/client/api";
@@ -27,7 +25,6 @@ export function AgentPanel({
   thinking?: boolean;
   placeholder?: string;
 }) {
-  const router = useRouter();
   const frame = useAgentFrame();
   const input = useRef<HTMLTextAreaElement>(null);
   const [draft, setDraft] = useState("");
@@ -74,19 +71,6 @@ export function AgentPanel({
     });
   }
 
-  function similar(action: "use_similar" | "start_new", targetId?: string) {
-    setError(null);
-    start(async () => {
-      try {
-        const r = await api<{ redirect?: string }>(`/api/projects/${projectId}/setup`, "POST", { action, targetId });
-        if (r.redirect) router.push(r.redirect);
-        else router.refresh();
-      } catch (e) {
-        setError(e instanceof Error ? e.message : "Something went wrong");
-      }
-    });
-  }
-
   return (
     <aside className="agent-panel">
       <div className="agent-head row between">
@@ -104,17 +88,6 @@ export function AgentPanel({
           return (
             <div key={m.id} className="stack" style={{ gap: 7 }}>
               <div className={`bubble ${m.role === "user" ? "user" : "agent"}`}>{m.content}</div>
-              {last && m.role === "assistant" && m.meta?.similar && !thinking && (
-                <div className="similar-card">
-                  <div className="xs muted">Similar project</div>
-                  <div className="small semibold">{m.meta.similar.title}</div>
-                  <div className="actions" style={{ gap: 6, marginTop: 8 }}>
-                    <button className="btn small primary" disabled={busy} onClick={() => similar("use_similar", m.meta!.similar!.projectId)}>Continue there</button>
-                    <button className="btn small soft" disabled={busy} onClick={() => similar("start_new")}>Create a different project</button>
-                    <Link className="btn small ghost" href={`/projects/${m.meta.similar.projectId}`} target="_blank">View</Link>
-                  </div>
-                </div>
-              )}
               {last && m.role === "assistant" && !!m.meta?.chips?.length && !thinking && !showPending && (
                 <div className="chips">
                   {m.meta.chips.map((c) => (

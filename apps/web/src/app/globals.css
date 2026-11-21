@@ -178,3 +178,17 @@ a.btn,a.navitem,a.newbtn,a.tab,a.manage-nav{text-decoration:none}
 .ready-card{display:grid;grid-template-columns:auto 1fr auto;gap:16px;align-items:center;padding:22px;border-color:#d9f0e5;background:linear-gradient(120deg,#f4fcf8,#fff 60%);animation:setupIn .35s ease-out}
 .ready-mark{width:46px;height:46px;border-radius:14px;display:grid;place-items:center;background:#e3f6ec;color:#2c9a75}
 @media (max-width:640px){.ready-card{grid-template-columns:1fr}.ready-card .btn{width:100%}}
+.similar-decide{margin-top:14px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;padding:14px;border:1px solid #f0dcc0;background:#fffaf2;border-radius:13px}.similar-decide-proj{display:flex;flex-direction:column;gap:3px}
+/* "project ready" pop-up */
+.ready-overlay{position:fixed;inset:0;z-index:70;background:#1b14303d;display:grid;place-items:center;padding:16px;animation:readyFade .2s ease-out}
+@keyframes readyFade{from{opacity:0}}
+.ready-pop{position:relative;width:min(440px,100%);background:#fff;border-radius:20px;padding:28px 26px 20px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:10px;box-shadow:0 30px 80px #22184433;animation:readyIn .32s cubic-bezier(.2,.8,.2,1)}
+@keyframes readyIn{from{opacity:0;transform:translateY(8px) scale(.97)}}
+.ready-mark.big{width:56px;height:56px;border-radius:17px;display:grid;place-items:center;background:#e3f6ec;color:#2c9a75}
+.ready-title{font-size:21px;font-weight:840;letter-spacing:-.4px}
+.ready-actions{display:flex;gap:8px;margin-top:6px;flex-wrap:wrap;justify-content:center}
+.ready-go{position:relative;overflow:hidden;isolation:isolate}.ready-go:before{content:"";position:absolute;inset:0;width:var(--p,0%);background:#ffffff2e;z-index:-1;transition:width 1s linear}
+.confetti{position:absolute;left:50%;top:52px;width:0;height:0;pointer-events:none}
+.confetti i{position:absolute;width:7px;height:10px;border-radius:2px;background:var(--c);opacity:0;transform:rotate(var(--a)) translateY(0);animation:confetti .9s cubic-bezier(.15,.7,.3,1) var(--d) forwards}
+@keyframes confetti{15%{opacity:1}100%{opacity:0;transform:rotate(var(--a)) translateY(-110px) rotate(200deg)}}
+@media (prefers-reduced-motion:reduce){.ready-overlay,.ready-pop,.confetti i{animation:none}.confetti{display:none}.ready-go:before{transition:none}}

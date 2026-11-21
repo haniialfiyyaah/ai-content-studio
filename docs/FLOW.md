@@ -163,10 +163,14 @@ never published until resumed, later content moves up a slot) or **Reject**
 ## Content setup (phase 2) — decisions, round 3
 
 - **Auto setup** toggle on the start box (default off). On = concept → kit →
-  pillars → lock run by themselves; every step still shows. A **similar
-  project always stops** to ask (also with auto). After the lock it stops on
-  **"Your project is ready"** with **Generate content** (or a message to the
-  agent, which becomes the brief) before the content concept is generated.
+  pillars → lock → content concept → **storyboards** run by themselves; every
+  step still shows; it stops at the storyboards. A **similar project always
+  stops** to ask (one decision card in the main area: Continue there / Create a
+  different project / View). After the lock a **"Yeay, your project is
+  ready!"** pop-up appears live; **Generate content** starts by itself after a
+  countdown (5 s auto, 8 s manual — the lock was already the confirmation);
+  **Wait** stops it and leaves a ready card with the button. A message to the
+  agent at that point becomes the brief for the content concept.
 - Model output for setup steps is trimmed to fit, never rejected; a failed
   save frees the agent and shows Retry. Only an
   "⚡ Auto" tag is shown when on — nothing when off. (Auto for later steps: TBD.)

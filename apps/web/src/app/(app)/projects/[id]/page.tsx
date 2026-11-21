@@ -12,6 +12,7 @@ import { PhaseSteps } from "@/components/project/phase-steps";
 import { PlanView, type PlanCard } from "@/components/project/plan-view";
 import { ProjectBrief } from "@/components/project/project-brief";
 import { StoryboardView } from "@/components/project/storyboard-view";
+import { ReadyModal } from "@/components/project/ready-modal";
 import { sketchFont } from "@/lib/fonts";
 import { WorkspaceFrame } from "@/components/project/workspace-frame";
 import { ActionButton } from "@/components/ui/action-button";
@@ -110,7 +111,7 @@ export default async function ProjectPage({
               concept={p.concept ?? {}}
               kit={p.kit ?? {}}
               ending={(p as typeof p & { ending?: unknown }).ending}
-              similarPending={ws.messages.at(-1)?.role === "assistant" && Boolean(ws.messages.at(-1)?.meta?.similar)}
+              similar={ws.messages.at(-1)?.role === "assistant" ? ws.messages.at(-1)?.meta?.similar ?? null : null}
             />
           </main>
         </WorkspaceFrame>
@@ -152,6 +153,7 @@ export default async function ProjectPage({
               {p.auto_approve && <SignalBadges s={{ needsYou: 0, inProgress: false, nextUpload: null, auto: true }} status={p.status} />}
             </div>
             <PhaseSteps current={p.content_stage} />
+            {p.content_stage === "plan" && !cards.length && !busy && <ReadyModal projectId={p.id} seconds={p.auto_approve ? 5 : 8} auto={p.auto_approve} />}
             {p.content_stage === "plan" ? (
               <PlanView projectId={p.id} plan={plan} cards={cards} busy={p.setup_busy} stale={setupStale(p)} />
             ) : (

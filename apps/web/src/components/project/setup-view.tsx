@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { ArrowRight, Check, Pencil, RotateCcw } from "lucide-react";
@@ -44,7 +45,7 @@ export function SetupView({
   concept,
   kit,
   ending,
-  similarPending,
+  similar,
 }: {
   projectId: string;
   stage: SetupStage;
@@ -55,7 +56,7 @@ export function SetupView({
   kit: Partial<CreativeKit>;
   ending: unknown;
   /** The agent asked "continue in a similar project?" and it isn't answered yet. */
-  similarPending?: boolean;
+  similar?: { projectId: string; title: string } | null;
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
@@ -64,11 +65,13 @@ export function SetupView({
   const working = busy && !stale;
   const needRetry = stale || (!busy && stage !== "similar" && !hasResult(stage, concept, kit));
 
-  function act(action: "continue" | "retry" | "start_new") {
+  const similarPending = Boolean(similar);
+  function act(action: "continue" | "retry" | "start_new" | "use_similar", targetId?: string) {
     setError(null);
     start(async () => {
       try {
-        await api(`/api/projects/${projectId}/setup`, "POST", { action });
+        const r = await api<{ redirect?: string }>(`/api/projects/${projectId}/setup`, "POST", { action, targetId });
+        if (r?.redirect) return router.push(r.redirect);
         router.refresh();
       } catch (e) {
         setError(e instanceof Error ? e.message : "Something went wrong");
@@ -108,6 +111,20 @@ export function SetupView({
                   : "Tell the agent which way you want to go."}
             </p>
             <div className="note" style={{ marginTop: 14 }}>“{idea}”</div>
+            {similar && !working && (
+              <div className="similar-decide">
+                <div className="similar-decide-proj">
+                  <span className="xs muted">Your existing project</span>
+                  <Link href={`/projects/${similar.projectId}`} target="_blank" className="small semibold">{similar.title} ↗</Link>
+                </div>
+                <div className="actions">
+                  <button className="btn" disabled={pending} onClick={() => act("use_similar", similar.projectId)}>Continue there</button>
+                  <button className="btn primary" disabled={pending} onClick={() => act("start_new")}>
+                    {pending ? <Spinner size={13} /> : null} Create a different project <ArrowRight size={14} />
+                  </button>
+                </div>
+              </div>
+            )}
           </>
         )}
 
@@ -172,19 +189,19 @@ export function SetupView({
           </div>
         )}
 
-        {!working && (stage === "similar" || hasResult(stage, concept, kit)) && (
+        {!working && !similarPending && (stage === "similar" || hasResult(stage, concept, kit)) && (
           <>
             <div className="divider" />
             <div className="row between" style={{ flexWrap: "wrap", gap: 10 }}>
               {stage === "similar" ? (
-                <span className="xs muted">{similarPending ? "Or continue in the similar project from the chat." : "Or tell the agent which way you want to go."}</span>
+                <span className="xs muted">Or tell the agent which way you want to go.</span>
               ) : (
                 <span className="xs muted">Tap ✏️ on any field to change it, or tell the agent.</span>
               )}
               <button
                 className={`btn ${stage === "similar" ? "" : "primary"}`}
                 disabled={pending}
-                onClick={() => act(stage === "similar" && similarPending ? "start_new" : "continue")}
+                onClick={() => act(stage === "similar" ? "start_new" : "continue")}
               >
                 {pending ? <Spinner size={13} /> : null} {NEXT_LABEL[stage]} <ArrowRight size={14} />
               </button>

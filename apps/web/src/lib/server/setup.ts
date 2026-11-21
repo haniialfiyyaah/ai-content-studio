@@ -239,9 +239,7 @@ async function finishSetup(p: SetupProject) {
   const db = admin();
   await db.from("projects").update({ setup_stage: "done", setup_busy: false, status: "draft", content_stage: "plan" }).eq("id", p.id);
   await logActivity(db, { ownerId: p.owner_id, projectId: p.id, kind: "setup.done", message: "Project setup is ready" });
-  await postAssistantMessage(db, p.owner_id, p.id, "Your project is ready ✅ The setup is locked. Generate the content when you're ready: I'll decide between one video or a series and write the concept of each.", {
-    chips: ["Generate content"],
-  });
+  await postAssistantMessage(db, p.owner_id, p.id, "Your project is ready ✅ The setup is locked. Next I'll plan the content: one video or a series, and the concept of each.");
   return { stage: "done" as const };
 }
 
@@ -390,6 +388,8 @@ export async function setupComplete(raw: unknown) {
   // Auto: the project setup runs straight through (concept → kit → pillars → plan).
   if (input.task !== "chat") {
     if (p.auto_approve && p.status === "setup" && ["concept", "kit", "pillars"].includes(input.task)) await advance(fresh);
+    // Auto setup runs on to the storyboards (only the first plan, not a refine).
+    else if (p.auto_approve && input.task === "plan" && input.plan && !(await hasStoryboards(p.id))) await writeStoryboards(fresh, {});
     return { ok: true };
   }
   // The agent's decision drives the next step.
@@ -490,4 +490,9 @@ function pickNamed<T extends { id: string; label: string | null }>(list: T[], te
     if (new RegExp(`#\\s*${i + 1}\\b`).test(t)) out.add(c.id);
   });
   return list.filter((c) => out.has(c.id));
+}
+
+async function hasStoryboards(projectId: string) {
+  const { count } = await admin().from("contents").select("id", { count: "exact", head: true }).eq("project_id", projectId).neq("script_status", "none");
+  return Boolean(count);
 }
