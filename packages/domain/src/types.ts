@@ -326,7 +326,7 @@ export const ProjectSettingsSchema = z
 export type ProjectSettings = z.infer<typeof ProjectSettingsSchema>;
 
 /** POST /api/contents/:id/actions */
-export const CONTENT_ACTIONS = ["approve", "remove", "hold", "resume", "unlock", "storyboard", "render", "publish"] as const;
+export const CONTENT_ACTIONS = ["approve", "remove", "hold", "resume", "unlock", "storyboard", "redraw_scene", "render", "publish"] as const;
 export type ContentAction = (typeof CONTENT_ACTIONS)[number];
 
 // ---------------------------------------------------------------------------

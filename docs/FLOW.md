@@ -201,7 +201,9 @@ never published until resumed, later content moves up a slot) or **Reject**
   on-screen text, shot), the script is rebuilt from all narration, and only that
   image is redrawn — locked to the scene text, same style/palette/engine, with
   the neighbouring scenes' images + the character as references. No scene named
-  → the agent asks which one.
+  → the agent asks which one. 🔁 Redraw on a scene = same scene text, a new
+  image (same rules). The storyboard is where images are made and confirmed —
+  there is no separate images step; next is the video.
 - Steps: Project setup → Content concept → Storyboards → **Video** (next).
 - **Step dots are clickable for viewing**: finished steps open read-only (setup
   steps inside the setup; Project setup / Content concept via `?view=`), the
