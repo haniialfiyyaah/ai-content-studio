@@ -189,14 +189,20 @@ never published until resumed, later content moves up a slot) or **Reject**
   approval.
 - Next: storyboards (scenes + script + sketch images) → stop → images → video.
 - Hide agent sits in the agent header; phones get a sticky Project / Agent switch.
-- **Storyboards** (content setup step 2): "Continue to storyboards" queues one
-  WF-01 run per content (kind `storyboard`, `contents.script_status`): the
-  concept stays locked, the writer + editor write the script and the scenes
-  (series context so each ending teases the next). Shown as free **sketch
-  frames** drawn from each scene's layout (hook text, points, compare, stat,
-  product, CTA, a dashed subject box with the shot description) — no image
-  model. Cards fill in one by one; refine via chat (✏️ per video / per scene;
-  feedback naming "Day 2" / "#3" rewrites only those). Stops; images & video next.
+- **Storyboards** (content setup step 2, decided round 6 — sketches dropped):
+  "Continue to storyboards" queues one WF-01 run per content (kind
+  `storyboard`): the concept stays locked, writer + editor write the script and
+  scenes (series context so each ending teases the next). As soon as a script
+  lands, **every scene's image is drawn** (project engine; frames saved one by
+  one so they appear live). Each scene card: image (click → its description),
+  heading, narration in quotes, ✏️.
+- **Refine = one scene at a time.** ✏️ pre-fills "Change Day 2 scene 3: …"; the
+  setup agent (WF-05 task `scene`) rewrites only that scene (narration,
+  on-screen text, shot), the script is rebuilt from all narration, and only that
+  image is redrawn — locked to the scene text, same style/palette/engine, with
+  the neighbouring scenes' images + the character as references. No scene named
+  → the agent asks which one.
+- Steps: Project setup → Content concept → Storyboards → **Video** (next).
 - **Step dots are clickable for viewing**: finished steps open read-only (setup
   steps inside the setup; Project setup / Content concept via `?view=`), the
   current step returns to work. The ready pop-up has no Wait: the project

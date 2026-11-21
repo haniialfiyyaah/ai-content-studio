@@ -14,7 +14,6 @@ import { ProjectBrief } from "@/components/project/project-brief";
 import { StoryboardView } from "@/components/project/storyboard-view";
 import { ReadyModal } from "@/components/project/ready-modal";
 import { SetupSummary } from "@/components/project/setup-summary";
-import { sketchFont } from "@/lib/fonts";
 import { WorkspaceFrame } from "@/components/project/workspace-frame";
 import { ActionButton } from "@/components/ui/action-button";
 import { LiveRefresh } from "@/components/ui/live-refresh";
@@ -131,10 +130,35 @@ export default async function ProjectPage({
       return { id: c.id, n: i + 1, label: c.label ?? "", title: r.title, hook: r.hook, description: r.caption, hashtags: r.hashtags };
     });
     const ready = p.content_stage === "plan" && !cards.length && !busy;
+    // Storyboards: every scene's image, signed per content (frames land live while drawing).
+    const boards =
+      p.content_stage === "storyboard"
+        ? await Promise.all(
+            contents.map(async (c, i) => {
+              const r = resolveContent(c.options, c.selection);
+              const frames = ((c as typeof c & { storyboard?: StoryboardFrame[] | null }).storyboard ?? []) as StoryboardFrame[];
+              const urls = await storyboardImageUrls(frames);
+              return {
+                id: c.id,
+                n: i + 1,
+                label: c.label ?? "",
+                title: r.title,
+                hook: r.hook,
+                scenes: c.scenes,
+                frames: c.scenes.map((_, j) => {
+                  const f = frames.find((x) => x.scene === j);
+                  return f ? { status: f.status, url: urls[j] ?? null } : undefined;
+                }),
+                status: c.script_status ?? "none",
+              };
+            }),
+          )
+        : [];
+    const drawing = boards.some((b) => b.frames.some((f) => f?.status === "drawing" || f?.status === "editing"));
     return (
       <>
         <LiveRefresh
-          pollMs={p.setup_busy || ws.messages.at(-1)?.role === "user" || contents.some((c) => c.script_status === "writing") ? 3000 : undefined}
+          pollMs={p.setup_busy || ws.messages.at(-1)?.role === "user" || contents.some((c) => c.script_status === "writing") || drawing ? 3000 : undefined}
           sources={[
             { table: "projects", filter: `id=eq.${p.id}` },
             { table: "contents", filter: `project_id=eq.${p.id}` },
@@ -173,15 +197,7 @@ export default async function ProjectPage({
             ) : p.content_stage === "plan" ? (
               <PlanView projectId={p.id} plan={plan} cards={cards} busy={p.setup_busy} stale={setupStale(p)} />
             ) : (
-              <StoryboardView
-                projectId={p.id}
-                series={plan.format === "series"}
-                fontClass={sketchFont.variable}
-                items={contents.map((c, i) => {
-                  const r = resolveContent(c.options, c.selection);
-                  return { id: c.id, n: i + 1, label: c.label ?? "", title: r.title, hook: r.hook, script: r.script, scenes: c.scenes, status: c.script_status ?? "none" };
-                })}
-              />
+              <StoryboardView projectId={p.id} series={plan.format === "series"} items={boards} />
             )}
           </main>
         </WorkspaceFrame>

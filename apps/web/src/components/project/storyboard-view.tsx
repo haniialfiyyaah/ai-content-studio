@@ -2,12 +2,16 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { Pencil, RotateCcw } from "lucide-react";
+import { ImageOff, Pencil, RotateCcw } from "lucide-react";
 import type { Scene } from "@acs/domain";
 import { api } from "@/lib/client/api";
 import { compose } from "@/lib/client/compose";
 import { Spinner } from "@/components/ui/spinner";
-import { SketchBack, SketchFrame } from "./sketch-frame";
+
+export interface StoryboardFrameView {
+  status: "completed" | "failed" | "drawing" | "editing";
+  url: string | null;
+}
 
 export interface StoryboardItem {
   id: string;
@@ -15,16 +19,16 @@ export interface StoryboardItem {
   label: string;
   title: string;
   hook: string;
-  script: string;
   scenes: Scene[];
+  frames: (StoryboardFrameView | undefined)[];
   status: "none" | "writing" | "ready" | "failed";
 }
 
 /**
- * Content setup step 2: the storyboard of each video — sketch frames (free,
- * drawn from the scenes), narration under each, the full script. Refine in chat.
+ * Content setup step 2: the storyboard of each video — every scene with its
+ * image, narration and shot. Changes happen one scene at a time (✏️).
  */
-export function StoryboardView({ projectId, items, series, fontClass }: { projectId: string; items: StoryboardItem[]; series: boolean; fontClass: string }) {
+export function StoryboardView({ projectId, items, series }: { projectId: string; items: StoryboardItem[]; series: boolean }) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const retry = () =>
@@ -33,10 +37,12 @@ export function StoryboardView({ projectId, items, series, fontClass }: { projec
       router.refresh();
     });
   const name = (it: StoryboardItem) => (series ? it.label || `#${it.n}` : "the video");
-  const ready = items.filter((i) => i.status === "ready").length;
+  const done = (it: StoryboardItem) =>
+    it.status === "ready" && it.scenes.every((s, i) => s.background === "design" || ["completed", "failed"].includes(it.frames[i]?.status ?? ""));
+  const ready = items.filter(done).length;
 
   return (
-    <div className={`stack sb ${fontClass}`} style={{ gap: 18 }}>
+    <div className="stack" style={{ gap: 18 }}>
       {series && (
         <div className="sb-progress">
           <span className="small semibold">{ready} of {items.length} storyboards</span>
@@ -52,19 +58,15 @@ export function StoryboardView({ projectId, items, series, fontClass }: { projec
               <h3 className="sb-title">{it.title}</h3>
               <div className="sb-hook">“{it.hook}”</div>
             </div>
-            {it.status === "ready" && (
-              <button className="btn small ghost" onClick={() => compose(`Change ${name(it)}: `)}><Pencil size={12} /> Change</button>
-            )}
           </header>
 
-          {/* First draft: every scene shows its own loading frame */}
           {it.status === "writing" && !it.scenes.length && (
             <div className="sb-strip" aria-busy>
               {Array.from({ length: 6 }, (_, i) => (
                 <figure key={i} className="sb-beat">
-                  <div className="sk-frame sk-pending" style={{ animationDelay: `${i * 120}ms` }}>
-                    <span className="sk-num">{i + 1}</span>
-                    <span className="sk-loading"><Spinner size={14} /> sketching</span>
+                  <div className="sb-img sb-pending" style={{ animationDelay: `${i * 120}ms` }}>
+                    <span className="sb-num">{i + 1}</span>
+                    <span className="sb-loading"><Spinner size={14} /> writing</span>
                   </div>
                 </figure>
               ))}
@@ -77,21 +79,18 @@ export function StoryboardView({ projectId, items, series, fontClass }: { projec
             </div>
           )}
 
-          {/* Ready, or being rewritten after a change (the old frames stay, each with a loader) */}
-          {(it.status === "ready" || (it.status === "writing" && it.scenes.length > 0)) && (
-            <>
-              {it.status === "writing" && <div className="sb-rewriting"><Spinner size={12} /> Rewriting this storyboard…</div>}
-              <div className={`sb-strip ${it.status === "writing" ? "is-rewriting" : ""}`} aria-busy={it.status === "writing"}>
-                {it.scenes.map((s, i) => (
+          {it.scenes.length > 0 && it.status !== "none" && it.status !== "failed" && (
+            <div className="sb-strip">
+              {it.scenes.map((s, i) => {
+                const f = it.frames[i];
+                const busy = f?.status === "drawing" || f?.status === "editing" || (!f && s.background !== "design");
+                return (
                   <figure key={i} className="sb-beat">
-                    <div className="sk-wrap">
-                      <FlipFrame s={s} index={i} disabled={it.status === "writing"} />
-                      {it.status === "writing" && <span className="sk-overlay"><Spinner size={16} /></span>}
-                    </div>
+                    <SceneImage s={s} index={i} frame={f} busy={busy} />
                     <figcaption>
                       <div className="sb-beat-head">
-                        <span className="sb-hand">{s.heading}</span>
-                        {it.status === "ready" && (
+                        <span className="sb-heading">{s.heading}</span>
+                        {it.status === "ready" && !busy && (
                           <button className="icbtn tinybtn" title={`Change scene ${i + 1}`} onClick={() => compose(`Change ${name(it)} scene ${i + 1} (“${s.heading}”): `)}>
                             <Pencil size={10} />
                           </button>
@@ -100,44 +99,48 @@ export function StoryboardView({ projectId, items, series, fontClass }: { projec
                       {s.narration && <p className="sb-narr">“{s.narration}”</p>}
                     </figcaption>
                   </figure>
-                ))}
-              </div>
-              {it.script && (
-                <details className="sb-script">
-                  <summary className="xs semibold">Full script · {it.scenes.reduce((a, s) => a + (s.seconds || 0), 0)} s</summary>
-                  <p className="small line">{it.script}</p>
-                </details>
-              )}
-            </>
+                );
+              })}
+            </div>
           )}
         </section>
       ))}
 
-      <div className="note">
-        Check {series ? "the storyboards" : "the storyboard"} and tell the agent anything to change — tap ✏️ on a scene to point at it. Next step: images &amp; video.
-      </div>
+      <div className="note">Tap ✏️ on a scene to change it — only that scene is rewritten and redrawn. Next step: the video.</div>
     </div>
   );
 }
 
-/** Click a sketch to flip it to the scene description; click again to flip back. One side is drawn at a time. */
-function FlipFrame({ s, index, disabled }: { s: Scene; index: number; disabled?: boolean }) {
+/** The scene image; click to flip to its description. One side is drawn at a time. */
+function SceneImage({ s, index, frame, busy }: { s: Scene; index: number; frame?: StoryboardFrameView; busy: boolean }) {
   const [back, setBack] = useState(false);
-  const [touched, setTouched] = useState(false); // animate only after a click, never on page load
+  const [touched, setTouched] = useState(false);
+  const design = s.background === "design";
   return (
     <button
       type="button"
-      className="sk-flip"
+      className="sb-flip"
       onClick={() => {
         setTouched(true);
         setBack(!back);
       }}
-      disabled={disabled}
       aria-pressed={back}
-      aria-label={back ? `Show scene ${index + 1} sketch` : `Show scene ${index + 1} description`}
+      aria-label={back ? `Show scene ${index + 1} image` : `Show scene ${index + 1} description`}
     >
-      <span key={back ? "back" : "front"} className={`sk-face ${touched ? "anim" : ""}`}>
-        {back ? <SketchBack s={s} index={index} /> : <SketchFrame s={s} index={index} />}
+      <span key={back ? "b" : "f"} className={`sb-img ${touched ? "anim" : ""} ${back ? "sb-back" : ""}`}>
+        <span className="sb-num">{index + 1}</span>
+        {back ? (
+          <span className="sb-back-text">{s.visual || s.heading}</span>
+        ) : frame?.url ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={frame.url} alt={s.visual || s.heading} />
+        ) : design ? (
+          <span className="sb-design">{s.headline || s.onScreenText || s.heading}<small>designed scene</small></span>
+        ) : frame?.status === "failed" ? (
+          <span className="sb-loading"><ImageOff size={16} /> image failed</span>
+        ) : null}
+        {busy && !back && <span className="sb-overlay"><Spinner size={16} /> {frame?.status === "editing" ? "rewriting" : "drawing"}</span>}
+        <span className="sb-secs">{s.seconds}s</span>
       </span>
     </button>
   );

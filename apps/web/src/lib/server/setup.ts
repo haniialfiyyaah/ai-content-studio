@@ -12,6 +12,7 @@ import {
   type ContentPlan,
   type ContentStage,
   type MessageMeta,
+  type Scene,
   type SetupStage,
   type SetupTask,
 } from "@acs/domain";
@@ -19,6 +20,7 @@ import { after } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { SIMILAR_STRONG, findSimilarProjects, type SimilarProject } from "./similar";
 import { dispatchToN8n } from "./dispatch";
+import { markFrame, queueSceneRedraw } from "./storyboard";
 import { queueGeneration } from "./projects";
 import { logActivity, postAssistantMessage } from "./events";
 import type { ProjectRow } from "./rows";
@@ -54,9 +56,9 @@ export function setupStale(p: Pick<SetupProject, "setup_busy" | "setup_started_a
 }
 
 /** Marks the agent busy and sends the task to n8n. */
-async function runTask(projectId: string, task: SetupTask, feedback = "") {
+async function runTask(projectId: string, task: SetupTask, feedback = "", target?: { contentId: string; scene: number }) {
   await admin().from("projects").update({ setup_busy: true, setup_started_at: new Date().toISOString() }).eq("id", projectId);
-  dispatchToN8n("setup", { projectId, task, feedback });
+  dispatchToN8n("setup", { projectId, task, feedback, ...(target ? { target } : {}) });
 }
 
 async function webConversation(projectId: string) {
@@ -183,7 +185,7 @@ export async function setupAction(ownerId: string, projectId: string, action: "c
     await userMessage(ownerId, projectId, "✅ The plan looks good — write the storyboards");
     return writeStoryboards(p, {});
   }
-  if (stage === "storyboard") throw conflict("Images & video are the next step — coming soon");
+  if (stage === "storyboard") throw conflict("The video is the next step — coming soon");
   // Every button press is part of the conversation.
   if (action === "start_new") {
     await userMessage(ownerId, projectId, "Start a new project");
@@ -246,7 +248,7 @@ async function finishSetup(p: SetupProject) {
 // ---------------------------------------------------------------------------
 // n8n side (service token)
 // ---------------------------------------------------------------------------
-export async function setupContext(input: { projectId: string; task: SetupTask; feedback?: string }) {
+export async function setupContext(input: { projectId: string; task: SetupTask; feedback?: string; target?: { contentId: string; scene: number } }) {
   const db = admin();
   const { data } = await db.from("projects").select("*").eq("id", input.projectId).maybeSingle();
   if (!data) throw notFound("Project");
@@ -298,6 +300,8 @@ export async function setupContext(input: { projectId: string; task: SetupTask; 
     avoidProjects,
     /** Content setup: the current plan (refine keeps what the creator did not ask to change). */
     contentPlan: input.task === "plan" || agentStage(p) === "plan" ? await currentPlan(p) : null,
+    /** task "scene": the one scene to rewrite, with its neighbours for flow. */
+    sceneEdit: input.task === "scene" && input.target ? await sceneEditContext(input.target) : null,
     endingBrief: endingBrief(p.ending, p.title),
   };
 }
@@ -367,6 +371,8 @@ export async function setupComplete(raw: unknown) {
     await db.from("projects").update({ kit: { ...kit, ...input.pillars } }).eq("id", p.id);
     meta.stage = "pillars";
     meta.data = input.pillars;
+  } else if (input.task === "scene" && input.scene && input.target) {
+    await applySceneEdit(input.target, input.scene);
   } else if (input.task === "plan" && input.plan) {
     await savePlan(p, input.plan);
     meta.data = { format: input.plan.format, style: input.plan.style, count: input.plan.items.length };
@@ -398,7 +404,7 @@ export async function setupComplete(raw: unknown) {
   else if (action.type === "continue" && inSetup && stage !== "similar") await advance(fresh);
   else if (action.type === "continue" && stage === "plan") await writeStoryboards(fresh, {});
   else if (action.type === "refine" && stage === "storyboard" && action.feedback?.trim()) {
-    await writeStoryboards(fresh, { feedback: action.feedback.trim() });
+    await refineScene(fresh, action.feedback.trim());
   } else if (action.type === "refine" && stage !== "similar" && action.feedback?.trim()) {
     await runTask(p.id, stage as SetupTask, action.feedback.trim());
   }
@@ -495,4 +501,52 @@ function pickNamed<T extends { id: string; label: string | null }>(list: T[], te
 async function hasStoryboards(projectId: string) {
   const { count } = await admin().from("contents").select("id", { count: "exact", head: true }).eq("project_id", projectId).neq("script_status", "none");
   return Boolean(count);
+}
+
+// ---------------------------------------------------------------------------
+// Storyboard: refine ONE scene (its text, then its image)
+// ---------------------------------------------------------------------------
+async function refineScene(p: SetupProject, feedback: string) {
+  const db = admin();
+  const { data } = await db.from("contents").select("id, label, scenes").eq("project_id", p.id).neq("status", "removed").order("position");
+  const list = data ?? [];
+  const content = list.length === 1 ? list[0] : pickNamed(list, feedback)[0];
+  const m = feedback.match(/scene\s*(\d{1,2})/i);
+  const index = m ? Number(m[1]) - 1 : -1;
+  if (!content || index < 0 || index >= ((content.scenes as unknown[]) ?? []).length) {
+    await postAssistantMessage(db, p.owner_id, p.id, "Which scene should I change? Tap ✏️ on that scene so I know exactly which one.");
+    return;
+  }
+  await markFrame(content.id as string, index, "editing");
+  await runTask(p.id, "scene", feedback, { contentId: content.id as string, scene: index });
+}
+
+async function sceneEditContext(target: { contentId: string; scene: number }) {
+  const { data: c } = await admin().from("contents").select("label, options, selection, scenes").eq("id", target.contentId).maybeSingle();
+  if (!c) return null;
+  const scenes = (c.scenes ?? []) as Scene[];
+  const r = resolveContent(c.options, c.selection);
+  const brief = (s?: Scene) => (s ? { heading: s.heading, narration: s.narration, visual: s.visual } : null);
+  return {
+    content: { label: c.label ?? "", title: r.title, hook: r.hook },
+    sceneNumber: target.scene + 1,
+    totalScenes: scenes.length,
+    scene: scenes[target.scene] ?? null,
+    previous: brief(scenes[target.scene - 1]),
+    next: brief(scenes[target.scene + 1]),
+  };
+}
+
+/** Merge the rewritten scene, rebuild the script from all narration, redraw only that image. */
+async function applySceneEdit(target: { contentId: string; scene: number }, patch: Partial<Scene>) {
+  const db = admin();
+  const { data: c } = await db.from("contents").select("options, scenes").eq("id", target.contentId).maybeSingle();
+  if (!c) return;
+  const scenes = ((c.scenes ?? []) as Scene[]).map((s) => ({ ...s }));
+  if (!scenes[target.scene]) return;
+  const clean = Object.fromEntries(Object.entries(patch).filter(([, v]) => v !== "" && v !== undefined));
+  scenes[target.scene] = { ...scenes[target.scene], ...clean };
+  const script = scenes.map((s) => s.narration).filter(Boolean).join(" ");
+  await db.from("contents").update({ scenes, options: { ...(c.options as object), script: [script] } }).eq("id", target.contentId);
+  queueSceneRedraw(target.contentId, target.scene);
 }

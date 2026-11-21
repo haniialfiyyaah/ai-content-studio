@@ -8,7 +8,14 @@ import { setupContext } from "@/lib/server/setup";
 export async function POST(req: Request) {
   return handle(async () => {
     assertInternalServiceAuth(req);
-    const body = z.object({ projectId: z.string().uuid(), task: z.enum(SETUP_TASKS), feedback: z.string().max(1500).optional() }).parse(await req.json());
+    const body = z
+      .object({
+        projectId: z.string().uuid(),
+        task: z.enum(SETUP_TASKS),
+        feedback: z.string().max(1500).optional(),
+        target: z.object({ contentId: z.string().uuid(), scene: z.number().int().min(0) }).optional(),
+      })
+      .parse(await req.json());
     return setupContext(body);
   });
 }

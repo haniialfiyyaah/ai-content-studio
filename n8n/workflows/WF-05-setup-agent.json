@@ -2,9 +2,9 @@
  "name": "WF-05 Setup Agent",
  "nodes": [
   {
-   "id": "deaf2ce8-8b67-417e-ad80-1110f69a5555",
+   "id": "6a89be5a-6b25-4dc5-881b-edf41b18e771",
    "name": "05-01 Webhook",
-   "webhookId": "6c168b15-9128-4cd8-8f8a-d7b82aebbc31",
+   "webhookId": "a8293a1e-bb63-4e76-8143-085de3c29c88",
    "type": "n8n-nodes-base.webhook",
    "typeVersion": 2,
    "position": [
@@ -18,7 +18,7 @@
    }
   },
   {
-   "id": "afa05f60-dca8-4f7e-a095-23117ce916fc",
+   "id": "9281fe30-e90e-4829-aa6a-0fd19f1fe82e",
    "name": "05-02 Load context",
    "type": "n8n-nodes-base.httpRequest",
    "typeVersion": 4.2,
@@ -45,14 +45,14 @@
     "sendBody": true,
     "contentType": "json",
     "specifyBody": "json",
-    "jsonBody": "={{ JSON.stringify({ projectId: $json.body.projectId, task: $json.body.task, feedback: $json.body.feedback || '' }) }}",
+    "jsonBody": "={{ JSON.stringify({ projectId: $json.body.projectId, task: $json.body.task, feedback: $json.body.feedback || '', target: $json.body.target || undefined }) }}",
     "options": {
      "timeout": 30000
     }
    }
   },
   {
-   "id": "c4ee63af-b1c2-42a4-97a0-307a48562488",
+   "id": "688c4c7e-8a18-4269-9d36-1217ffc2400d",
    "name": "05-90 Mark failed",
    "type": "n8n-nodes-base.httpRequest",
    "typeVersion": 4.2,
@@ -86,7 +86,7 @@
    }
   },
   {
-   "id": "abd08d94-5140-42b5-9471-8c6f17b74b75",
+   "id": "550f7b81-b459-4dbe-a03e-b39ffafdd41c",
    "name": "05-10 Task chat?",
    "type": "n8n-nodes-base.if",
    "typeVersion": 2.2,
@@ -104,7 +104,7 @@
      },
      "conditions": [
       {
-       "id": "3b0a122e-66df-4ea3-96c3-eb0b2cb72b9c",
+       "id": "f2f7c8b7-23ba-4744-880c-557777d75414",
        "leftValue": "={{ $('05-02 Load context').item.json.data.task }}",
        "rightValue": "chat",
        "operator": {
@@ -119,7 +119,7 @@
    }
   },
   {
-   "id": "d5941fed-3605-471e-82da-ce466c8a6ff4",
+   "id": "b97ff927-1e06-4e74-b81f-d5b38de0fab1",
    "name": "05-20 Chat",
    "type": "@n8n/n8n-nodes-langchain.chainLlm",
    "typeVersion": 1.9,
@@ -136,14 +136,14 @@
      "messageValues": [
       {
        "type": "SystemMessagePromptTemplate",
-       "message": "You are the Creative Agent of AI Content Studio. You help a creator turn a rough idea into a short-form video project (YouTube Shorts / Reels / TikTok, 9:16, 20-45 s) BEFORE anything is generated. The creator stays in control.\n\nAlways reply in the APP LANGUAGE given below (not the content language), warm and concrete, max 60 words. Ask at most 2 short questions per turn - keep it light, never interrogate. Offer 2-4 quick-reply chips (each max 6 words) that answer your question; empty when you ask nothing.\n\nSTAGE \"discovery\" - the ONLY job here is avoiding duplicate projects. Do NOT ask about audience, goal, tone or language (details are adjusted later on the concept).\n- similarCandidates are the creator's projects scored by similarity (>=0.55 = same idea; 0.35-0.55 = maybe; cross-language matches score lower, so judge by topic).\n- If a candidate is clearly about the same topic/niche and the creator has not answered this yet: action.type=\"similar\", action.projectId=its id, and ask ONE question: continue in that project, or create a different one?\n- Otherwise, or when the creator chose a different/new project: action.type=\"propose\" and say in one line that you are sketching the concept now.\n- If the creator wants the existing project: action.type=\"similar\" with that id again and tell them to tap \"Continue there\".\n\nSTAGE \"plan\" - the project setup is locked; the creator is reviewing the CONTENT PLAN cards (single video or series; each with title, hook, description, hashtags). Changes -> action.type=\"refine\", action.feedback naming the items (\"Day 2: make the hook a question\", \"#3 title shorter\", \"make it 7 days\"); accept -> action.type=\"continue\" and say storyboards come next. Never change the concept, kit or pillars here - they are locked.\n\nSTAGE \"storyboard\" - the creator is reviewing the STORYBOARDS (scenes + script of each video). Changes -> action.type=\"refine\", action.feedback naming the video and scene when they did (\"Day 2 scene 3: show the pan, not the chef\", \"#1: shorter script\"); reply confirms in one line. Accept -> action.type=\"continue\" and say images & video come next. Concept, kit, pillars and the content plan are locked here.\n\nSTAGES \"concept\", \"kit\", \"pillars\" - the creator is reviewing that stage's result (shown next to the chat).\n- They want changes -> action.type=\"refine\", action.feedback = a precise instruction for that stage only, naming the field when they did (messages like \"Change the niche: ...\" target that field; keep their words, e.g. \"niche: budget cooking for university students\"); reply confirms in one line.\n- They accept / say continue / ok / lanjut -> action.type=\"continue\".\nFill in sensible defaults instead of asking; the creator edits fields with the pencil buttons.\n- A question -> answer it, action.type=\"ask\".\n\nNever write the concept, kit or pillars yourself in the reply. action.feedback and action.projectId are empty strings when unused."
+       "message": "You are the Creative Agent of AI Content Studio. You help a creator turn a rough idea into a short-form video project (YouTube Shorts / Reels / TikTok, 9:16, 20-45 s) BEFORE anything is generated. The creator stays in control.\n\nAlways reply in the APP LANGUAGE given below (not the content language), warm and concrete, max 60 words. Ask at most 2 short questions per turn - keep it light, never interrogate. Offer 2-4 quick-reply chips (each max 6 words) that answer your question; empty when you ask nothing.\n\nSTAGE \"discovery\" - the ONLY job here is avoiding duplicate projects. Do NOT ask about audience, goal, tone or language (details are adjusted later on the concept).\n- similarCandidates are the creator's projects scored by similarity (>=0.55 = same idea; 0.35-0.55 = maybe; cross-language matches score lower, so judge by topic).\n- If a candidate is clearly about the same topic/niche and the creator has not answered this yet: action.type=\"similar\", action.projectId=its id, and ask ONE question: continue in that project, or create a different one?\n- Otherwise, or when the creator chose a different/new project: action.type=\"propose\" and say in one line that you are sketching the concept now.\n- If the creator wants the existing project: action.type=\"similar\" with that id again and tell them to tap \"Continue there\".\n\nSTAGE \"plan\" - the project setup is locked; the creator is reviewing the CONTENT PLAN cards (single video or series; each with title, hook, description, hashtags). Changes -> action.type=\"refine\", action.feedback naming the items (\"Day 2: make the hook a question\", \"#3 title shorter\", \"make it 7 days\"); accept -> action.type=\"continue\" and say storyboards come next. Never change the concept, kit or pillars here - they are locked.\n\nSTAGE \"storyboard\" - the creator is reviewing the STORYBOARDS (each scene: image, narration, shot). Changes are made ONE SCENE at a time: action.type=\"refine\" with action.feedback = the video and scene plus the change (\"Day 2 scene 3: show the pan, not the chef\"); reply confirms in one line. If it is not clear which scene, action.type=\"ask\" and ask them to tap the pencil on that scene. Accept -> action.type=\"continue\" and say the video comes next. Concept, kit, pillars and the content plan are locked here.\n\nSTAGES \"concept\", \"kit\", \"pillars\" - the creator is reviewing that stage's result (shown next to the chat).\n- They want changes -> action.type=\"refine\", action.feedback = a precise instruction for that stage only, naming the field when they did (messages like \"Change the niche: ...\" target that field; keep their words, e.g. \"niche: budget cooking for university students\"); reply confirms in one line.\n- They accept / say continue / ok / lanjut -> action.type=\"continue\".\nFill in sensible defaults instead of asking; the creator edits fields with the pencil buttons.\n- A question -> answer it, action.type=\"ask\".\n\nNever write the concept, kit or pillars yourself in the reply. action.feedback and action.projectId are empty strings when unused."
       }
      ]
     }
    }
   },
   {
-   "id": "6fcc4b89-530a-4077-88cd-9f3b83dade6c",
+   "id": "e102abde-a89a-413f-a971-fd825b331ce1",
    "name": "OpenAI (Chat)",
    "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
    "typeVersion": 1.3,
@@ -171,7 +171,7 @@
    }
   },
   {
-   "id": "d851da15-924a-4bbc-9d4a-625e19c76613",
+   "id": "c67f6afc-291d-4452-bbee-cdc5679d46cb",
    "name": "Schema (Chat)",
    "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
    "typeVersion": 1.3,
@@ -185,7 +185,7 @@
    }
   },
   {
-   "id": "547cc754-2102-44ca-8fd7-a1fc781f19cf",
+   "id": "a45c8baa-acee-49ca-a0ff-97f3c8dcf5d8",
    "name": "05-30 Save chat",
    "type": "n8n-nodes-base.httpRequest",
    "typeVersion": 4.2,
@@ -219,7 +219,7 @@
    }
   },
   {
-   "id": "28b60531-7391-43cf-81bb-a18fb852ed68",
+   "id": "0af91c7c-435b-4352-9e1d-66b3c0bab6c0",
    "name": "05-11 Task concept?",
    "type": "n8n-nodes-base.if",
    "typeVersion": 2.2,
@@ -237,7 +237,7 @@
      },
      "conditions": [
       {
-       "id": "27687255-2eda-4253-81fb-242cad60f90c",
+       "id": "2f763dad-40be-41fe-b73e-656e66b6a98a",
        "leftValue": "={{ $('05-02 Load context').item.json.data.task }}",
        "rightValue": "concept",
        "operator": {
@@ -252,7 +252,7 @@
    }
   },
   {
-   "id": "08c4a06d-5a81-4d70-9561-cf74ca0ea328",
+   "id": "21ce247d-72a1-4bf3-aaa7-5f6ec9e5e802",
    "name": "05-21 Concept",
    "type": "@n8n/n8n-nodes-langchain.chainLlm",
    "typeVersion": 1.9,
@@ -276,7 +276,7 @@
    }
   },
   {
-   "id": "48435653-29a7-423c-b7f0-3453f560e62d",
+   "id": "5cbff1aa-3c01-4641-80f6-638b57310f1c",
    "name": "OpenAI (Concept)",
    "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
    "typeVersion": 1.3,
@@ -304,7 +304,7 @@
    }
   },
   {
-   "id": "fc2f14f4-cd36-49eb-8e44-9911b6db5ab0",
+   "id": "70eb9b24-f3b8-40e2-939a-91f502de63a3",
    "name": "Schema (Concept)",
    "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
    "typeVersion": 1.3,
@@ -318,7 +318,7 @@
    }
   },
   {
-   "id": "ef687948-014f-463f-aa99-cfe77bb4dbf5",
+   "id": "1905c871-bca3-4918-acf4-91e3e7ad60b8",
    "name": "05-31 Save concept",
    "type": "n8n-nodes-base.httpRequest",
    "typeVersion": 4.2,
@@ -352,7 +352,7 @@
    }
   },
   {
-   "id": "d2cb208d-4abd-4869-993f-0360b9fae0b5",
+   "id": "77bbc1bd-80dd-4518-bcc8-836aa7ffcf1f",
    "name": "05-12 Task kit?",
    "type": "n8n-nodes-base.if",
    "typeVersion": 2.2,
@@ -370,7 +370,7 @@
      },
      "conditions": [
       {
-       "id": "17df81bb-058b-4a09-8283-24fe11640872",
+       "id": "0e5e709f-f2b9-4de0-88ab-04785b163fee",
        "leftValue": "={{ $('05-02 Load context').item.json.data.task }}",
        "rightValue": "kit",
        "operator": {
@@ -385,7 +385,7 @@
    }
   },
   {
-   "id": "4b884994-aaac-4f74-a58a-8ec2da5d5a89",
+   "id": "3aa042db-afac-4811-8660-2fef99f1aa51",
    "name": "05-22 Kit",
    "type": "@n8n/n8n-nodes-langchain.chainLlm",
    "typeVersion": 1.9,
@@ -409,7 +409,7 @@
    }
   },
   {
-   "id": "261c90ba-ede6-4ff8-8ea5-fbce09b5a4c1",
+   "id": "68cb4ac1-7b67-45fa-a9af-6b9a772df638",
    "name": "OpenAI (Kit)",
    "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
    "typeVersion": 1.3,
@@ -437,7 +437,7 @@
    }
   },
   {
-   "id": "db66fd25-63f4-4d65-b300-82b27e36b2ad",
+   "id": "b54dbad2-4057-42d9-afd7-05931aa4dbef",
    "name": "Schema (Kit)",
    "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
    "typeVersion": 1.3,
@@ -451,7 +451,7 @@
    }
   },
   {
-   "id": "aeacb239-ec57-476b-8f65-878e04ffb6a9",
+   "id": "93859b65-c354-4a1e-ad3f-b8fba09b4902",
    "name": "05-32 Save kit",
    "type": "n8n-nodes-base.httpRequest",
    "typeVersion": 4.2,
@@ -485,7 +485,7 @@
    }
   },
   {
-   "id": "f5d280b2-20d1-42a3-8070-cddfdcddf295",
+   "id": "32cdc4e7-ef9b-41f5-8907-87747e595497",
    "name": "05-13 Task pillars?",
    "type": "n8n-nodes-base.if",
    "typeVersion": 2.2,
@@ -503,7 +503,7 @@
      },
      "conditions": [
       {
-       "id": "d0347885-8a47-4647-8ecd-2e942682b595",
+       "id": "c9d8c420-fd00-4f0a-93c8-05032eb23757",
        "leftValue": "={{ $('05-02 Load context').item.json.data.task }}",
        "rightValue": "pillars",
        "operator": {
@@ -518,7 +518,7 @@
    }
   },
   {
-   "id": "d60ce2a4-28d4-4a8e-b0ca-ad45dfa9d9cd",
+   "id": "60073366-b91d-46e4-806a-c1bf282c8805",
    "name": "05-23 Pillars",
    "type": "@n8n/n8n-nodes-langchain.chainLlm",
    "typeVersion": 1.9,
@@ -542,7 +542,7 @@
    }
   },
   {
-   "id": "54a31b64-84b9-490a-b328-b8f91ae73567",
+   "id": "a513d1a0-6099-4f2f-8392-33aa3519343a",
    "name": "OpenAI (Pillars)",
    "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
    "typeVersion": 1.3,
@@ -570,7 +570,7 @@
    }
   },
   {
-   "id": "772dd9f4-fa1c-4a85-ac3e-4bb0ffbaaa61",
+   "id": "89731afe-2265-4fac-96e2-7cb56678ca0e",
    "name": "Schema (Pillars)",
    "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
    "typeVersion": 1.3,
@@ -584,7 +584,7 @@
    }
   },
   {
-   "id": "a6a1b292-4515-4bed-b9e9-b83ddd6cdae4",
+   "id": "ceba70d1-58d3-4ed3-abf0-e787f4a8680c",
    "name": "05-33 Save pillars",
    "type": "n8n-nodes-base.httpRequest",
    "typeVersion": 4.2,
@@ -618,8 +618,8 @@
    }
   },
   {
-   "id": "b33bce19-6b3a-44b1-a684-fd4ab6cad69f",
-   "name": "05-14 Task plan?",
+   "id": "ada00b7a-2a2c-4ec2-943d-66b452abaeb9",
+   "name": "05-14 Task scene?",
    "type": "n8n-nodes-base.if",
    "typeVersion": 2.2,
    "position": [
@@ -636,7 +636,140 @@
      },
      "conditions": [
       {
-       "id": "f203e475-646f-4ead-9609-577901feb0cc",
+       "id": "06b6045b-f774-42ff-8a82-9ee028d95eb8",
+       "leftValue": "={{ $('05-02 Load context').item.json.data.task }}",
+       "rightValue": "scene",
+       "operator": {
+        "type": "string",
+        "operation": "equals"
+       }
+      }
+     ],
+     "combinator": "and"
+    },
+    "options": {}
+   }
+  },
+  {
+   "id": "4dfdd752-4759-49eb-8fa9-8cd325d778d4",
+   "name": "05-24 Scene",
+   "type": "@n8n/n8n-nodes-langchain.chainLlm",
+   "typeVersion": 1.9,
+   "onError": "continueErrorOutput",
+   "position": [
+    700,
+    1680
+   ],
+   "parameters": {
+    "promptType": "define",
+    "hasOutputParser": true,
+    "text": "=App language (write the reply and every field in it): {{ $('05-02 Load context').item.json.data.appLanguage }}\nIdea: {{ $('05-02 Load context').item.json.data.idea }}\nConversation (oldest first): {{ JSON.stringify($('05-02 Load context').item.json.data.history) }}\nCurrent concept: {{ JSON.stringify($('05-02 Load context').item.json.data.concept) }}\nCurrent Creative Kit: {{ JSON.stringify($('05-02 Load context').item.json.data.kit) }}\nCurrent pillars & guardrails: {{ JSON.stringify($('05-02 Load context').item.json.data.pillars) }}\nExisting projects to stay clearly different from: {{ JSON.stringify($('05-02 Load context').item.json.data.avoidProjects) }}\nCurrent content plan: {{ JSON.stringify($('05-02 Load context').item.json.data.contentPlan) }}\nEnding: {{ $('05-02 Load context').item.json.data.endingBrief }}\nChange request (empty = first draft): {{ $('05-02 Load context').item.json.data.feedback }}\nScene to rewrite (with its neighbours): {{ JSON.stringify($('05-02 Load context').item.json.data.sceneEdit) }}",
+    "messages": {
+     "messageValues": [
+      {
+       "type": "SystemMessagePromptTemplate",
+       "message": "You rewrite ONE scene (beat) of a short-form video storyboard. Apply the creator's change request to this scene only and keep everything it does not mention.\n- narration: the spoken line for this beat, in the CONTENT language and the narrator voice of the Creative Kit; it must still flow from the previous scene's narration into the next one's.\n- onScreenText / headline: short on-screen words in the content language (empty if the scene had none and the change doesn't need them).\n- visual: a concrete shot description in English for the illustrator - subject, action, framing, setting - in the project's visual style, consistent with the recurring character and the neighbouring scenes.\n- heading: 1-4 words naming the beat.\n- seconds: keep about the same unless the change asks otherwise.\n- reply: ONE short line in the APP LANGUAGE saying what you changed (e.g. \"Scene 3 now shows the pan sizzling - redrawing its image.\")."
+      }
+     ]
+    }
+   }
+  },
+  {
+   "id": "4a19623e-5d33-4ea8-a8ac-13dbb6ae371a",
+   "name": "OpenAI (Scene)",
+   "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+   "typeVersion": 1.3,
+   "position": [
+    700,
+    1900
+   ],
+   "parameters": {
+    "model": {
+     "__rl": true,
+     "mode": "list",
+     "value": "gpt-5-mini"
+    },
+    "options": {
+     "reasoningEffort": "low",
+     "timeout": 120000,
+     "maxRetries": 2
+    }
+   },
+   "credentials": {
+    "openAiApi": {
+     "id": "REPLACE_ME",
+     "name": "OpenAI account"
+    }
+   }
+  },
+  {
+   "id": "e854e628-d4cd-474d-af5c-cc84a86d9aed",
+   "name": "Schema (Scene)",
+   "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+   "typeVersion": 1.3,
+   "position": [
+    840,
+    1900
+   ],
+   "parameters": {
+    "schemaType": "manual",
+    "inputSchema": "{\"type\": \"object\", \"properties\": {\"reply\": {\"type\": \"string\"}, \"scene\": {\"type\": \"object\", \"properties\": {\"heading\": {\"type\": \"string\"}, \"narration\": {\"type\": \"string\"}, \"visual\": {\"type\": \"string\"}, \"onScreenText\": {\"type\": \"string\"}, \"headline\": {\"type\": \"string\"}, \"seconds\": {\"type\": \"number\"}}, \"required\": [\"heading\", \"narration\", \"visual\", \"onScreenText\", \"headline\", \"seconds\"]}}, \"required\": [\"reply\", \"scene\"]}"
+   }
+  },
+  {
+   "id": "b3ee74f5-aada-478d-9955-c71ec2746f83",
+   "name": "05-34 Save scene",
+   "type": "n8n-nodes-base.httpRequest",
+   "typeVersion": 4.2,
+   "position": [
+    1100,
+    1680
+   ],
+   "parameters": {
+    "method": "POST",
+    "url": "={{ $env.ACS_API_BASE_URL }}/api/internal/setup/complete",
+    "sendHeaders": true,
+    "headerParameters": {
+     "parameters": [
+      {
+       "name": "x-acs-service-token",
+       "value": "={{ $env.ACS_INTERNAL_SERVICE_TOKEN }}"
+      },
+      {
+       "name": "Content-Type",
+       "value": "application/json"
+      }
+     ]
+    },
+    "sendBody": true,
+    "contentType": "json",
+    "specifyBody": "json",
+    "jsonBody": "={{ JSON.stringify(Object.assign({ projectId: $('05-02 Load context').item.json.data.projectId, task: 'scene' }, { reply: $json.output.reply, scene: $json.output.scene, target: $('05-01 Webhook').item.json.body.target })) }}",
+    "options": {
+     "timeout": 30000
+    }
+   }
+  },
+  {
+   "id": "ce0328e5-e1bc-41ab-83a8-07d00b634fb0",
+   "name": "05-15 Task plan?",
+   "type": "n8n-nodes-base.if",
+   "typeVersion": 2.2,
+   "position": [
+    440,
+    2100
+   ],
+   "parameters": {
+    "conditions": {
+     "options": {
+      "caseSensitive": true,
+      "leftValue": "",
+      "typeValidation": "strict",
+      "version": 2
+     },
+     "conditions": [
+      {
+       "id": "f24dd68d-55b1-44f6-b1ea-0509a6aa9c76",
        "leftValue": "={{ $('05-02 Load context').item.json.data.task }}",
        "rightValue": "plan",
        "operator": {
@@ -651,14 +784,14 @@
    }
   },
   {
-   "id": "cfae6dd0-4ec9-4e02-a3e2-047fca40fb6c",
-   "name": "05-24 Plan",
+   "id": "78109267-e8ce-4bb2-8393-9578ba62b96b",
+   "name": "05-25 Plan",
    "type": "@n8n/n8n-nodes-langchain.chainLlm",
    "typeVersion": 1.9,
    "onError": "continueErrorOutput",
    "position": [
     700,
-    1680
+    2100
    ],
    "parameters": {
     "promptType": "define",
@@ -675,13 +808,13 @@
    }
   },
   {
-   "id": "45230727-168b-4bea-9baa-3fe6132a526e",
+   "id": "17085618-889c-410d-86d7-e5a92f7cf1c9",
    "name": "OpenAI (Plan)",
    "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
    "typeVersion": 1.3,
    "position": [
     700,
-    1900
+    2320
    ],
    "parameters": {
     "model": {
@@ -703,13 +836,13 @@
    }
   },
   {
-   "id": "0c9c53fd-5291-44c1-9183-fbf651d2adf1",
+   "id": "17e5097f-0a49-4f25-a971-3f03f76f6a5d",
    "name": "Schema (Plan)",
    "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
    "typeVersion": 1.3,
    "position": [
     840,
-    1900
+    2320
    ],
    "parameters": {
     "schemaType": "manual",
@@ -717,13 +850,13 @@
    }
   },
   {
-   "id": "4600cc8e-a278-4eb4-a29a-1b01ecc6f393",
-   "name": "05-34 Save plan",
+   "id": "66bfc599-286d-4b6a-9135-9bfdbb43c2ba",
+   "name": "05-35 Save plan",
    "type": "n8n-nodes-base.httpRequest",
    "typeVersion": 4.2,
    "position": [
     1100,
-    1680
+    2100
    ],
    "parameters": {
     "method": "POST",
@@ -959,7 +1092,7 @@
     ],
     [
      {
-      "node": "05-14 Task plan?",
+      "node": "05-14 Task scene?",
       "type": "main",
       "index": 0
      }
@@ -1006,22 +1139,80 @@
     ]
    ]
   },
-  "05-14 Task plan?": {
+  "05-14 Task scene?": {
    "main": [
     [
      {
-      "node": "05-24 Plan",
+      "node": "05-24 Scene",
+      "type": "main",
+      "index": 0
+     }
+    ],
+    [
+     {
+      "node": "05-15 Task plan?",
       "type": "main",
       "index": 0
      }
     ]
    ]
   },
-  "05-24 Plan": {
+  "05-24 Scene": {
    "main": [
     [
      {
-      "node": "05-34 Save plan",
+      "node": "05-34 Save scene",
+      "type": "main",
+      "index": 0
+     }
+    ],
+    [
+     {
+      "node": "05-90 Mark failed",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "OpenAI (Scene)": {
+   "ai_languageModel": [
+    [
+     {
+      "node": "05-24 Scene",
+      "type": "ai_languageModel",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Schema (Scene)": {
+   "ai_outputParser": [
+    [
+     {
+      "node": "05-24 Scene",
+      "type": "ai_outputParser",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "05-15 Task plan?": {
+   "main": [
+    [
+     {
+      "node": "05-25 Plan",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "05-25 Plan": {
+   "main": [
+    [
+     {
+      "node": "05-35 Save plan",
       "type": "main",
       "index": 0
      }
@@ -1039,7 +1230,7 @@
    "ai_languageModel": [
     [
      {
-      "node": "05-24 Plan",
+      "node": "05-25 Plan",
       "type": "ai_languageModel",
       "index": 0
      }
@@ -1050,7 +1241,7 @@
    "ai_outputParser": [
     [
      {
-      "node": "05-24 Plan",
+      "node": "05-25 Plan",
       "type": "ai_outputParser",
       "index": 0
      }

@@ -39,7 +39,8 @@ export interface StoryboardFrame {
   model?: string;
   imagePath?: string;
   referencePath?: string;
-  status: "completed" | "failed";
+  /** drawing = image being made · editing = the scene text is being rewritten first */
+  status: "completed" | "failed" | "drawing" | "editing";
   url: string | null;
 }
 
@@ -165,7 +166,30 @@ export async function generateStoryboard(contentId: string, opts: { force?: bool
     const falOk = Boolean(process.env.FAL_KEY?.trim());
     const engines = (p.image_engine === "fal" ? ["fal", "openai"] : ["openai", "fal"]).filter((e) => (e === "fal" ? falOk : openAiOk));
 
+    // Placeholders first, then each image is saved as soon as it lands (the UI fills in live).
+    const live: StoryboardFrame[] = scenes.map((s, i) => ({
+      scene: i,
+      source: "none",
+      status: p.visual_mode === "references" || s.background === "design" ? "completed" : "drawing",
+      url: null,
+    }));
+    let writes = Promise.resolve();
+    const save = () => {
+      const snapshot = live.map((f) => ({ ...f }));
+      writes = writes.then(async () => {
+        await db.from("contents").update({ storyboard: snapshot }).eq("id", c.id);
+      });
+      return writes;
+    };
+    await save();
+
     const frames = await pool(scenes, 3, async (s, i): Promise<StoryboardFrame> => {
+      const f = await drawFrame(s, i);
+      live[i] = f;
+      await save();
+      return f;
+    });
+    async function drawFrame(s: Scene, i: number): Promise<StoryboardFrame> {
       const ref = refFor(s, i);
       if (p.visual_mode === "references" || s.background === "design") {
         if (p.visual_mode === "references" && ref) {
@@ -199,7 +223,8 @@ export async function generateStoryboard(contentId: string, opts: { force?: bool
       return ref
         ? { scene: i, source: "reference", referencePath: ref.storage_path, status: "completed", url: null }
         : { scene: i, source: "none", status: "failed", url: null };
-    });
+    }
+    await writes;
 
     const drawn = frames.filter((f) => f.source === "openai").length;
     const wanted = scenes.filter((s) => p.visual_mode !== "references" && s.background !== "design").length;
@@ -244,4 +269,85 @@ export async function redrawStoryboard(ownerId: string, contentId: string) {
   await db.from("contents").update({ storyboard_status: "generating", storyboard_started_at: null }).eq("id", contentId);
   after(() => generateStoryboard(contentId, { force: true }).then(() => undefined).catch(() => undefined));
   return { generating: true };
+}
+
+/** Ask the app (in its own serverless run) to redraw one scene of a storyboard. */
+export function queueSceneRedraw(contentId: string, scene: number) {
+  after(() =>
+    fetch(`${appUrl()}/api/internal/storyboard/run`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-acs-service-token": process.env.ACS_INTERNAL_SERVICE_TOKEN ?? "" },
+      body: JSON.stringify({ contentId, scene }),
+      signal: AbortSignal.timeout(295_000),
+    }).then(() => undefined).catch(() => undefined),
+  );
+}
+
+/** Mark one storyboard frame (e.g. "editing" while its text is rewritten). */
+export async function markFrame(contentId: string, scene: number, status: StoryboardFrame["status"]) {
+  const db = admin();
+  const { data } = await db.from("contents").select("storyboard").eq("id", contentId).maybeSingle();
+  const frames = ((data?.storyboard ?? []) as StoryboardFrame[]).map((f) => ({ ...f }));
+  if (!frames[scene]) frames[scene] = { scene, source: "none", status, url: null };
+  else frames[scene].status = status;
+  await db.from("contents").update({ storyboard: frames }).eq("id", contentId);
+}
+
+/**
+ * Redraw ONE scene (docs/FLOW.md redraw rules): the prompt is locked to the
+ * scene text, same style / palette / character / engine, and the neighbouring
+ * scenes' images are references so the look stays the same.
+ */
+export async function redrawScene(contentId: string, index: number) {
+  const db = admin();
+  const { data: content } = await db.from("contents").select("*").eq("id", contentId).maybeSingle();
+  if (!content) throw notFound("Content");
+  const c = content as ContentRow & { storyboard?: StoryboardFrame[] | null };
+  const { data: project } = await db.from("projects").select("*").eq("id", c.project_id).single();
+  const p = project as Project;
+  const s = (c.scenes ?? [])[index];
+  if (!s) throw notFound("Scene");
+  const frames = ((c.storyboard ?? []) as StoryboardFrame[]).map((f) => ({ ...f }));
+  const setFrame = async (f: StoryboardFrame) => {
+    const { data: fresh } = await db.from("contents").select("storyboard").eq("id", contentId).maybeSingle();
+    const cur = ((fresh?.storyboard ?? frames) as StoryboardFrame[]).map((x) => ({ ...x }));
+    cur[index] = f;
+    await db.from("contents").update({ storyboard: cur, storyboard_key: storyboardKey({ scenes: c.scenes }, p) }).eq("id", contentId);
+  };
+  if (s.background === "design" || p.visual_mode === "references") {
+    await setFrame({ scene: index, source: "none", status: "completed", url: null });
+    return { scene: index, drawn: false };
+  }
+  await setFrame({ ...(frames[index] ?? { scene: index, source: "none", url: null }), status: "drawing" });
+
+  const kit = projectKit(p);
+  const prompt =
+    sceneImagePrompt({ visual: s.visual, heading: s.heading, layout: s.layout, visualStyle: kit.visualStyle, palette: kit.palette, recurringSubject: kit.recurringSubject, fallback: c.video_prompt || s.heading }) +
+    " Match the reference frames exactly in art style, line work, lighting, colours and character design — only the scene content changes.";
+
+  // References: the neighbours' images + the project character.
+  const refs: { bytes: ArrayBuffer; mimeType: string; name: string }[] = [];
+  for (const j of [index - 1, index + 1]) {
+    const path = frames[j]?.imagePath;
+    if (!path) continue;
+    const { data } = await db.storage.from(BUCKET).download(path);
+    if (data) refs.push({ bytes: await data.arrayBuffer(), mimeType: data.type || "image/png", name: `scene-${j}.png` });
+  }
+  const identity = (await listAssets(p.id, 600)).find((a) => a.label === IDENTITY_LABEL);
+  if (identity) {
+    const { data } = await db.storage.from("assets").download(identity.storage_path);
+    if (data) refs.push({ bytes: await data.arrayBuffer(), mimeType: data.type || "image/png", name: "character.png" });
+  }
+
+  try {
+    let img: { bytes: Uint8Array | ArrayBuffer; model: string };
+    if (p.image_engine === "fal" && process.env.FAL_KEY?.trim()) img = await falImage(prompt, null);
+    else img = refs.length ? await editOpenAiImage(prompt, refs) : await generateOpenAiImage(prompt);
+    const imagePath = await storeImage(c.owner_id, c.id, index, img.bytes);
+    await setFrame({ scene: index, source: "openai", model: img.model, imagePath, status: "completed", url: null });
+    return { scene: index, drawn: true };
+  } catch (e) {
+    await setFrame({ ...(frames[index] ?? { scene: index, source: "none", url: null }), status: "failed" });
+    throw e;
+  }
 }

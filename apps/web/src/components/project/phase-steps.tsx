@@ -5,12 +5,12 @@ const PHASES = [
   ["setup", "Project setup"],
   ["plan", "Content concept"],
   ["storyboard", "Storyboards"],
-  ["production", "Images & video"],
+  ["production", "Video"],
 ] as const;
 export type Phase = (typeof PHASES)[number][0];
 
 /**
- * Where the project is: project setup → content concept → storyboards → images & video.
+ * Where the project is: project setup → content concept → storyboards (with images) → video.
  * Finished steps open read-only (?view=<step>); the current step returns to work.
  */
 export function PhaseSteps({ current, projectId, viewing }: { current: Phase; projectId?: string; viewing?: Phase | null }) {

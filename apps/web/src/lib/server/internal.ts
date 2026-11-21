@@ -13,6 +13,7 @@ import { logActivity, notifyTelegram, postAssistantMessage } from "./events";
 import { generateMore, reviseContents } from "./projects";
 import { failRender } from "./renders";
 import { CONTENT_DUPLICATE, findSimilarContents } from "./similar";
+import { queueStoryboards } from "./storyboard";
 import type { ContentRow, ProjectRow, RunRow } from "./rows";
 
 const admin = () => createAdminClient();
@@ -254,6 +255,8 @@ async function storyboardComplete(p: ProjectRow, r: RunRow, out: GenerationCompl
         storyboard_key: null,
       })
       .eq("id", id);
+    // The storyboard shows real images: draw every scene now (each lands live).
+    queueStoryboards([id]);
   }
   await db.from("generation_runs").update({ status: "succeeded", stage: "done", progress: 100, finished_at: new Date().toISOString() }).eq("id", r.id);
   const { count } = await db.from("contents").select("id", { count: "exact", head: true }).eq("project_id", p.id).eq("script_status", "writing");

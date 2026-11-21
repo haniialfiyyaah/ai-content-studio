@@ -245,7 +245,7 @@ export const SetupPillarsSchema = z.object({
 });
 export type SetupPillars = z.infer<typeof SetupPillarsSchema>;
 
-export const SETUP_TASKS = ["chat", "concept", "kit", "pillars", "plan"] as const;
+export const SETUP_TASKS = ["chat", "concept", "kit", "pillars", "plan", "scene"] as const;
 export type SetupTask = (typeof SETUP_TASKS)[number];
 
 /** n8n WF-05 → /api/internal/setup/complete */
@@ -268,6 +268,20 @@ export const SetupCompleteSchema = z.object({
   kit: SetupKitSchema.optional(),
   pillars: SetupPillarsSchema.optional(),
   plan: z.lazy(() => ContentPlanSchema).optional(),
+  /** task "scene": the rewritten scene (merged into the existing one). */
+  scene: z
+    .object({
+      heading: clip(120),
+      narration: clip(600),
+      visual: clip(600),
+      onScreenText: clip(120),
+      headline: clip(80),
+      seconds: z.coerce.number().min(1).max(15).catch(4),
+    })
+    .partial()
+    .optional(),
+  /** echoed back: which content / scene a "scene" task was for */
+  target: z.object({ contentId: z.string().uuid(), scene: z.coerce.number().int().min(0) }).optional(),
 });
 export type SetupComplete = z.infer<typeof SetupCompleteSchema>;
 
