@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { ImageOff, Pencil, RefreshCw, RotateCcw } from "lucide-react";
+import { ImageOff, Pencil, RotateCcw } from "lucide-react";
 import type { Scene } from "@acs/domain";
 import { api } from "@/lib/client/api";
 import { compose } from "@/lib/client/compose";
@@ -34,11 +34,6 @@ export function StoryboardView({ projectId, items, series }: { projectId: string
   const retry = () =>
     start(async () => {
       await api(`/api/projects/${projectId}/setup`, "POST", { action: "retry" }).catch(() => undefined);
-      router.refresh();
-    });
-  const redraw = (contentId: string, scene: number) =>
-    start(async () => {
-      await api(`/api/contents/${contentId}/actions`, "POST", { action: "redraw_scene", scene }).catch(() => undefined);
       router.refresh();
     });
   const name = (it: StoryboardItem) => (series ? it.label || `#${it.n}` : "the video");
@@ -96,16 +91,9 @@ export function StoryboardView({ projectId, items, series }: { projectId: string
                       <div className="sb-beat-head">
                         <span className="sb-heading">{s.heading}</span>
                         {it.status === "ready" && !busy && (
-                          <span className="row" style={{ gap: 4 }}>
-                            {s.background !== "design" && (
-                              <button className="icbtn tinybtn" title={`Redraw scene ${i + 1} (same scene, new image)`} onClick={() => redraw(it.id, i)}>
-                                <RefreshCw size={10} />
-                              </button>
-                            )}
-                            <button className="icbtn tinybtn" title={`Change scene ${i + 1}`} onClick={() => compose(`Change ${name(it)} scene ${i + 1} (“${s.heading}”): `)}>
-                              <Pencil size={10} />
-                            </button>
-                          </span>
+                          <button className="icbtn tinybtn" title={`Change scene ${i + 1}`} onClick={() => compose(`Change ${name(it)} scene ${i + 1} (“${s.heading}”): `)}>
+                            <Pencil size={10} />
+                          </button>
                         )}
                       </div>
                       {s.narration && <p className="sb-narr">“{s.narration}”</p>}
@@ -118,7 +106,7 @@ export function StoryboardView({ projectId, items, series }: { projectId: string
         </section>
       ))}
 
-      <div className="note">Not happy with an image? 🔁 redraws it (same scene). ✏️ changes the scene itself — only that scene is rewritten and redrawn. Next step: the video.</div>
+      <div className="note">Tap ✏️ on a scene to change it — only that scene is rewritten and redrawn. Next step: the video.</div>
     </div>
   );
 }
