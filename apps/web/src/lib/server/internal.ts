@@ -242,7 +242,7 @@ export async function generationComplete(raw: unknown) {
 /** After new ideas land: warn in chat when one is still very close to existing content. */
 async function duplicateHeadsUp(p: ProjectRow, newIds: string[], texts: string[]) {
   const notes: string[] = [];
-  for (const [i, id] of newIds.entries()) {
+  for (let i = 0; i < newIds.length; i++) {
     const [top] = await findSimilarContents(p.id, texts[i] ?? "", { excludeIds: newIds, limit: 1 });
     if (top && top.score >= 0.75) notes.push(`“${texts[i].split(". ")[0]}” is close to #${top.number} “${top.title}”`);
   }
