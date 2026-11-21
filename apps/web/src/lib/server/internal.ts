@@ -12,6 +12,7 @@ import { logActivity, notifyTelegram, postAssistantMessage } from "./events";
 import { generateMore, reviseContents } from "./projects";
 import { failRender } from "./renders";
 import { generateIdentityReference } from "./identity";
+import { CONTENT_DUPLICATE, findSimilarContents } from "./similar";
 import type { ContentRow, ProjectRow, RunRow } from "./rows";
 
 const admin = () => createAdminClient();
@@ -74,6 +75,8 @@ export async function generationContext(runId: string) {
     prompt: p.prompt,
     title: p.title,
     creativeKit: p.creative_kit,
+    /** ideation: what the creator asked these new ideas to be about (may be empty). */
+    brief: r.kind === "ideation" ? ((run as RunRow & { feedback: string | null }).feedback ?? "") : "",
     endingBrief: endingBrief((p as ProjectRow & { ending?: unknown }).ending, p.title),
     existingTitles,
     visualMode: p.visual_mode,
@@ -200,6 +203,7 @@ export async function generationComplete(raw: unknown) {
   if (p.status === "generating") await db.from("projects").update({ status: "draft" }).eq("id", p.id);
 
   const newIds = (inserted ?? []).map((x) => x.id as string);
+  await duplicateHeadsUp(p, newIds, payload.contents.map((c) => `${c.options.title[0]}. ${c.options.hook[0]}`));
   if (r.kind === "project_setup") {
     await logActivity(db, { ownerId: p.owner_id, projectId: p.id, kind: "generation.done", message: `Generated ${n} content ideas` });
     await postAssistantMessage(
@@ -233,6 +237,18 @@ export async function generationComplete(raw: unknown) {
     });
   }
   return { runId: r.id, contents: n };
+}
+
+/** After new ideas land: warn in chat when one is still very close to existing content. */
+async function duplicateHeadsUp(p: ProjectRow, newIds: string[], texts: string[]) {
+  const notes: string[] = [];
+  for (const [i, id] of newIds.entries()) {
+    const [top] = await findSimilarContents(p.id, texts[i] ?? "", { excludeIds: newIds, limit: 1 });
+    if (top && top.score >= 0.75) notes.push(`“${texts[i].split(". ")[0]}” is close to #${top.number} “${top.title}”`);
+  }
+  if (notes.length) {
+    await postAssistantMessage(admin(), p.owner_id, p.id, `Heads-up: ${notes.join("; ")}. Ask me for a different angle if you want them further apart.`);
+  }
 }
 
 /**
@@ -411,7 +427,11 @@ export async function agentContext(conversationId: string) {
     .eq("conversation_id", conversationId)
     .order("created_at", { ascending: false })
     .limit(16);
-  const { data: contents } = await db.from("contents").select("options, selection, status").eq("project_id", p.id).order("position");
+  // Same numbering as the page and "revise #n": rejected ideas are left out.
+  const { data: contents } = await db.from("contents").select("options, selection, status").eq("project_id", p.id).neq("status", "archived").order("position");
+  // Duplicate check (code, not the model): the latest request vs this project's content.
+  const recent = (msgs ?? []).slice(0, 2).map((m) => m.content).join("\n");
+  const similar = recent.trim() ? await findSimilarContents(p.id, recent) : [];
   return {
     conversationId,
     projectId: p.id,
@@ -421,6 +441,8 @@ export async function agentContext(conversationId: string) {
       status: c.status,
     })),
     history: (msgs ?? []).reverse(),
+    /** Existing content close to what the creator is asking for. duplicate = same video. */
+    similarContents: similar.map((c) => ({ number: c.number, title: c.title, hook: c.hook, score: c.score, duplicate: c.score >= CONTENT_DUPLICATE })),
   };
 }
 
@@ -434,6 +456,8 @@ export const AgentReplySchema = z.object({
       feedback: z.string().max(1500).optional(),
     })
     .optional(),
+  /** Quick replies shown under the message (e.g. different angles). */
+  chips: z.array(z.string().max(80)).max(4).optional(),
 });
 
 export async function agentReply(raw: unknown) {
@@ -446,10 +470,12 @@ export async function agentReply(raw: unknown) {
     owner_id: convo.owner_id,
     role: "assistant",
     content: input.reply,
+    meta: input.chips?.length ? { chips: input.chips } : null,
   });
   try {
     if (input.action?.type === "generate_more") {
-      await generateMore(convo.owner_id, convo.project_id, Math.max(1, input.action.count ?? 3));
+      // feedback = the creator's brief (their idea / chosen angle) for the new content.
+      await generateMore(convo.owner_id, convo.project_id, Math.max(1, input.action.count ?? 3), "web", input.action.feedback?.trim() || undefined);
     } else if (input.action?.type === "revise" && input.action.feedback?.trim()) {
       await reviseContents(convo.owner_id, convo.project_id, input.action.feedback);
     }

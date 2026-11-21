@@ -17,7 +17,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { SIMILAR_STRONG, findSimilarProjects, type SimilarProject } from "./similar";
 import { dispatchToN8n } from "./dispatch";
 import { logActivity, postAssistantMessage } from "./events";
-import { queueGeneration, sendProjectMessage } from "./projects";
+import { queueGeneration } from "./projects";
 import type { ProjectRow } from "./rows";
 
 /**
@@ -168,8 +168,14 @@ async function continueInSimilar(p: SetupProject, targetId?: string) {
   const { data: target } = await db.from("projects").select("id, status").eq("id", targetId ?? "").eq("owner_id", p.owner_id).maybeSingle();
   if (!target || target.id === p.id) throw notFound("Project");
   await db.from("projects").delete().eq("id", p.id).eq("status", "setup");
-  // The idea moves into the similar project's chat (its agent answers there).
-  await sendProjectMessage(p.owner_id, target.id as string, `New idea for this project: ${p.prompt}`);
+  // Open the existing project; nothing is generated until the creator says so.
+  await postAssistantMessage(
+    db,
+    p.owner_id,
+    target.id as string,
+    `You're back with an idea for this project: “${p.prompt}”.\nWant me to turn it into a new content?`,
+    { chips: ["Yes, create it", "Not now"] },
+  );
   return { redirect: `/projects/${target.id}` };
 }
 

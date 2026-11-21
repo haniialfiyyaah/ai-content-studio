@@ -46,3 +46,48 @@ export async function findSimilarProjects(ownerId: string, excludeId: string, te
     return []; // never block a new project on the check
   }
 }
+
+/** Content-level thresholds (same project, so the niche is shared): rephrased same video ≈ 0.85, new idea in the niche ≤ 0.62, distinct contents ≤ 0.5. */
+export const CONTENT_DUPLICATE = 0.7;
+export const CONTENT_CLOSE = 0.55;
+
+export interface SimilarContent {
+  /** #number as the creator sees it (non-rejected content in position order). */
+  number: number;
+  id: string;
+  title: string;
+  hook: string;
+  score: number;
+}
+
+const pickField = (options: Record<string, string[]> | null, selection: Record<string, number> | null, f: string) =>
+  options?.[f]?.[selection?.[f] ?? 0] ?? "";
+
+/** This project's contents most similar to `text` (score ≥ close threshold), best first. */
+export async function findSimilarContents(projectId: string, text: string, opts: { excludeIds?: string[]; limit?: number } = {}): Promise<SimilarContent[]> {
+  if (!openAiImagesConfigured() || !text.trim()) return [];
+  const { data } = await createAdminClient()
+    .from("contents")
+    .select("id, options, selection")
+    .eq("project_id", projectId)
+    .neq("status", "archived")
+    .order("position");
+  const all = (data ?? []).map((c, i) => ({
+    number: i + 1,
+    id: c.id as string,
+    title: pickField(c.options, c.selection, "title"),
+    hook: pickField(c.options, c.selection, "hook"),
+  }));
+  const rows = all.filter((c) => !opts.excludeIds?.includes(c.id));
+  if (!rows.length) return [];
+  try {
+    const [q, ...v] = await embedTexts([text, ...rows.map((r) => `${r.title}. ${r.hook}`)]);
+    return rows
+      .map((r, i) => ({ ...r, score: Math.round(cosine(q, v[i]) * 100) / 100 }))
+      .filter((r) => r.score >= CONTENT_CLOSE)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, opts.limit ?? 3);
+  } catch {
+    return [];
+  }
+}

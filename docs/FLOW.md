@@ -59,9 +59,16 @@ A redraw fixes a bad image; it can never change the story or the look.
 - Discovery: the agent gets the creator's existing projects (title, niche,
   summary) and flags a similar one → "continue *X*?" (only when it looks
   similar).
-- Ideas (stage 4+): every idea the creator ever had is remembered (title, hook,
-  angle). New ideas too close to an existing one are rewritten. Phase 2 adds
-  vector search in Supabase for this.
+- **Continue there** opens the existing project without generating; its agent
+  asks "Want me to turn it into a new content?" [Yes, create it] [Not now].
+- **Content duplicates (inside a project):** before new content is made from a
+  brief, the code scores it against the project's content (embeddings;
+  rephrased same video ≈ 0.85, new idea in the niche ≤ 0.62, distinct contents
+  ≤ 0.5). ≥ 0.70 = duplicate → the agent does not generate; it offers 2–3
+  different angles as chips (same idea, new hook / situation / format /
+  audience) and generates only the chosen one. 0.55–0.70 = close → generate
+  with an angle that stands apart. After generation a heads-up is posted when a
+  new content still scores ≥ 0.75 against an existing one.
 
 ## Autopilot (replaces "recurring ideation")
 

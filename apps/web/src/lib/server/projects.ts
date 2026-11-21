@@ -176,10 +176,10 @@ export async function retryGeneration(ownerId: string, projectId: string) {
   return queueGeneration(ownerId, projectId, "project_setup", 4);
 }
 
-export async function generateMore(ownerId: string, projectId: string, count: number, channel: "web" | "telegram" = "web") {
+export async function generateMore(ownerId: string, projectId: string, count: number, channel: "web" | "telegram" = "web", brief?: string) {
   const project = await loadOwnedProject(ownerId, projectId);
   if (project.status === "generating") throw conflict("The project is still generating");
-  return queueGeneration(ownerId, projectId, "ideation", count, true, { channel });
+  return queueGeneration(ownerId, projectId, "ideation", count, true, { channel, feedback: brief?.slice(0, 1500) });
 }
 
 /**
