@@ -213,32 +213,35 @@ export function nextSetupStage(s: SetupStage): SetupStage {
 }
 
 /** What the content is about and for whom (the "what"); the kit is the "how". */
+/** Model output is trimmed to fit instead of rejected (a long field must never block a step). */
+const clip = (max: number, fallback = "") => z.string().default(fallback).transform((v) => v.trim().slice(0, max));
+
 export const ConceptSchema = z.object({
-  title: z.string().trim().max(80).default(""),
-  emoji: z.string().max(8).default(""),
-  summary: z.string().max(400).default(""),
-  niche: z.string().max(200).default(""),
-  audience: z.string().max(300).default(""),
-  goal: z.string().max(300).default(""),
-  language: z.string().max(60).default("English"),
+  title: clip(80),
+  emoji: clip(8, ""),
+  summary: clip(400, ""),
+  niche: clip(200, ""),
+  audience: clip(300, ""),
+  goal: clip(300, ""),
+  language: clip(160, "English"),
 });
 export type Concept = z.infer<typeof ConceptSchema>;
 
 export const SetupKitSchema = z.object({
-  tone: z.string().max(300).default(""),
-  voice: z.string().max(800).default(""),
-  visualStyle: z.string().max(500).default(""),
-  palette: z.string().max(200).default(""),
-  recurringSubject: z.string().max(400).default(""),
-  format: z.string().max(200).default(""),
-  opening: z.string().max(300).default(""),
+  tone: clip(300, ""),
+  voice: clip(800, ""),
+  visualStyle: clip(500, ""),
+  palette: clip(200, ""),
+  recurringSubject: clip(400, ""),
+  format: clip(200, ""),
+  opening: clip(300, ""),
   ending: z.object({ cta: z.enum(CTA_TYPES).catch("follow"), series: z.coerce.boolean().default(true) }).partial().default({}),
 });
 export type SetupKit = z.infer<typeof SetupKitSchema>;
 
 export const SetupPillarsSchema = z.object({
-  pillars: z.array(z.string().trim().min(1).max(200)).min(1).max(6),
-  guardrails: z.array(z.string().trim().min(1).max(200)).min(1).max(6),
+  pillars: z.array(clip(200)).min(1).transform((v) => v.filter(Boolean).slice(0, 6)),
+  guardrails: z.array(clip(200)).min(1).transform((v) => v.filter(Boolean).slice(0, 6)),
 });
 export type SetupPillars = z.infer<typeof SetupPillarsSchema>;
 
@@ -250,7 +253,7 @@ export const SetupCompleteSchema = z.object({
   projectId: z.string().uuid(),
   task: z.enum(SETUP_TASKS),
   /** Short message to the creator (chat answer, or the intro line for a stage result). */
-  reply: z.string().max(3000).default(""),
+  reply: clip(3000),
   /** chat only: what the server should do next. */
   action: z
     .object({
@@ -321,11 +324,11 @@ export type ContentStage = (typeof CONTENT_STAGES)[number];
 
 export const PlanItemSchema = z.object({
   /** "Day 1" / "Episode 2" for a series, empty for a single video. */
-  label: z.string().max(40).default(""),
-  title: z.string().trim().min(1).max(120),
-  hook: z.string().trim().min(1).max(200),
-  description: z.string().max(1000).default(""),
-  hashtags: z.array(z.string().max(40)).max(10).default([]),
+  label: clip(40),
+  title: clip(120),
+  hook: clip(200),
+  description: clip(1000),
+  hashtags: z.array(clip(40)).default([]).transform((v) => v.filter(Boolean).slice(0, 10)),
 });
 export type PlanItem = z.infer<typeof PlanItemSchema>;
 
@@ -333,10 +336,10 @@ export const ContentPlanSchema = z.object({
   format: z.enum(["single", "series"]).catch("single"),
   /** daily = Day 1, Day 2… · episodic = connected episodes · standalone = related but separate */
   style: z.enum(["daily", "episodic", "standalone"]).catch("standalone"),
-  seriesTitle: z.string().max(120).default(""),
+  seriesTitle: clip(120),
   /** One line: why single / series and why this style. */
-  why: z.string().max(400).default(""),
-  items: z.array(PlanItemSchema).min(1).max(14),
+  why: clip(400),
+  items: z.array(PlanItemSchema).min(1).transform((v) => v.filter((i) => i.title).slice(0, 14)),
 });
 export type ContentPlan = z.infer<typeof ContentPlanSchema>;
 export type ContentPlanMeta = Omit<ContentPlan, "items"> & { count?: number };

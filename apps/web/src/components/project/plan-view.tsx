@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
-import { Pencil, RotateCcw } from "lucide-react";
+import { Pencil, Sparkles } from "lucide-react";
 import { api } from "@/lib/client/api";
 import { compose } from "@/lib/client/compose";
 import { Spinner } from "@/components/ui/spinner";
@@ -55,15 +55,23 @@ export function PlanView({
     );
   }
   if (!cards.length) {
+    // Project setup is locked and nothing is generated yet: a clear "ready" moment.
     return (
-      <div className="note amber row" style={{ gap: 10 }}>
-        The content plan didn&apos;t finish.
+      <div className="card ready-card">
+        <div className="ready-mark"><Sparkles size={20} /></div>
+        <div>
+          <h2 className="setup-title" style={{ margin: 0 }}>Your project is ready</h2>
+          <p className="small muted line" style={{ marginTop: 6 }}>
+            The project setup is locked — click the project name to see it. Next, I decide between one video or a series and write the concept of each: title, hook, description and hashtags.
+          </p>
+          <p className="xs muted" style={{ marginTop: 6 }}>Want something specific? Tell the agent first, e.g. “a 7-day series”.</p>
+        </div>
         <button
-          className="btn small"
+          className="btn primary"
           disabled={pending}
-          onClick={() => start(async () => { await api(`/api/projects/${projectId}/setup`, "POST", { action: "retry" }).catch(() => undefined); router.refresh(); })}
+          onClick={() => start(async () => { await api(`/api/projects/${projectId}/setup`, "POST", { action: "continue" }).catch(() => undefined); router.refresh(); })}
         >
-          <RotateCcw size={12} /> Retry
+          {pending ? <Spinner size={13} /> : <Sparkles size={14} />} Generate content
         </button>
       </div>
     );

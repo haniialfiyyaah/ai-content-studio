@@ -30,7 +30,7 @@ const NEXT_LABEL: Record<SetupStage, string> = {
   similar: "Create a different project",
   concept: "Continue to Creative Kit",
   kit: "Continue to pillars",
-  pillars: "Lock setup & plan content",
+  pillars: "Lock project setup",
   done: "",
 };
 

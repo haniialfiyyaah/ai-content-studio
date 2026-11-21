@@ -162,11 +162,13 @@ never published until resumed, later content moves up a slot) or **Reject**
 
 ## Content setup (phase 2) — decisions, round 3
 
-- **Auto** toggle on the start box, next to Add reference and Send (default
-  off), with a one-line description. On = no stops in the project setup: a
-  similar project is only mentioned ("I'll make this one clearly different"),
-  then concept → kit → pillars → lock run by themselves; every step still
-  shows. The content concept still stops for a check. Only an
+- **Auto setup** toggle on the start box (default off). On = concept → kit →
+  pillars → lock run by themselves; every step still shows. A **similar
+  project always stops** to ask (also with auto). After the lock it stops on
+  **"Your project is ready"** with **Generate content** (or a message to the
+  agent, which becomes the brief) before the content concept is generated.
+- Model output for setup steps is trimmed to fit, never rejected; a failed
+  save frees the agent and shows Retry. Only an
   "⚡ Auto" tag is shown when on — nothing when off. (Auto for later steps: TBD.)
 - No status tags, Approve & schedule or production tabs until the content
   setup is done.

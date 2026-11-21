@@ -175,3 +175,6 @@ a.btn,a.navitem,a.newbtn,a.tab,a.manage-nav{text-decoration:none}
 @media (prefers-reduced-motion:reduce){.sk-pending,.sb-sheet{animation:none}.sk-frame{transform:none}}
 @media (max-width:640px){.sb-sheet{padding:14px 12px}.sb-beat,.sk-frame{width:128px}.sk-text-big{font-size:19px}}
 .plan-foot{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;padding:12px 14px;border:1px solid var(--border);border-radius:13px;background:#fff}@media (max-width:640px){.plan-foot .btn{width:100%}}
+.ready-card{display:grid;grid-template-columns:auto 1fr auto;gap:16px;align-items:center;padding:22px;border-color:#d9f0e5;background:linear-gradient(120deg,#f4fcf8,#fff 60%);animation:setupIn .35s ease-out}
+.ready-mark{width:46px;height:46px;border-radius:14px;display:grid;place-items:center;background:#e3f6ec;color:#2c9a75}
+@media (max-width:640px){.ready-card{grid-template-columns:1fr}.ready-card .btn{width:100%}}

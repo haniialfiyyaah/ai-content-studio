@@ -99,7 +99,7 @@ export async function startSetup(ownerId: string, prompt: string, opts: { auto?:
   if (convo) await db.from("messages").insert({ conversation_id: convo.id, owner_id: ownerId, role: "user", content: text });
   await logActivity(db, { ownerId, projectId: project.id, kind: "project.created", message: "Project started — shaping the idea with the agent" });
   await db.from("projects").update({ setup_busy: true, setup_started_at: new Date().toISOString() }).eq("id", project.id);
-  after(() => similarCheck(project.id as string, ownerId, text, Boolean(opts.auto)).catch(() => toConcept(project.id as string)));
+  after(() => similarCheck(project.id as string, ownerId, text).catch(() => toConcept(project.id as string)));
   return { projectId: project.id as string };
 }
 
@@ -108,18 +108,12 @@ export async function startSetup(ownerId: string, prompt: string, opts: { auto?:
  * there or a different project?" (no AI needed). Borderline → the agent judges.
  * Nothing similar → straight to the concept.
  */
-async function similarCheck(projectId: string, ownerId: string, idea: string, auto: boolean) {
+async function similarCheck(projectId: string, ownerId: string, idea: string) {
   const db = admin();
   const matches = await findSimilarProjects(ownerId, projectId, idea);
   await db.from("projects").update({ setup_similar: matches }).eq("id", projectId);
   const top = matches[0];
-  // Auto: no question — say so and make this one clearly different (the concept agent gets the avoid list).
-  if (auto) {
-    if (top && top.score >= SIMILAR_STRONG) {
-      await postAssistantMessage(db, ownerId, projectId, `This is close to your project “${top.title}”, so I'll make this one clearly different.`);
-    }
-    return toConcept(projectId);
-  }
+  // The similar question always stops (also with auto setup): it's the creator's decision.
   if (top && top.score >= SIMILAR_STRONG) {
     await db.from("projects").update({ setup_busy: false }).eq("id", projectId);
     await postAssistantMessage(db, ownerId, projectId, similarQuestion(top.title, top.status), {
@@ -146,7 +140,16 @@ export async function setupMessage(ownerId: string, projectId: string, content: 
   if (p.setup_busy && !setupStale(p)) throw conflict("The agent is still working — one moment");
   const convoId = await webConversation(projectId);
   if (!convoId) throw notFound("Conversation");
-  await admin().from("messages").insert({ conversation_id: convoId, owner_id: ownerId, role: "user", content: content.trim().slice(0, 4000) });
+  const text = content.trim().slice(0, 4000);
+  await admin().from("messages").insert({ conversation_id: convoId, owner_id: ownerId, role: "user", content: text });
+  // Project ready, no content yet: any message starts the content plan (its words are the brief).
+  if (agentStage(p) === "plan") {
+    const { count } = await admin().from("contents").select("id", { count: "exact", head: true }).eq("project_id", projectId).neq("status", "removed");
+    if (!count) {
+      await runTask(projectId, "plan", /^generate( the)? content\.?$/i.test(text) ? "" : text);
+      return { ok: true };
+    }
+  }
   await runTask(projectId, "chat");
   return { ok: true };
 }
@@ -170,6 +173,13 @@ export async function setupAction(ownerId: string, projectId: string, action: "c
     return { stage };
   }
   if (stage === "plan") {
+    // No plan yet: the project is ready → generate the content concept.
+    const { count } = await admin().from("contents").select("id", { count: "exact", head: true }).eq("project_id", projectId).neq("status", "removed");
+    if (!count) {
+      await userMessage(ownerId, projectId, "Generate content");
+      await runTask(projectId, "plan");
+      return { stage };
+    }
     await userMessage(ownerId, projectId, "✅ The plan looks good — write the storyboards");
     return writeStoryboards(p, {});
   }
@@ -188,7 +198,7 @@ const CONTINUE_TEXT: Partial<Record<SetupStage, string>> = {
   similar: "Create a different project",
   concept: "✅ Concept looks good — continue to the Creative Kit",
   kit: "✅ Kit looks good — continue to pillars & guardrails",
-  pillars: "✅ Lock the setup and plan my content",
+  pillars: "✅ Lock the project setup",
 };
 
 async function userMessage(ownerId: string, projectId: string, content: string) {
@@ -228,9 +238,10 @@ async function advance(p: SetupProject) {
 async function finishSetup(p: SetupProject) {
   const db = admin();
   await db.from("projects").update({ setup_stage: "done", setup_busy: false, status: "draft", content_stage: "plan" }).eq("id", p.id);
-  await logActivity(db, { ownerId: p.owner_id, projectId: p.id, kind: "setup.done", message: "Project setup locked — planning the content" });
-  await postAssistantMessage(db, p.owner_id, p.id, "Project setup locked ✅ Now I'm planning your content: one video or a series, and the concept of each.");
-  await runTask(p.id, "plan");
+  await logActivity(db, { ownerId: p.owner_id, projectId: p.id, kind: "setup.done", message: "Project setup is ready" });
+  await postAssistantMessage(db, p.owner_id, p.id, "Your project is ready ✅ The setup is locked. Generate the content when you're ready: I'll decide between one video or a series and write the concept of each.", {
+    chips: ["Generate content"],
+  });
   return { stage: "done" as const };
 }
 
@@ -303,7 +314,13 @@ async function currentPlan(p: SetupProject) {
 }
 
 export async function setupComplete(raw: unknown) {
-  const input = SetupCompleteSchema.parse(raw);
+  const parsed = SetupCompleteSchema.safeParse(raw);
+  if (!parsed.success) {
+    const projectId = (raw as { projectId?: unknown } | null)?.projectId;
+    if (typeof projectId === "string") await setupFail({ projectId, error: parsed.error.message });
+    return { ok: false, error: "invalid payload" };
+  }
+  const input = parsed.data;
   const db = admin();
   const { data } = await db.from("projects").select("*").eq("id", input.projectId).maybeSingle();
   if (!data) throw notFound("Project");

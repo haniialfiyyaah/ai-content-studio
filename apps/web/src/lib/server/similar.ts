@@ -23,7 +23,7 @@ export async function findSimilarProjects(ownerId: string, excludeId: string, te
   if (!openAiImagesConfigured() || !text.trim()) return [];
   const { data } = await createAdminClient()
     .from("projects")
-    .select("id, title, summary, prompt, concept, status")
+    .select("id, title, summary, idea, concept, status")
     .eq("owner_id", ownerId)
     .neq("id", excludeId)
     .neq("status", "stopped")
@@ -34,7 +34,7 @@ export async function findSimilarProjects(ownerId: string, excludeId: string, te
   if (!projects.length) return [];
   const docs = projects.map((p) => {
     const niche = (p.concept as { niche?: string } | null)?.niche ?? "";
-    return [p.title, niche, p.summary, p.prompt].filter(Boolean).join(". ");
+    return [p.title, niche, p.summary, p.idea].filter(Boolean).join(". ");
   });
   try {
     const [q, ...v] = await embedTexts([text, ...docs]);
