@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
-import { Pencil, Sparkles } from "lucide-react";
+import { Pencil, SkipForward, Sparkles, Undo2 } from "lucide-react";
 import { api } from "@/lib/client/api";
 import { compose } from "@/lib/client/compose";
 import { Spinner } from "@/components/ui/spinner";
@@ -15,6 +15,7 @@ export interface PlanCard {
   hook: string;
   description: string;
   hashtags: string;
+  skipped?: boolean;
 }
 
 const STYLE_TEXT: Record<string, string> = {
@@ -45,6 +46,12 @@ export function PlanView({
   const working = busy && !stale;
   const series = plan.format === "series";
   const name = (c: PlanCard) => (series ? c.label || `#${c.n}` : "the video");
+  const active = cards.filter((c) => !c.skipped).length;
+  const act = (id: string, action: "skip" | "restore") =>
+    start(async () => {
+      await api(`/api/contents/${id}/actions`, "POST", { action }).catch(() => undefined);
+      router.refresh();
+    });
 
   if (working && !cards.length) {
     return (
@@ -93,13 +100,24 @@ export function PlanView({
 
       <div className={series ? "plan-grid" : "plan-single"}>
         {cards.map((c) => (
-          <article key={c.id} className={`card plan-card ${working ? "dim" : ""}`}>
+          <article key={c.id} className={`card plan-card ${working ? "dim" : ""} ${c.skipped ? "skipped" : ""}`}>
             <div className="row between" style={{ gap: 8 }}>
-              <span className="plan-label">{series ? c.label || `#${c.n}` : "Your video"}</span>
+              <span className="plan-label">{series ? c.label || `#${c.n}` : "Your video"}{c.skipped ? " · skipped" : ""}</span>
               {!readOnly && (
-                <button className="icbtn tinybtn" title={`Change ${name(c)}`} disabled={working} onClick={() => compose(`Change ${name(c)}: `)}>
-                  <Pencil size={11} />
-                </button>
+                <span className="row" style={{ gap: 4 }}>
+                  {c.skipped ? (
+                    <button className="btn small ghost" disabled={working || pending} onClick={() => act(c.id, "restore")}><Undo2 size={12} /> Restore</button>
+                  ) : (
+                    <>
+                      {active > 1 && series && (
+                        <button className="btn small ghost" title="Skip — kept here, can be restored" disabled={working || pending} onClick={() => act(c.id, "skip")}><SkipForward size={12} /> Skip</button>
+                      )}
+                      <button className="icbtn tinybtn" title={`Change ${name(c)}`} disabled={working} onClick={() => compose(`Change ${name(c)}: `)}>
+                        <Pencil size={11} />
+                      </button>
+                    </>
+                  )}
+                </span>
               )}
             </div>
             <h3 className="plan-title">{c.title}</h3>

@@ -310,10 +310,10 @@ export async function setupContext(input: { projectId: string; task: SetupTask; 
 }
 
 async function currentPlan(p: SetupProject) {
-  const { data } = await admin().from("contents").select("label, options, selection").eq("project_id", p.id).neq("status", "removed").order("position");
+  const { data } = await admin().from("contents").select("label, options, selection, status").eq("project_id", p.id).neq("status", "removed").order("position");
   const items = (data ?? []).map((c, i) => {
     const r = resolveContent(c.options, c.selection);
-    return { number: i + 1, label: c.label ?? "", title: r.title, hook: r.hook, description: r.caption, hashtags: r.hashtags };
+    return { number: i + 1, label: c.label ?? "", title: r.title, hook: r.hook, description: r.caption, hashtags: r.hashtags, skipped: c.status === "skipped" };
   });
   return { ...((p as SetupProject & { content_plan?: object }).content_plan ?? {}), items };
 }
@@ -434,7 +434,8 @@ export async function setupFail(input: { projectId: string; error?: string }) {
 async function savePlan(p: SetupProject, plan: ContentPlan) {
   const db = admin();
   const series = plan.format === "series";
-  await db.from("contents").delete().eq("project_id", p.id).eq("status", "idea");
+  // A new plan replaces the old cards (skipped ones from the old plan go too).
+  await db.from("contents").delete().eq("project_id", p.id).in("status", ["idea", "skipped"]);
   await db.from("contents").insert(
     plan.items.map((it, i) => ({
       owner_id: p.owner_id,
@@ -473,7 +474,7 @@ export async function autoContinue(ownerId: string, projectId: string) {
  */
 async function writeStoryboards(p: SetupProject, opts: { feedback?: string; onlyFailed?: boolean }) {
   const db = admin();
-  const { data } = await db.from("contents").select("id, label, script_status").eq("project_id", p.id).neq("status", "removed").order("position");
+  const { data } = await db.from("contents").select("id, label, script_status").eq("project_id", p.id).not("status", "in", "(removed,skipped)").order("position");
   const list = data ?? [];
   let targets = opts.onlyFailed ? list.filter((c) => c.script_status === "failed" || c.script_status === "none") : list;
   if (opts.feedback && list.length > 1) {
@@ -562,9 +563,9 @@ async function applySceneEdit(target: { contentId: string; scene: number }, patc
 // ---------------------------------------------------------------------------
 async function startVideos(p: SetupProject) {
   const db = admin();
-  const { data } = await db.from("contents").select("id, script_status, storyboard_status, storyboard").eq("project_id", p.id).neq("status", "removed").order("position");
+  const { data } = await db.from("contents").select("id, script_status, storyboard_status, storyboard").eq("project_id", p.id).not("status", "in", "(removed,skipped)").order("position");
   const list = data ?? [];
-  if (!list.length) throw conflict("There's nothing to render yet");
+  if (!list.length) throw conflict("Every content is skipped — restore one to make a video.");
   const unfinished = list.filter(
     (c) =>
       c.script_status !== "ready" ||

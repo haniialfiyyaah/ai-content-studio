@@ -216,6 +216,8 @@ never published until resumed, later content moves up a slot) or **Reject**
   video with live status (waiting → preparing voice & images → composing →
   ready), player, Download, Retry. Finished steps (incl. storyboards) can be
   viewed read-only. Publishing comes next.
-- On the storyboards each video has **Remove** (skip it — never rendered; hidden
-  when only one is left) and the **Continue to video** bar sits at the top
-  (sticky) with the progress.
+- **Skip / Restore** per content (content concept cards and storyboards):
+  status `skipped` = set aside, kept visible (dimmed, struck-through) with
+  Restore; never storyboarded or rendered. Every skip / restore is posted to the
+  agent chat as the creator's message. (`removed` stays for "gone, remembered
+  for duplicates".) The **Continue to video** bar sits at the top (sticky).

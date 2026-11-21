@@ -133,7 +133,7 @@ export default async function ProjectPage({
         : null;
     const cards: PlanCard[] = contents.map((c, i) => {
       const r = resolveContent(c.options, c.selection);
-      return { id: c.id, n: i + 1, label: c.label ?? "", title: r.title, hook: r.hook, description: r.caption, hashtags: r.hashtags };
+      return { id: c.id, n: i + 1, label: c.label ?? "", title: r.title, hook: r.hook, description: r.caption, hashtags: r.hashtags, skipped: c.status === "skipped" };
     });
     const ready = p.content_stage === "plan" && !cards.length && !busy;
     // Storyboards: every scene's image, signed per content (frames land live while drawing).
@@ -163,6 +163,7 @@ export default async function ProjectPage({
                   return f ? { status: f.status, url: urls[j] ?? null } : undefined;
                 }),
                 status: c.script_status ?? "none",
+                skipped: c.status === "skipped",
                 writing: (() => {
                   const r = runFor(c.id);
                   return r ? { stage: r.status === "queued" ? "queued" : (r.stage as string), progress: (r.progress as number) ?? 0 } : null;
@@ -227,7 +228,7 @@ export default async function ProjectPage({
             ) : p.content_stage === "production" ? (
               <VideoView
                 series={plan.format === "series"}
-                items={contents.map((c, i) => {
+                items={contents.filter((c) => c.status !== "skipped").map((c, i) => {
                   const r = ws.renders.get(c.id);
                   return {
                     id: c.id,

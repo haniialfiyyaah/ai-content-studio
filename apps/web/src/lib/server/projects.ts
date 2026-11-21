@@ -10,7 +10,7 @@ import {
   notFound,
   readiness,
   type OptionField,
-  type Schedule, type Ending, type ProjectSettings } from "@acs/domain";
+  type Schedule, type Ending, type ProjectSettings, resolveContent } from "@acs/domain";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { dispatchToN8n } from "./dispatch";
 import { queueStoryboards } from "./storyboard";
@@ -20,6 +20,8 @@ import { logActivity, notifyTelegram, postAssistantMessage } from "./events";
 import type { ContentRow, ProjectRow } from "./rows";
 
 const admin = () => createAdminClient();
+const resolveContentTitle = (options: unknown, selection: unknown) =>
+  resolveContent(options as Parameters<typeof resolveContent>[0], selection as Parameters<typeof resolveContent>[1]).title;
 
 async function loadOwnedProject(ownerId: string, projectId: string): Promise<ProjectRow> {
   const { data } = await admin().from("projects").select("*").eq("id", projectId).eq("owner_id", ownerId).maybeSingle();
@@ -249,14 +251,46 @@ export function contentHasMedia(c: { storyboard_status?: string | null }, render
   return c.storyboard_status === "ready" || c.storyboard_status === "generating" || Boolean(render && !["failed", "cancelled"].includes(render.status));
 }
 
+/**
+ * Skip: the creator sets a content aside (kept and visible, never storyboarded
+ * or rendered). Restore brings it back. Both are posted to the agent chat.
+ */
+export async function skipContent(ownerId: string, contentId: string) {
+  const db = admin();
+  const { data } = await db.from("contents").select("id, project_id, status, label, options, selection").eq("id", contentId).eq("owner_id", ownerId).maybeSingle();
+  if (!data) throw notFound("Content");
+  const { data: job } = await db.from("publish_jobs").select("status").eq("content_id", contentId).in("status", ["published", "publishing"]).maybeSingle();
+  if (job) throw conflict("Published content can't be skipped");
+  if (data.status === "skipped") return { skipped: contentId };
+  await db.from("contents").update({ status: "skipped", scheduled_for: null }).eq("id", contentId);
+  await db.from("publish_jobs").delete().eq("content_id", contentId).eq("status", "scheduled");
+  await db.from("video_renders").update({ status: "cancelled" }).eq("content_id", contentId).in("status", ["queued"]);
+  await chatNote(ownerId, data.project_id, `⏭ Skip ${contentName(data)}`);
+  await logActivity(db, { ownerId, projectId: data.project_id, kind: "content.skipped", message: `Skipped ${contentName(data)}` });
+  return { skipped: contentId };
+}
+
 export async function restoreContent(ownerId: string, contentId: string) {
   const db = admin();
-  const { data } = await db.from("contents").select("id, project_id, status").eq("id", contentId).eq("owner_id", ownerId).maybeSingle();
+  const { data } = await db.from("contents").select("id, project_id, status, label, options, selection").eq("id", contentId).eq("owner_id", ownerId).maybeSingle();
   if (!data) throw notFound("Content");
-  if (data.status !== "removed") return { restored: contentId };
+  if (data.status !== "skipped" && data.status !== "removed") return { restored: contentId };
   await db.from("contents").update({ status: "idea" }).eq("id", contentId);
-  await logActivity(db, { ownerId, projectId: data.project_id, kind: "content.restored", message: "Restored a rejected idea" });
+  await chatNote(ownerId, data.project_id, `↩️ Restore ${contentName(data)}`);
+  await logActivity(db, { ownerId, projectId: data.project_id, kind: "content.restored", message: `Restored ${contentName(data)}` });
   return { restored: contentId };
+}
+
+const contentName = (c: { label?: string | null; options: unknown; selection: unknown }) => {
+  const title = resolveContentTitle(c.options, c.selection);
+  return c.label ? `${c.label} · ${title}` : title;
+};
+
+/** A button press shown in the agent chat as the creator's message. */
+async function chatNote(ownerId: string, projectId: string, content: string) {
+  const db = admin();
+  const { data: convo } = await db.from("conversations").select("id").eq("project_id", projectId).eq("channel", "web").order("created_at").limit(1).maybeSingle();
+  if (convo) await db.from("messages").insert({ conversation_id: convo.id, owner_id: ownerId, role: "user", content });
 }
 
 /**

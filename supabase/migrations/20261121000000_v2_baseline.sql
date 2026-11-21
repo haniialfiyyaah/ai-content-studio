@@ -415,3 +415,6 @@ ALTER TABLE public.contents ADD COLUMN IF NOT EXISTS label text;
 ALTER TABLE public.contents ADD COLUMN IF NOT EXISTS script_status text NOT NULL DEFAULT 'none' CHECK (script_status IN ('none', 'writing', 'ready', 'failed'));
 ALTER TABLE public.generation_runs DROP CONSTRAINT IF EXISTS generation_runs_kind_check;
 ALTER TABLE public.generation_runs ADD CONSTRAINT generation_runs_kind_check CHECK (kind IN ('ideation', 'revision', 'storyboard'));
+-- skipped = set aside by the creator (kept, restorable, never rendered); removed = gone (remembered for duplicates)
+ALTER TABLE public.contents DROP CONSTRAINT IF EXISTS contents_status_check;
+ALTER TABLE public.contents ADD CONSTRAINT contents_status_check CHECK (status IN ('idea', 'approved', 'skipped', 'removed'));

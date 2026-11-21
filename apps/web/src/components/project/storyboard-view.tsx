@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { ImageOff, Pencil, RotateCcw, Trash2 } from "lucide-react";
+import { ImageOff, Pencil, RotateCcw, SkipForward, Undo2 } from "lucide-react";
 import type { Scene } from "@acs/domain";
 import { api } from "@/lib/client/api";
 import { compose } from "@/lib/client/compose";
@@ -22,6 +22,7 @@ export interface StoryboardItem {
   scenes: Scene[];
   frames: (StoryboardFrameView | undefined)[];
   status: "none" | "writing" | "ready" | "failed";
+  skipped?: boolean;
   /** The script run's progress while writing (stage from WF-01). */
   writing?: { stage: string; progress: number } | null;
 }
@@ -52,9 +53,9 @@ export function StoryboardView({ projectId, items, series, readOnly }: { project
       await api(`/api/projects/${projectId}/setup`, "POST", { action: "retry" }).catch(() => undefined);
       router.refresh();
     });
-  const remove = (contentId: string) =>
+  const act = (contentId: string, action: "skip" | "restore") =>
     start(async () => {
-      await api(`/api/contents/${contentId}/actions`, "POST", { action: "remove" }).catch(() => undefined);
+      await api(`/api/contents/${contentId}/actions`, "POST", { action }).catch(() => undefined);
       router.refresh();
     });
   const toVideo = () =>
@@ -65,47 +66,44 @@ export function StoryboardView({ projectId, items, series, readOnly }: { project
   const name = (it: StoryboardItem) => (series ? it.label || `#${it.n}` : "the video");
   const done = (it: StoryboardItem) =>
     it.status === "ready" && it.scenes.every((s, i) => s.background === "design" || ["completed", "failed"].includes(it.frames[i]?.status ?? ""));
-  const ready = items.filter(done).length;
+  const live = items.filter((i) => !i.skipped);
+  const ready = live.filter(done).length;
 
   return (
     <div className="stack" style={{ gap: 18 }}>
       {!readOnly && (
         <div className="sb-bar">
           <div className="sb-bar-info">
-            <span className="small semibold">{ready < items.length ? `${ready} of ${items.length} storyboard${items.length > 1 ? "s" : ""} ready` : `${items.length} storyboard${items.length > 1 ? "s" : ""} ready`}</span>
-            {series && <div className="progressbar" style={{ width: 140 }}><span style={{ width: `${(ready / Math.max(items.length, 1)) * 100}%` }} /></div>}
-            <span className="xs muted sb-bar-hint">✏️ changes one scene · Remove skips a video</span>
+            <span className="small semibold">{ready < live.length ? `${ready} of ${live.length} storyboard${live.length > 1 ? "s" : ""} ready` : `${live.length} storyboard${live.length > 1 ? "s" : ""} ready`}</span>
+            {series && <div className="progressbar" style={{ width: 140 }}><span style={{ width: `${(ready / Math.max(live.length, 1)) * 100}%` }} /></div>}
+            <span className="xs muted sb-bar-hint">✏️ changes one scene · Skip sets a content aside</span>
           </div>
-          <button className="btn primary" disabled={pending || ready < items.length} onClick={toVideo}>
+          <button className="btn primary" disabled={pending || !live.length || ready < live.length} onClick={toVideo}>
             {pending ? <Spinner size={13} /> : null} Continue to video →
           </button>
         </div>
       )}
 
       {items.map((it) => (
-        <section key={it.id} className="sb-sheet">
+        <section key={it.id} className={`sb-sheet ${it.skipped ? "skipped" : ""}`}>
           <header className="sb-head">
             <div style={{ minWidth: 0 }}>
-              {series && <span className="plan-label">{it.label || `#${it.n}`}</span>}
+              {series && <span className="plan-label">{it.label || `#${it.n}`}{it.skipped ? " · skipped" : ""}</span>}
               <h3 className="sb-title">{it.title}</h3>
               <div className="sb-hook">“{it.hook}”</div>
             </div>
-            {!readOnly && items.length > 1 && (
-              <button
-                className="btn small ghost"
-                disabled={pending}
-                title="Skip this video — it won't be rendered"
-                onClick={() => {
-                  if (window.confirm(`Remove ${series ? it.label || `#${it.n}` : "this video"}? It won't be rendered or published.`)) remove(it.id);
-                }}
-              >
-                <Trash2 size={12} /> Remove
+            {!readOnly && it.skipped && (
+              <button className="btn small ghost" disabled={pending} onClick={() => act(it.id, "restore")}><Undo2 size={12} /> Restore</button>
+            )}
+            {!readOnly && !it.skipped && live.length > 1 && (
+              <button className="btn small ghost" disabled={pending} title="Skip — kept here, can be restored; it won't be made into a video" onClick={() => act(it.id, "skip")}>
+                <SkipForward size={12} /> Skip
               </button>
             )}
           </header>
 
           {/* Writing the script: one honest status (the scenes appear together when it's done) */}
-          {it.status === "writing" && !it.scenes.length && (
+          {!it.skipped && it.status === "writing" && !it.scenes.length && (
             <div className="sb-writing" aria-busy aria-live="polite">
               <div className="row" style={{ gap: 10 }}>
                 <Spinner size={15} />
@@ -123,14 +121,14 @@ export function StoryboardView({ projectId, items, series, readOnly }: { project
               <div className="progressbar"><span style={{ width: `${Math.max(it.writing?.progress ?? 4, 4)}%` }} /></div>
             </div>
           )}
-          {(it.status === "failed" || it.status === "none") && (
-            <div className="note amber row" style={{ gap: 10 }}>
-              This storyboard didn&apos;t finish.
-              <button className="btn small" disabled={pending} onClick={retry}><RotateCcw size={12} /> Retry</button>
+          {!it.skipped && (it.status === "failed" || it.status === "none") && (
+            <div className={`note ${it.status === "failed" ? "amber" : ""} row`} style={{ gap: 10 }}>
+              {it.status === "failed" ? "This storyboard didn’t finish." : "No storyboard yet."}
+              <button className="btn small" disabled={pending} onClick={retry}><RotateCcw size={12} /> {it.status === "failed" ? "Retry" : "Write storyboard"}</button>
             </div>
           )}
 
-          {it.scenes.length > 0 && it.status !== "none" && it.status !== "failed" && (
+          {!it.skipped && it.scenes.length > 0 && it.status !== "none" && it.status !== "failed" && (
             <div className="sb-strip">
               {it.scenes.map((s, i) => {
                 const f = it.frames[i];

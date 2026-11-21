@@ -10,7 +10,8 @@ export type ProjectStatus = (typeof PROJECT_STATUSES)[number];
 export type RunStatus = "queued" | "running" | "succeeded" | "failed";
 export type RunKind = "ideation" | "revision" | "storyboard";
 /** idea → approved; removed = gone for the creator, remembered so it is never suggested again. */
-export type ContentStatus = "idea" | "approved" | "removed";
+/** skipped = set aside by the creator (kept, restorable, never rendered). */
+export type ContentStatus = "idea" | "approved" | "skipped" | "removed";
 export type RenderStatus = "queued" | "rendering" | "ready" | "failed" | "cancelled";
 export type PublishStatus = "scheduled" | "publishing" | "published" | "failed" | "cancelled";
 
@@ -326,7 +327,7 @@ export const ProjectSettingsSchema = z
 export type ProjectSettings = z.infer<typeof ProjectSettingsSchema>;
 
 /** POST /api/contents/:id/actions */
-export const CONTENT_ACTIONS = ["approve", "remove", "hold", "resume", "unlock", "storyboard", "render", "publish"] as const;
+export const CONTENT_ACTIONS = ["approve", "remove", "skip", "restore", "hold", "resume", "unlock", "storyboard", "render", "publish"] as const;
 export type ContentAction = (typeof CONTENT_ACTIONS)[number];
 
 // ---------------------------------------------------------------------------

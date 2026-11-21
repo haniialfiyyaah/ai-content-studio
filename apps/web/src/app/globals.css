@@ -204,3 +204,5 @@ a.btn,a.navitem,a.newbtn,a.tab,a.manage-nav{text-decoration:none}
 .sb-bar{position:sticky;top:76px;z-index:5;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;padding:10px 12px 10px 16px;border:1px solid var(--border);border-radius:14px;background:#ffffffeb;backdrop-filter:blur(8px);box-shadow:0 8px 24px #2a1d430f}
 .sb-bar-info{display:flex;align-items:center;gap:12px;flex-wrap:wrap;min-width:0}
 @media (max-width:850px){.sb-bar{top:128px}.sb-bar-hint{display:none}.sb-bar .btn{width:100%}}
+.plan-card.skipped,.sb-sheet.skipped{opacity:.55;background:#faf9fc}.plan-card.skipped .plan-title,.sb-sheet.skipped .sb-title{text-decoration:line-through;text-decoration-color:#b9b2c8}
+.sb-sheet.skipped .sb-head{margin-bottom:0}

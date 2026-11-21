@@ -1,7 +1,7 @@
 import "server-only";
 import { after } from "next/server";
 import type { ContentAction } from "@acs/domain";
-import { approveContent, holdContent, rejectContent, requestRender, unlockContent } from "./projects";
+import { approveContent, holdContent, rejectContent, requestRender, restoreContent, skipContent, unlockContent } from "./projects";
 import { publishNow, runPublishJob } from "./publishing";
 import { redrawStoryboard } from "./storyboard";
 
@@ -16,6 +16,10 @@ export async function contentAction(ownerId: string, contentId: string, action: 
       return approveContent(ownerId, contentId);
     case "remove":
       return rejectContent(ownerId, contentId);
+    case "skip":
+      return skipContent(ownerId, contentId);
+    case "restore":
+      return restoreContent(ownerId, contentId);
     case "hold":
       return holdContent(ownerId, contentId, true);
     case "resume":
