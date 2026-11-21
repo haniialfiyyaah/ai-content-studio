@@ -6,7 +6,7 @@ import { after } from "next/server";
  * lives in Postgres (queued rows); the n8n sweepers pick up anything this
  * misses, so a lost call only costs latency.
  */
-export function dispatchToN8n(path: "generate" | "render" | "agent-chat", payload: Record<string, unknown>) {
+export function dispatchToN8n(path: "generate" | "render" | "agent-chat" | "setup", payload: Record<string, unknown>) {
   const base = process.env.N8N_WEBHOOK_BASE_URL?.trim().replace(/\/$/, "");
   if (!base) return;
   after(async () => {

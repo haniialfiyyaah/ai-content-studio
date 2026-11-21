@@ -1,0 +1,875 @@
+{
+ "name": "WF-05 Setup Agent",
+ "nodes": [
+  {
+   "id": "e22a02c0-78be-4eb3-9bac-f42c34646120",
+   "name": "05-01 Webhook",
+   "webhookId": "fec203b7-4a43-4e1e-931a-c3b85955672a",
+   "type": "n8n-nodes-base.webhook",
+   "typeVersion": 2,
+   "position": [
+    0,
+    0
+   ],
+   "parameters": {
+    "httpMethod": "POST",
+    "path": "acs-setup",
+    "responseMode": "onReceived"
+   }
+  },
+  {
+   "id": "232e2545-53ed-4aee-8328-ec2c10b05f6d",
+   "name": "05-02 Load context",
+   "type": "n8n-nodes-base.httpRequest",
+   "typeVersion": 4.2,
+   "position": [
+    220,
+    0
+   ],
+   "parameters": {
+    "method": "POST",
+    "url": "={{ $env.ACS_API_BASE_URL }}/api/internal/setup/context",
+    "sendHeaders": true,
+    "headerParameters": {
+     "parameters": [
+      {
+       "name": "x-acs-service-token",
+       "value": "={{ $env.ACS_INTERNAL_SERVICE_TOKEN }}"
+      },
+      {
+       "name": "Content-Type",
+       "value": "application/json"
+      }
+     ]
+    },
+    "sendBody": true,
+    "contentType": "json",
+    "specifyBody": "json",
+    "jsonBody": "={{ JSON.stringify({ projectId: $json.body.projectId, task: $json.body.task, feedback: $json.body.feedback || '' }) }}",
+    "options": {
+     "timeout": 30000
+    }
+   }
+  },
+  {
+   "id": "c23690fd-0336-447c-9897-d9cedda043d1",
+   "name": "05-90 Mark failed",
+   "type": "n8n-nodes-base.httpRequest",
+   "typeVersion": 4.2,
+   "position": [
+    1500,
+    500
+   ],
+   "parameters": {
+    "method": "POST",
+    "url": "={{ $env.ACS_API_BASE_URL }}/api/internal/setup/fail",
+    "sendHeaders": true,
+    "headerParameters": {
+     "parameters": [
+      {
+       "name": "x-acs-service-token",
+       "value": "={{ $env.ACS_INTERNAL_SERVICE_TOKEN }}"
+      },
+      {
+       "name": "Content-Type",
+       "value": "application/json"
+      }
+     ]
+    },
+    "sendBody": true,
+    "contentType": "json",
+    "specifyBody": "json",
+    "jsonBody": "={{ JSON.stringify({ projectId: $('05-02 Load context').item.json.data.projectId, error: String($json.error?.message || $json.error || 'Setup step failed').slice(0, 1500) }) }}",
+    "options": {
+     "timeout": 15000
+    }
+   }
+  },
+  {
+   "id": "d3f630b1-057f-4e5b-9ed7-1c38053ad3fe",
+   "name": "05-10 Task chat?",
+   "type": "n8n-nodes-base.if",
+   "typeVersion": 2.2,
+   "position": [
+    440,
+    0
+   ],
+   "parameters": {
+    "conditions": {
+     "options": {
+      "caseSensitive": true,
+      "leftValue": "",
+      "typeValidation": "strict",
+      "version": 2
+     },
+     "conditions": [
+      {
+       "id": "9b3bbd7b-af18-4672-b942-558f32233530",
+       "leftValue": "={{ $('05-02 Load context').item.json.data.task }}",
+       "rightValue": "chat",
+       "operator": {
+        "type": "string",
+        "operation": "equals"
+       }
+      }
+     ],
+     "combinator": "and"
+    },
+    "options": {}
+   }
+  },
+  {
+   "id": "f5642a32-064b-45f5-b7fa-58a42cef874f",
+   "name": "05-20 Chat",
+   "type": "@n8n/n8n-nodes-langchain.chainLlm",
+   "typeVersion": 1.9,
+   "onError": "continueErrorOutput",
+   "position": [
+    700,
+    0
+   ],
+   "parameters": {
+    "promptType": "define",
+    "hasOutputParser": true,
+    "text": "=Stage: {{ $('05-02 Load context').item.json.data.stage }}\nExisting projects of this creator: {{ JSON.stringify($('05-02 Load context').item.json.data.existingProjects) }}\nIdea: {{ $('05-02 Load context').item.json.data.idea }}\nConversation (oldest first): {{ JSON.stringify($('05-02 Load context').item.json.data.history) }}\nCurrent concept: {{ JSON.stringify($('05-02 Load context').item.json.data.concept) }}\nCurrent Creative Kit: {{ JSON.stringify($('05-02 Load context').item.json.data.kit) }}\nCurrent pillars & guardrails: {{ JSON.stringify($('05-02 Load context').item.json.data.pillars) }}\nChange request (empty = first draft): {{ $('05-02 Load context').item.json.data.feedback }}\nReply to the creator's latest message.",
+    "messages": {
+     "messageValues": [
+      {
+       "type": "SystemMessagePromptTemplate",
+       "message": "You are the Creative Agent of AI Content Studio. You help a creator turn a rough idea into a short-form video project (YouTube Shorts / Reels / TikTok, 9:16, 20-45 s) BEFORE anything is generated. The creator stays in control.\n\nAlways reply in the creator's language, warm and concrete, max 70 words. Ask at most 2 short questions per turn. Offer 2-4 quick-reply chips (each max 6 words) that answer your question; empty when you ask nothing.\n\nSTAGE \"discovery\" - understand the idea: niche/theme, who it is for, the goal (grow followers, sell a product, teach, entertain), the feel, the language. Only ask what is still missing; never more than about 2 rounds in total. As soon as it is clear enough to sketch a concept (or the creator says go / skip / terserah), set action.type=\"propose\" and say you will sketch the concept now.\nSIMILAR PROJECTS - only in discovery and only once: if one of the existing projects is clearly about the same topic or niche, set action.type=\"similar\", action.projectId=its id, and ask whether to continue in that project or start a new one. If the creator then wants a new one anyway, continue normally.\n\nSTAGES \"concept\", \"kit\", \"pillars\" - the creator is reviewing that stage's result (shown next to the chat).\n- They want changes -> action.type=\"refine\", action.feedback = a precise instruction for that stage only (keep their words, e.g. \"make the audience university students, tone more playful\"); reply confirms in one line.\n- They accept / say continue / ok / lanjut -> action.type=\"continue\".\n- A question -> answer it, action.type=\"ask\".\n\nNever write the concept, kit or pillars yourself in the reply. action.feedback and action.projectId are empty strings when unused."
+      }
+     ]
+    }
+   }
+  },
+  {
+   "id": "bea9523d-9f8b-41ae-a8ae-d6bf57ebe9f6",
+   "name": "OpenAI (Chat)",
+   "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+   "typeVersion": 1.3,
+   "position": [
+    700,
+    220
+   ],
+   "parameters": {
+    "model": {
+     "__rl": true,
+     "mode": "list",
+     "value": "gpt-5-mini"
+    },
+    "options": {
+     "reasoningEffort": "low",
+     "timeout": 120000,
+     "maxRetries": 2
+    }
+   },
+   "credentials": {
+    "openAiApi": {
+     "id": "REPLACE_ME",
+     "name": "OpenAI account"
+    }
+   }
+  },
+  {
+   "id": "f1e44fb5-a4bc-45f1-85c8-d3d7eadad9b4",
+   "name": "Schema (Chat)",
+   "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+   "typeVersion": 1.3,
+   "position": [
+    840,
+    220
+   ],
+   "parameters": {
+    "schemaType": "manual",
+    "inputSchema": "{\"type\": \"object\", \"properties\": {\"reply\": {\"type\": \"string\"}, \"action\": {\"type\": \"object\", \"properties\": {\"type\": {\"type\": \"string\", \"enum\": [\"ask\", \"propose\", \"refine\", \"continue\", \"similar\"]}, \"feedback\": {\"type\": \"string\"}, \"projectId\": {\"type\": \"string\"}, \"chips\": {\"type\": \"array\", \"items\": {\"type\": \"string\"}}}, \"required\": [\"type\", \"feedback\", \"projectId\", \"chips\"]}}, \"required\": [\"reply\", \"action\"]}"
+   }
+  },
+  {
+   "id": "e8ba2fc3-4cd0-42e8-9c1e-da133cffea99",
+   "name": "05-30 Save chat",
+   "type": "n8n-nodes-base.httpRequest",
+   "typeVersion": 4.2,
+   "position": [
+    1100,
+    0
+   ],
+   "parameters": {
+    "method": "POST",
+    "url": "={{ $env.ACS_API_BASE_URL }}/api/internal/setup/complete",
+    "sendHeaders": true,
+    "headerParameters": {
+     "parameters": [
+      {
+       "name": "x-acs-service-token",
+       "value": "={{ $env.ACS_INTERNAL_SERVICE_TOKEN }}"
+      },
+      {
+       "name": "Content-Type",
+       "value": "application/json"
+      }
+     ]
+    },
+    "sendBody": true,
+    "contentType": "json",
+    "specifyBody": "json",
+    "jsonBody": "={{ JSON.stringify(Object.assign({ projectId: $('05-02 Load context').item.json.data.projectId, task: 'chat' }, { reply: $json.output.reply, action: $json.output.action })) }}",
+    "options": {
+     "timeout": 30000
+    }
+   }
+  },
+  {
+   "id": "8953dd6e-39b0-472a-a0c9-834e07a8b32b",
+   "name": "05-11 Task concept?",
+   "type": "n8n-nodes-base.if",
+   "typeVersion": 2.2,
+   "position": [
+    440,
+    420
+   ],
+   "parameters": {
+    "conditions": {
+     "options": {
+      "caseSensitive": true,
+      "leftValue": "",
+      "typeValidation": "strict",
+      "version": 2
+     },
+     "conditions": [
+      {
+       "id": "c4889903-b1d7-4868-841c-85e9bfa375c3",
+       "leftValue": "={{ $('05-02 Load context').item.json.data.task }}",
+       "rightValue": "concept",
+       "operator": {
+        "type": "string",
+        "operation": "equals"
+       }
+      }
+     ],
+     "combinator": "and"
+    },
+    "options": {}
+   }
+  },
+  {
+   "id": "440ba645-429e-47b4-97ed-d6899d3726f5",
+   "name": "05-21 Concept",
+   "type": "@n8n/n8n-nodes-langchain.chainLlm",
+   "typeVersion": 1.9,
+   "onError": "continueErrorOutput",
+   "position": [
+    700,
+    420
+   ],
+   "parameters": {
+    "promptType": "define",
+    "hasOutputParser": true,
+    "text": "=Idea: {{ $('05-02 Load context').item.json.data.idea }}\nConversation (oldest first): {{ JSON.stringify($('05-02 Load context').item.json.data.history) }}\nCurrent concept: {{ JSON.stringify($('05-02 Load context').item.json.data.concept) }}\nCurrent Creative Kit: {{ JSON.stringify($('05-02 Load context').item.json.data.kit) }}\nCurrent pillars & guardrails: {{ JSON.stringify($('05-02 Load context').item.json.data.pillars) }}\nChange request (empty = first draft): {{ $('05-02 Load context').item.json.data.feedback }}",
+    "messages": {
+     "messageValues": [
+      {
+       "type": "SystemMessagePromptTemplate",
+       "message": "You are the creative director of a short-form video studio. Write the project CONCEPT - the \"what and for whom\" - from the creator's idea and the conversation (the conversation is the source of truth). If a change request is given, apply exactly that to the current concept and keep everything else.\n\n- title: punchy project name, max 6 words\n- emoji: one emoji\n- summary: one sentence, what the channel/series is\n- niche: the specific theme or territory, narrow enough to be ownable (e.g. \"budget cooking for Indonesian university students\", not \"food\")\n- audience: who exactly watches, with one detail about their situation\n- goal: what success means for the creator (e.g. \"grow to 10k followers by teaching quick wins\", \"sell the handmade candles\")\n- language: the language the creator writes in (e.g. \"Indonesian (casual, Jakarta slang)\")\n- reply: ONE short line in the creator's language presenting the concept and asking if they want to refine anything or continue."
+      }
+     ]
+    }
+   }
+  },
+  {
+   "id": "80ec0cc3-a748-4a65-8090-7e0fb0a4b633",
+   "name": "OpenAI (Concept)",
+   "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+   "typeVersion": 1.3,
+   "position": [
+    700,
+    640
+   ],
+   "parameters": {
+    "model": {
+     "__rl": true,
+     "mode": "list",
+     "value": "gpt-5-mini"
+    },
+    "options": {
+     "reasoningEffort": "low",
+     "timeout": 120000,
+     "maxRetries": 2
+    }
+   },
+   "credentials": {
+    "openAiApi": {
+     "id": "REPLACE_ME",
+     "name": "OpenAI account"
+    }
+   }
+  },
+  {
+   "id": "ab10c1f7-5dd0-4eec-b072-5ac93ddf1f2a",
+   "name": "Schema (Concept)",
+   "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+   "typeVersion": 1.3,
+   "position": [
+    840,
+    640
+   ],
+   "parameters": {
+    "schemaType": "manual",
+    "inputSchema": "{\"type\": \"object\", \"properties\": {\"reply\": {\"type\": \"string\"}, \"concept\": {\"type\": \"object\", \"properties\": {\"title\": {\"type\": \"string\"}, \"emoji\": {\"type\": \"string\"}, \"summary\": {\"type\": \"string\"}, \"niche\": {\"type\": \"string\"}, \"audience\": {\"type\": \"string\"}, \"goal\": {\"type\": \"string\"}, \"language\": {\"type\": \"string\"}}, \"required\": [\"title\", \"emoji\", \"summary\", \"niche\", \"audience\", \"goal\", \"language\"]}}, \"required\": [\"reply\", \"concept\"]}"
+   }
+  },
+  {
+   "id": "23fd4fa1-1450-4b4d-a025-45de92d0b1d9",
+   "name": "05-31 Save concept",
+   "type": "n8n-nodes-base.httpRequest",
+   "typeVersion": 4.2,
+   "position": [
+    1100,
+    420
+   ],
+   "parameters": {
+    "method": "POST",
+    "url": "={{ $env.ACS_API_BASE_URL }}/api/internal/setup/complete",
+    "sendHeaders": true,
+    "headerParameters": {
+     "parameters": [
+      {
+       "name": "x-acs-service-token",
+       "value": "={{ $env.ACS_INTERNAL_SERVICE_TOKEN }}"
+      },
+      {
+       "name": "Content-Type",
+       "value": "application/json"
+      }
+     ]
+    },
+    "sendBody": true,
+    "contentType": "json",
+    "specifyBody": "json",
+    "jsonBody": "={{ JSON.stringify(Object.assign({ projectId: $('05-02 Load context').item.json.data.projectId, task: 'concept' }, { reply: $json.output.reply, concept: $json.output.concept })) }}",
+    "options": {
+     "timeout": 30000
+    }
+   }
+  },
+  {
+   "id": "1c6181f7-07f7-48e4-8c35-31e7ed30f7bd",
+   "name": "05-12 Task kit?",
+   "type": "n8n-nodes-base.if",
+   "typeVersion": 2.2,
+   "position": [
+    440,
+    840
+   ],
+   "parameters": {
+    "conditions": {
+     "options": {
+      "caseSensitive": true,
+      "leftValue": "",
+      "typeValidation": "strict",
+      "version": 2
+     },
+     "conditions": [
+      {
+       "id": "b0f47891-5c12-4179-b983-ee163c11f488",
+       "leftValue": "={{ $('05-02 Load context').item.json.data.task }}",
+       "rightValue": "kit",
+       "operator": {
+        "type": "string",
+        "operation": "equals"
+       }
+      }
+     ],
+     "combinator": "and"
+    },
+    "options": {}
+   }
+  },
+  {
+   "id": "9d67996a-9199-4502-be9a-86291f33dd25",
+   "name": "05-22 Kit",
+   "type": "@n8n/n8n-nodes-langchain.chainLlm",
+   "typeVersion": 1.9,
+   "onError": "continueErrorOutput",
+   "position": [
+    700,
+    840
+   ],
+   "parameters": {
+    "promptType": "define",
+    "hasOutputParser": true,
+    "text": "=Idea: {{ $('05-02 Load context').item.json.data.idea }}\nConversation (oldest first): {{ JSON.stringify($('05-02 Load context').item.json.data.history) }}\nCurrent concept: {{ JSON.stringify($('05-02 Load context').item.json.data.concept) }}\nCurrent Creative Kit: {{ JSON.stringify($('05-02 Load context').item.json.data.kit) }}\nCurrent pillars & guardrails: {{ JSON.stringify($('05-02 Load context').item.json.data.pillars) }}\nChange request (empty = first draft): {{ $('05-02 Load context').item.json.data.feedback }}",
+    "messages": {
+     "messageValues": [
+      {
+       "type": "SystemMessagePromptTemplate",
+       "message": "You are the creative director of a short-form video studio. Videos are edited content Shorts: AI-generated stylized ILLUSTRATIONS as backgrounds with animated text, captions and narration - never photorealistic footage. Write the CREATIVE KIT - the \"how it looks and sounds\" - for the confirmed concept. If a change request is given, apply exactly that to the current kit and keep everything else.\n\n- tone: 3-6 words\n- voice: the narrator persona the scripts must sound like - who is talking (e.g. \"a cheeky Jakarta street-food uncle\"), sentence style, energy, 2-3 signature phrases, words to avoid\n- visualStyle: ONE consistent art direction reused verbatim in every image prompt (e.g. \"flat vector illustration, thick navy outlines, soft grain, rounded shapes\"), never photorealistic\n- palette: 3-5 named colors with hex codes that work together (e.g. \"coral #E8735A, deep navy #1F2A44, cream #FFF4E0, teal #2BA59A\")\n- recurringSubject: the character, mascot or product that appears across videos, described concretely and visually; empty only for purely abstract topics\n- format: the main video format - explainer, listicle, story, compare or product - plus a few words why\n- opening: how every video grabs the first 1.5 s (bold question, surprising fact, common mistake, tiny story...)\n- ending.cta: one of follow, subscribe, comment, save, link, visit - what fits the goal; ending.series: true when videos should tease the next one\n- reply: ONE short line in the creator's language presenting the kit and asking if they want to refine anything or continue."
+      }
+     ]
+    }
+   }
+  },
+  {
+   "id": "a2780e9f-044b-45ed-a501-c41cb6454e31",
+   "name": "OpenAI (Kit)",
+   "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+   "typeVersion": 1.3,
+   "position": [
+    700,
+    1060
+   ],
+   "parameters": {
+    "model": {
+     "__rl": true,
+     "mode": "list",
+     "value": "gpt-5-mini"
+    },
+    "options": {
+     "reasoningEffort": "medium",
+     "timeout": 120000,
+     "maxRetries": 2
+    }
+   },
+   "credentials": {
+    "openAiApi": {
+     "id": "REPLACE_ME",
+     "name": "OpenAI account"
+    }
+   }
+  },
+  {
+   "id": "1f8265bb-c798-409b-a67c-d4a1278e6a01",
+   "name": "Schema (Kit)",
+   "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+   "typeVersion": 1.3,
+   "position": [
+    840,
+    1060
+   ],
+   "parameters": {
+    "schemaType": "manual",
+    "inputSchema": "{\"type\": \"object\", \"properties\": {\"reply\": {\"type\": \"string\"}, \"kit\": {\"type\": \"object\", \"properties\": {\"tone\": {\"type\": \"string\"}, \"voice\": {\"type\": \"string\"}, \"visualStyle\": {\"type\": \"string\"}, \"palette\": {\"type\": \"string\"}, \"recurringSubject\": {\"type\": \"string\"}, \"format\": {\"type\": \"string\"}, \"opening\": {\"type\": \"string\"}, \"ending\": {\"type\": \"object\", \"properties\": {\"cta\": {\"type\": \"string\", \"enum\": [\"follow\", \"subscribe\", \"comment\", \"save\", \"link\", \"visit\"]}, \"series\": {\"type\": \"boolean\"}}, \"required\": [\"cta\", \"series\"]}}, \"required\": [\"tone\", \"voice\", \"visualStyle\", \"palette\", \"recurringSubject\", \"format\", \"opening\", \"ending\"]}}, \"required\": [\"reply\", \"kit\"]}"
+   }
+  },
+  {
+   "id": "c2a918d0-00ce-43d6-8f05-11b98b6f8a6c",
+   "name": "05-32 Save kit",
+   "type": "n8n-nodes-base.httpRequest",
+   "typeVersion": 4.2,
+   "position": [
+    1100,
+    840
+   ],
+   "parameters": {
+    "method": "POST",
+    "url": "={{ $env.ACS_API_BASE_URL }}/api/internal/setup/complete",
+    "sendHeaders": true,
+    "headerParameters": {
+     "parameters": [
+      {
+       "name": "x-acs-service-token",
+       "value": "={{ $env.ACS_INTERNAL_SERVICE_TOKEN }}"
+      },
+      {
+       "name": "Content-Type",
+       "value": "application/json"
+      }
+     ]
+    },
+    "sendBody": true,
+    "contentType": "json",
+    "specifyBody": "json",
+    "jsonBody": "={{ JSON.stringify(Object.assign({ projectId: $('05-02 Load context').item.json.data.projectId, task: 'kit' }, { reply: $json.output.reply, kit: $json.output.kit })) }}",
+    "options": {
+     "timeout": 30000
+    }
+   }
+  },
+  {
+   "id": "7d678e59-54e0-46e6-a629-c670ed7aebe2",
+   "name": "05-13 Task pillars?",
+   "type": "n8n-nodes-base.if",
+   "typeVersion": 2.2,
+   "position": [
+    440,
+    1260
+   ],
+   "parameters": {
+    "conditions": {
+     "options": {
+      "caseSensitive": true,
+      "leftValue": "",
+      "typeValidation": "strict",
+      "version": 2
+     },
+     "conditions": [
+      {
+       "id": "441cf25b-7022-40cb-a29c-51db38d701f7",
+       "leftValue": "={{ $('05-02 Load context').item.json.data.task }}",
+       "rightValue": "pillars",
+       "operator": {
+        "type": "string",
+        "operation": "equals"
+       }
+      }
+     ],
+     "combinator": "and"
+    },
+    "options": {}
+   }
+  },
+  {
+   "id": "dd583c4d-a4e9-43d1-a184-1cf7136c13af",
+   "name": "05-23 Pillars",
+   "type": "@n8n/n8n-nodes-langchain.chainLlm",
+   "typeVersion": 1.9,
+   "onError": "continueErrorOutput",
+   "position": [
+    700,
+    1260
+   ],
+   "parameters": {
+    "promptType": "define",
+    "hasOutputParser": true,
+    "text": "=Idea: {{ $('05-02 Load context').item.json.data.idea }}\nConversation (oldest first): {{ JSON.stringify($('05-02 Load context').item.json.data.history) }}\nCurrent concept: {{ JSON.stringify($('05-02 Load context').item.json.data.concept) }}\nCurrent Creative Kit: {{ JSON.stringify($('05-02 Load context').item.json.data.kit) }}\nCurrent pillars & guardrails: {{ JSON.stringify($('05-02 Load context').item.json.data.pillars) }}\nChange request (empty = first draft): {{ $('05-02 Load context').item.json.data.feedback }}",
+    "messages": {
+     "messageValues": [
+      {
+       "type": "SystemMessagePromptTemplate",
+       "message": "You are the content strategist of a short-form video studio. From the confirmed concept and Creative Kit write the content PILLARS and GUARDRAILS. If a change request is given, apply exactly that and keep the rest.\n\n- pillars: 3-5 recurring content themes that serve the goal and stay inside the niche; each one specific line (e.g. \"10-minute meals under Rp20k\"), in the creator's language\n- guardrails: 2-4 rules every video must respect (claims, safety, brand, tone), in the creator's language\n- reply: ONE short line in the creator's language asking if they want to refine anything, or lock the setup and start drafting content."
+      }
+     ]
+    }
+   }
+  },
+  {
+   "id": "c50c391b-d6b9-4924-b0a7-98c05415c7d1",
+   "name": "OpenAI (Pillars)",
+   "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+   "typeVersion": 1.3,
+   "position": [
+    700,
+    1480
+   ],
+   "parameters": {
+    "model": {
+     "__rl": true,
+     "mode": "list",
+     "value": "gpt-5-mini"
+    },
+    "options": {
+     "reasoningEffort": "low",
+     "timeout": 120000,
+     "maxRetries": 2
+    }
+   },
+   "credentials": {
+    "openAiApi": {
+     "id": "REPLACE_ME",
+     "name": "OpenAI account"
+    }
+   }
+  },
+  {
+   "id": "05de247c-e07c-4b00-a4f5-085ea39009bc",
+   "name": "Schema (Pillars)",
+   "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+   "typeVersion": 1.3,
+   "position": [
+    840,
+    1480
+   ],
+   "parameters": {
+    "schemaType": "manual",
+    "inputSchema": "{\"type\": \"object\", \"properties\": {\"reply\": {\"type\": \"string\"}, \"pillars\": {\"type\": \"object\", \"properties\": {\"pillars\": {\"type\": \"array\", \"items\": {\"type\": \"string\"}}, \"guardrails\": {\"type\": \"array\", \"items\": {\"type\": \"string\"}}}, \"required\": [\"pillars\", \"guardrails\"]}}, \"required\": [\"reply\", \"pillars\"]}"
+   }
+  },
+  {
+   "id": "9876ec06-426a-4425-95a6-34b0bad6fe3a",
+   "name": "05-33 Save pillars",
+   "type": "n8n-nodes-base.httpRequest",
+   "typeVersion": 4.2,
+   "position": [
+    1100,
+    1260
+   ],
+   "parameters": {
+    "method": "POST",
+    "url": "={{ $env.ACS_API_BASE_URL }}/api/internal/setup/complete",
+    "sendHeaders": true,
+    "headerParameters": {
+     "parameters": [
+      {
+       "name": "x-acs-service-token",
+       "value": "={{ $env.ACS_INTERNAL_SERVICE_TOKEN }}"
+      },
+      {
+       "name": "Content-Type",
+       "value": "application/json"
+      }
+     ]
+    },
+    "sendBody": true,
+    "contentType": "json",
+    "specifyBody": "json",
+    "jsonBody": "={{ JSON.stringify(Object.assign({ projectId: $('05-02 Load context').item.json.data.projectId, task: 'pillars' }, { reply: $json.output.reply, pillars: $json.output.pillars })) }}",
+    "options": {
+     "timeout": 30000
+    }
+   }
+  }
+ ],
+ "connections": {
+  "05-01 Webhook": {
+   "main": [
+    [
+     {
+      "node": "05-02 Load context",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "05-02 Load context": {
+   "main": [
+    [
+     {
+      "node": "05-10 Task chat?",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "05-10 Task chat?": {
+   "main": [
+    [
+     {
+      "node": "05-20 Chat",
+      "type": "main",
+      "index": 0
+     }
+    ],
+    [
+     {
+      "node": "05-11 Task concept?",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "05-20 Chat": {
+   "main": [
+    [
+     {
+      "node": "05-30 Save chat",
+      "type": "main",
+      "index": 0
+     }
+    ],
+    [
+     {
+      "node": "05-90 Mark failed",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "OpenAI (Chat)": {
+   "ai_languageModel": [
+    [
+     {
+      "node": "05-20 Chat",
+      "type": "ai_languageModel",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Schema (Chat)": {
+   "ai_outputParser": [
+    [
+     {
+      "node": "05-20 Chat",
+      "type": "ai_outputParser",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "05-11 Task concept?": {
+   "main": [
+    [
+     {
+      "node": "05-21 Concept",
+      "type": "main",
+      "index": 0
+     }
+    ],
+    [
+     {
+      "node": "05-12 Task kit?",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "05-21 Concept": {
+   "main": [
+    [
+     {
+      "node": "05-31 Save concept",
+      "type": "main",
+      "index": 0
+     }
+    ],
+    [
+     {
+      "node": "05-90 Mark failed",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "OpenAI (Concept)": {
+   "ai_languageModel": [
+    [
+     {
+      "node": "05-21 Concept",
+      "type": "ai_languageModel",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Schema (Concept)": {
+   "ai_outputParser": [
+    [
+     {
+      "node": "05-21 Concept",
+      "type": "ai_outputParser",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "05-12 Task kit?": {
+   "main": [
+    [
+     {
+      "node": "05-22 Kit",
+      "type": "main",
+      "index": 0
+     }
+    ],
+    [
+     {
+      "node": "05-13 Task pillars?",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "05-22 Kit": {
+   "main": [
+    [
+     {
+      "node": "05-32 Save kit",
+      "type": "main",
+      "index": 0
+     }
+    ],
+    [
+     {
+      "node": "05-90 Mark failed",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "OpenAI (Kit)": {
+   "ai_languageModel": [
+    [
+     {
+      "node": "05-22 Kit",
+      "type": "ai_languageModel",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Schema (Kit)": {
+   "ai_outputParser": [
+    [
+     {
+      "node": "05-22 Kit",
+      "type": "ai_outputParser",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "05-13 Task pillars?": {
+   "main": [
+    [
+     {
+      "node": "05-23 Pillars",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "05-23 Pillars": {
+   "main": [
+    [
+     {
+      "node": "05-33 Save pillars",
+      "type": "main",
+      "index": 0
+     }
+    ],
+    [
+     {
+      "node": "05-90 Mark failed",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "OpenAI (Pillars)": {
+   "ai_languageModel": [
+    [
+     {
+      "node": "05-23 Pillars",
+      "type": "ai_languageModel",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Schema (Pillars)": {
+   "ai_outputParser": [
+    [
+     {
+      "node": "05-23 Pillars",
+      "type": "ai_outputParser",
+      "index": 0
+     }
+    ]
+   ]
+  }
+ },
+ "settings": {
+  "executionOrder": "v1",
+  "errorWorkflow": "Hs5qQeqXcbQ46etY",
+  "callerPolicy": "workflowsFromSameOwner"
+ }
+}

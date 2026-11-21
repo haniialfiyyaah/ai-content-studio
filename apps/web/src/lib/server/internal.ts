@@ -219,6 +219,10 @@ export async function generationComplete(raw: unknown) {
     });
   } else {
     await logActivity(db, { ownerId: p.owner_id, projectId: p.id, kind: "ideation.done", message: `${n} new content ideas to review` });
+    // First content right after guided setup.
+    if (p.status === "generating") {
+      await postAssistantMessage(db, p.owner_id, p.id, `Your first ${n} content ideas are ready, written from the setup we agreed on. Review them, untick any you don't want, then Approve & schedule.`);
+    }
     await notifyTelegram(db, {
       ownerId: p.owner_id,
       projectId: p.id,

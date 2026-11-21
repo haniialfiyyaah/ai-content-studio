@@ -27,6 +27,7 @@ export function timeAgo(iso: string): string {
 
 const PILL: Record<string, string> = {
   generating: "pending",
+  setup: "draft",
   draft: "draft",
   active: "active",
   paused: "paused",
@@ -44,7 +45,7 @@ const PILL: Record<string, string> = {
 export const pillClass = (status: string) => `pill ${PILL[status] ?? ""}`;
 
 export const statusLabel = (status: string) =>
-  ({ draft: "Needs review", generating: "Generating" }[status] ?? status.charAt(0).toUpperCase() + status.slice(1));
+  ({ draft: "Needs review", generating: "Generating", setup: "Setting up" }[status] ?? status.charAt(0).toUpperCase() + status.slice(1));
 
 export const COVER_TONES = ["peach", "lavender", "dark", "mint"] as const;
 export const coverClass = (tone: number) => `project-cover ${COVER_TONES[tone % 4]}`;

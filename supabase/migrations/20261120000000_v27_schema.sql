@@ -466,3 +466,13 @@ alter table public.contents
 
 -- How every Short ends: CTA type/text, @handle, website, series teaser.
 alter table public.projects add column if not exists ending jsonb not null default '{"cta":"follow","series":true}'::jsonb;
+
+-- v2 guided setup (docs/FLOW.md, phase 1). Backup of v1 data: schema backup_v1.
+alter table public.projects drop constraint projects_status_check;
+alter table public.projects add constraint projects_status_check check (status = any (array['setup','generating','draft','active','paused','stopped','failed']));
+alter table public.projects
+  add column if not exists setup_stage text not null default 'done' check (setup_stage in ('discovery','concept','kit','pillars','done')),
+  add column if not exists setup_busy boolean not null default false,
+  add column if not exists setup_started_at timestamptz,
+  add column if not exists concept jsonb not null default '{}'::jsonb;
+alter table public.messages add column if not exists meta jsonb;

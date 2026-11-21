@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ArrowRight, Check, Clock, Pause, Play, Square } from "lucide-react";
-import { OPTION_FIELDS, describeSchedule, parseEnding, resolveContent } from "@acs/domain";
+import { OPTION_FIELDS, describeSchedule, parseEnding, resolveContent, type Concept, type SetupStage } from "@acs/domain";
 import { OptionPicker } from "@/components/content/option-picker";
 import { RenderControls } from "@/components/content/render-controls";
 import { AssetsPanel } from "@/components/project/assets-panel";
@@ -12,6 +12,7 @@ import { EndingForm } from "@/components/project/ending-form";
 import { LaunchPanel } from "@/components/project/launch-panel";
 import { GeneratingView } from "@/components/project/generating-view";
 import { ScheduleForm } from "@/components/project/schedule-form";
+import { SetupView } from "@/components/project/setup-view";
 import { WorkspaceFrame } from "@/components/project/workspace-frame";
 import { ActionButton } from "@/components/ui/action-button";
 import { LiveRefresh } from "@/components/ui/live-refresh";
@@ -20,6 +21,7 @@ import { fmtDateTime, pillClass, statusLabel, timeAgo } from "@/lib/format";
 import { loadWorkspace } from "@/lib/server/queries";
 import { storyboardImageUrls, usableStoryboard, type StoryboardFrame } from "@/lib/server/storyboard";
 import { requireUser } from "@/lib/server/session";
+import { setupStale } from "@/lib/server/setup";
 
 const TABS = [
   ["overview", "Overview"],
@@ -66,6 +68,47 @@ export default async function ProjectPage({
       ]}
     />
   );
+
+  if (p.status === "setup") {
+    const sp = p as typeof p & { setup_stage: SetupStage; setup_busy: boolean; setup_started_at: string | null };
+    return (
+      <>
+        <LiveRefresh
+          pollMs={sp.setup_busy ? 3000 : undefined}
+          sources={[
+            { table: "projects", filter: `id=eq.${p.id}` },
+            ...(ws.conversationId ? [{ table: "messages", filter: `conversation_id=eq.${ws.conversationId}` }] : []),
+          ]}
+        />
+        <WorkspaceFrame
+          agent={
+            <AgentPanel
+              projectId={p.id}
+              projectTitle={p.title}
+              messages={ws.messages}
+              thinking={sp.setup_busy && !setupStale(sp) && sp.setup_stage === "discovery"}
+              placeholder="Answer the agent, or ask to change anything…"
+            />
+          }
+        >
+          <main className="page">
+            <div className="eyebrow">NEW PROJECT · SETUP</div>
+            <h1 style={{ fontSize: 27, marginBottom: 18 }}>{p.cover_emoji ? `${p.cover_emoji} ` : ""}{p.title}</h1>
+            <SetupView
+              projectId={p.id}
+              stage={sp.setup_stage}
+              busy={sp.setup_busy}
+              stale={setupStale(sp)}
+              idea={p.prompt}
+              concept={(p as typeof p & { concept?: Partial<Concept> }).concept ?? {}}
+              kit={p.creative_kit ?? {}}
+              ending={(p as typeof p & { ending?: unknown }).ending}
+            />
+          </main>
+        </WorkspaceFrame>
+      </>
+    );
+  }
 
   if (p.status === "generating" || (p.status === "failed" && !contents.length)) {
     return (

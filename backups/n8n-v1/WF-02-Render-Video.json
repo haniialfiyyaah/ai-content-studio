@@ -1,0 +1,392 @@
+{
+ "id": "FN8Eqd6rIQDug8jJ",
+ "name": "WF-02 Render Video",
+ "active": true,
+ "settings": {
+  "errorWorkflow": "Hs5qQeqXcbQ46etY",
+  "executionOrder": "v1",
+  "callerPolicy": "workflowsFromSameOwner"
+ },
+ "connections": {
+  "02-00 Webhook": {
+   "main": [
+    [
+     {
+      "node": "02-01 Render id",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "02-01 Render id": {
+   "main": [
+    [
+     {
+      "node": "02-02 Claim + submit scenes",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "02-00 From sweeper": {
+   "main": [
+    [
+     {
+      "node": "02-01 Render id",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "02-02 Claim + submit scenes": {
+   "main": [
+    [
+     {
+      "node": "02-03 Claimed?",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "02-03 Claimed?": {
+   "main": [
+    [
+     {
+      "node": "02-04 Wait 20s",
+      "type": "main",
+      "index": 0
+     }
+    ],
+    [
+     {
+      "node": "02-03b Not claimed (another run owns it)",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "02-04 Wait 20s": {
+   "main": [
+    [
+     {
+      "node": "02-05 Advance render",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "02-05 Advance render": {
+   "main": [
+    [
+     {
+      "node": "02-06 Count attempt",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "02-06 Count attempt": {
+   "main": [
+    [
+     {
+      "node": "02-07 Still rendering?",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "02-07 Still rendering?": {
+   "main": [
+    [
+     {
+      "node": "02-04 Wait 20s",
+      "type": "main",
+      "index": 0
+     }
+    ],
+    [
+     {
+      "node": "02-08 Finished (ready / failed / timed out)",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  }
+ },
+ "nodes": [
+  {
+   "id": "24ab3982-64a9-4041-ba1d-8aecd86be6d6",
+   "name": "02-00 Webhook",
+   "webhookId": "d0067e2d-3a1f-4bcf-8e4f-f6462cede006",
+   "type": "n8n-nodes-base.webhook",
+   "typeVersion": 2,
+   "position": [
+    0,
+    0
+   ],
+   "parameters": {
+    "httpMethod": "POST",
+    "path": "acs-render",
+    "responseMode": "onReceived"
+   }
+  },
+  {
+   "id": "2463f7b6-9fc9-42bb-9ba3-89d25648e3b3",
+   "name": "02-01 Render id",
+   "type": "n8n-nodes-base.set",
+   "typeVersion": 3.4,
+   "position": [
+    220,
+    100
+   ],
+   "parameters": {
+    "mode": "manual",
+    "assignments": {
+     "assignments": [
+      {
+       "id": "renderId",
+       "name": "renderId",
+       "value": "={{ $json.body?.renderId || $json.renderId }}",
+       "type": "string"
+      },
+      {
+       "id": "attempt",
+       "name": "attempt",
+       "value": 0,
+       "type": "number"
+      }
+     ]
+    }
+   }
+  },
+  {
+   "id": "0a583168-436f-42e4-bd53-e074d2e4e756",
+   "name": "02-00 From sweeper",
+   "type": "n8n-nodes-base.executeWorkflowTrigger",
+   "typeVersion": 1.1,
+   "position": [
+    0,
+    200
+   ],
+   "parameters": {
+    "inputSource": "passthrough"
+   }
+  },
+  {
+   "id": "2b185cbf-3aa5-45db-8f11-fb10a058ef35",
+   "name": "02-02 Claim + submit scenes",
+   "type": "n8n-nodes-base.httpRequest",
+   "typeVersion": 4.2,
+   "position": [
+    440,
+    100
+   ],
+   "parameters": {
+    "method": "POST",
+    "url": "={{ $env.ACS_API_BASE_URL }}/api/internal/renders/start",
+    "sendHeaders": true,
+    "headerParameters": {
+     "parameters": [
+      {
+       "name": "x-acs-service-token",
+       "value": "={{ $env.ACS_INTERNAL_SERVICE_TOKEN }}"
+      },
+      {
+       "name": "Content-Type",
+       "value": "application/json"
+      }
+     ]
+    },
+    "sendBody": true,
+    "contentType": "json",
+    "specifyBody": "json",
+    "jsonBody": "={{ JSON.stringify({ renderId: $json.renderId }) }}",
+    "options": {
+     "timeout": 280000
+    }
+   }
+  },
+  {
+   "id": "c9ab86c9-2cb7-4cd6-bf9b-160b6d215815",
+   "name": "02-03 Claimed?",
+   "type": "n8n-nodes-base.if",
+   "typeVersion": 2.2,
+   "position": [
+    660,
+    100
+   ],
+   "parameters": {
+    "conditions": {
+     "options": {
+      "caseSensitive": true,
+      "leftValue": "",
+      "typeValidation": "loose"
+     },
+     "conditions": [
+      {
+       "id": "claimed",
+       "leftValue": "={{ $json.data.claimed }}",
+       "rightValue": true,
+       "operator": {
+        "type": "boolean",
+        "operation": "true",
+        "singleValue": true
+       }
+      }
+     ],
+     "combinator": "and"
+    }
+   }
+  },
+  {
+   "id": "2caf1c28-aec3-4bfa-827f-c5c5ec2b74bb",
+   "name": "02-04 Wait 20s",
+   "webhookId": "40ea4198-c98e-4ac6-a3d0-0ac8d393e04d",
+   "type": "n8n-nodes-base.wait",
+   "typeVersion": 1.1,
+   "position": [
+    880,
+    0
+   ],
+   "parameters": {
+    "amount": 20,
+    "unit": "seconds"
+   }
+  },
+  {
+   "id": "5d075db1-b914-4c50-bda0-22d3c1376935",
+   "name": "02-03b Not claimed (another run owns it)",
+   "type": "n8n-nodes-base.noOp",
+   "typeVersion": 1,
+   "position": [
+    880,
+    220
+   ],
+   "parameters": {}
+  },
+  {
+   "id": "75540e97-0f9b-41f7-836c-f5c4b3cb68c6",
+   "name": "02-05 Advance render",
+   "type": "n8n-nodes-base.httpRequest",
+   "typeVersion": 4.2,
+   "onError": "continueRegularOutput",
+   "position": [
+    1100,
+    0
+   ],
+   "parameters": {
+    "method": "POST",
+    "url": "={{ $env.ACS_API_BASE_URL }}/api/internal/renders/poll",
+    "sendHeaders": true,
+    "headerParameters": {
+     "parameters": [
+      {
+       "name": "x-acs-service-token",
+       "value": "={{ $env.ACS_INTERNAL_SERVICE_TOKEN }}"
+      },
+      {
+       "name": "Content-Type",
+       "value": "application/json"
+      }
+     ]
+    },
+    "sendBody": true,
+    "contentType": "json",
+    "specifyBody": "json",
+    "jsonBody": "={{ JSON.stringify({ renderId: $('02-01 Render id').item.json.renderId }) }}",
+    "options": {
+     "timeout": 280000
+    }
+   }
+  },
+  {
+   "id": "c42a45d4-4abc-4b27-a2a7-1f814b50eb45",
+   "name": "02-06 Count attempt",
+   "type": "n8n-nodes-base.set",
+   "typeVersion": 3.4,
+   "position": [
+    1320,
+    0
+   ],
+   "parameters": {
+    "mode": "manual",
+    "assignments": {
+     "assignments": [
+      {
+       "id": "attempt",
+       "name": "attempt",
+       "value": "={{ ($('02-06 Count attempt').isExecuted ? $('02-06 Count attempt').last().json.attempt : 0) + 1 }}",
+       "type": "number"
+      },
+      {
+       "id": "status",
+       "name": "status",
+       "value": "={{ $json.data?.status || 'rendering' }}",
+       "type": "string"
+      }
+     ]
+    }
+   }
+  },
+  {
+   "id": "3d3c1abb-4ce6-4847-bd54-e6af3cf6fd79",
+   "name": "02-07 Still rendering?",
+   "type": "n8n-nodes-base.if",
+   "typeVersion": 2.2,
+   "position": [
+    1540,
+    0
+   ],
+   "parameters": {
+    "conditions": {
+     "options": {
+      "caseSensitive": true,
+      "leftValue": "",
+      "typeValidation": "loose"
+     },
+     "conditions": [
+      {
+       "id": "rendering",
+       "leftValue": "={{ $json.status }}",
+       "rightValue": "rendering",
+       "operator": {
+        "type": "string",
+        "operation": "equals"
+       }
+      },
+      {
+       "id": "budget",
+       "leftValue": "={{ $json.attempt }}",
+       "rightValue": 90,
+       "operator": {
+        "type": "number",
+        "operation": "lt"
+       }
+      }
+     ],
+     "combinator": "and"
+    }
+   }
+  },
+  {
+   "id": "6848a6fb-be18-4be1-9da3-f46a3750b7e7",
+   "name": "02-08 Finished (ready / failed / timed out)",
+   "type": "n8n-nodes-base.noOp",
+   "typeVersion": 1,
+   "position": [
+    1760,
+    120
+   ],
+   "parameters": {}
+  }
+ ]
+}

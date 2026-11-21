@@ -1,0 +1,216 @@
+{
+ "id": "ElL4pmD7I4BlwdJf",
+ "name": "WF-A1 Project Agent Chat",
+ "active": true,
+ "settings": {
+  "errorWorkflow": "Hs5qQeqXcbQ46etY",
+  "executionOrder": "v1"
+ },
+ "connections": {
+  "A1-01 Webhook": {
+   "main": [
+    [
+     {
+      "node": "A1-02 Load project context",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "A1-02 Load project context": {
+   "main": [
+    [
+     {
+      "node": "A1-03 Creative agent",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "A1-03 Creative agent": {
+   "main": [
+    [
+     {
+      "node": "A1-04 Post reply",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "OpenAI (agent)": {
+   "ai_languageModel": [
+    [
+     {
+      "node": "A1-03 Creative agent",
+      "type": "ai_languageModel",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Reply schema": {
+   "ai_outputParser": [
+    [
+     {
+      "node": "A1-03 Creative agent",
+      "type": "ai_outputParser",
+      "index": 0
+     }
+    ]
+   ]
+  }
+ },
+ "nodes": [
+  {
+   "id": "2d5b359a-a4e2-401f-8ca0-7bd4179f109f",
+   "name": "A1-01 Webhook",
+   "webhookId": "b69f6830-138a-4d5c-8e7c-9e45339f9088",
+   "type": "n8n-nodes-base.webhook",
+   "typeVersion": 2,
+   "position": [
+    0,
+    0
+   ],
+   "parameters": {
+    "httpMethod": "POST",
+    "path": "acs-agent-chat",
+    "responseMode": "onReceived"
+   }
+  },
+  {
+   "id": "5e14d9ae-3865-48e4-b6d2-106d0ecac2ef",
+   "name": "A1-02 Load project context",
+   "type": "n8n-nodes-base.httpRequest",
+   "typeVersion": 4.2,
+   "position": [
+    220,
+    0
+   ],
+   "parameters": {
+    "method": "POST",
+    "url": "={{ $env.ACS_API_BASE_URL }}/api/internal/agent/context",
+    "sendHeaders": true,
+    "headerParameters": {
+     "parameters": [
+      {
+       "name": "x-acs-service-token",
+       "value": "={{ $env.ACS_INTERNAL_SERVICE_TOKEN }}"
+      },
+      {
+       "name": "Content-Type",
+       "value": "application/json"
+      }
+     ]
+    },
+    "sendBody": true,
+    "contentType": "json",
+    "specifyBody": "json",
+    "jsonBody": "={{ JSON.stringify({ conversationId: $json.body.conversationId }) }}",
+    "options": {
+     "timeout": 30000
+    }
+   }
+  },
+  {
+   "id": "2c2380be-f2a7-4d98-954c-c5fc1995094c",
+   "name": "A1-03 Creative agent",
+   "type": "@n8n/n8n-nodes-langchain.chainLlm",
+   "typeVersion": 1.9,
+   "position": [
+    440,
+    0
+   ],
+   "parameters": {
+    "promptType": "define",
+    "hasOutputParser": true,
+    "text": "=Project: {{ JSON.stringify($json.data.project) }}\nContent: {{ JSON.stringify($json.data.contents) }}\nConversation so far: {{ JSON.stringify($json.data.history) }}\nReply to the creator's latest message.",
+    "messages": {
+     "messageValues": [
+      {
+       "type": "SystemMessagePromptTemplate",
+       "message": "You are the Creative Agent inside AI Content Studio, scoped to ONE project. Content items are numbered #1, #2\u2026 in the order given. Be concise (max 80 words), warm and concrete, in the creator's language. You can explain content, the Creative Kit, schedule and next steps (review with the dropdowns, Approve & next / Approve all, render videos, set schedule, connect YouTube, activate). Actions: (1) if the creator wants MORE or NEW ideas, set action.type=generate_more, count 1-6, feedback empty. (2) if the creator wants to CHANGE existing content (tone, length, title, hook, angle\u2026), set action.type=revise, count 0, and feedback = a precise instruction that keeps their #numbers (e.g. 'Make #2 funnier and shorter; mention kids in #3 title'); tell them the updated options will appear for review and that revised content returns to Pending. Published content cannot change. (3) otherwise action.type=none, count 0, feedback empty. You never approve, publish or type into fields yourself."
+      }
+     ]
+    }
+   }
+  },
+  {
+   "id": "a345a4d9-a645-4f36-87ad-8ed1fb38fe19",
+   "name": "OpenAI (agent)",
+   "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+   "typeVersion": 1.3,
+   "position": [
+    464,
+    336
+   ],
+   "parameters": {
+    "model": {
+     "__rl": true,
+     "mode": "list",
+     "value": "gpt-5-mini"
+    },
+    "options": {
+     "reasoningEffort": "low",
+     "timeout": 60000
+    }
+   },
+   "credentials": {
+    "openAiApi": {
+     "id": "u9lTOFQIw7tBHbEl",
+     "name": "OpenAI account"
+    }
+   }
+  },
+  {
+   "id": "bba85177-7a5c-4e7d-b111-0bbc713f8d67",
+   "name": "Reply schema",
+   "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+   "typeVersion": 1.3,
+   "position": [
+    592,
+    336
+   ],
+   "parameters": {
+    "schemaType": "manual",
+    "inputSchema": "{\"type\":\"object\",\"properties\":{\"reply\":{\"type\":\"string\"},\"action\":{\"type\":\"object\",\"properties\":{\"type\":{\"type\":\"string\",\"enum\":[\"none\",\"generate_more\",\"revise\"]},\"count\":{\"type\":\"number\"},\"feedback\":{\"type\":\"string\"}},\"required\":[\"type\",\"count\",\"feedback\"]}},\"required\":[\"reply\",\"action\"]}"
+   }
+  },
+  {
+   "id": "9a965cd8-b3ea-4016-a627-d41b5192a88c",
+   "name": "A1-04 Post reply",
+   "type": "n8n-nodes-base.httpRequest",
+   "typeVersion": 4.2,
+   "position": [
+    660,
+    0
+   ],
+   "parameters": {
+    "method": "POST",
+    "url": "={{ $env.ACS_API_BASE_URL }}/api/internal/agent/reply",
+    "sendHeaders": true,
+    "headerParameters": {
+     "parameters": [
+      {
+       "name": "x-acs-service-token",
+       "value": "={{ $env.ACS_INTERNAL_SERVICE_TOKEN }}"
+      },
+      {
+       "name": "Content-Type",
+       "value": "application/json"
+      }
+     ]
+    },
+    "sendBody": true,
+    "contentType": "json",
+    "specifyBody": "json",
+    "jsonBody": "={{ JSON.stringify({ conversationId: $('A1-02 Load project context').item.json.data.conversationId, reply: $json.output.reply, action: $json.output.action }) }}",
+    "options": {
+     "timeout": 30000
+    }
+   }
+  }
+ ]
+}

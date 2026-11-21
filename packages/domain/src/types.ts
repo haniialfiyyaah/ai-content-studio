@@ -3,7 +3,7 @@ import { z } from "zod";
 // ---------------------------------------------------------------------------
 // Status vocabularies (mirror DB CHECK constraints)
 // ---------------------------------------------------------------------------
-export const PROJECT_STATUSES = ["generating", "draft", "active", "paused", "stopped", "failed"] as const;
+export const PROJECT_STATUSES = ["setup", "generating", "draft", "active", "paused", "stopped", "failed"] as const;
 export type ProjectStatus = (typeof PROJECT_STATUSES)[number];
 
 export type RunStatus = "queued" | "running" | "succeeded" | "failed";
@@ -88,6 +88,12 @@ export const CreativeKitSchema = z.object({
   /** Visual identity (content-video skill §5). */
   palette: z.string().default(""),
   recurringSubject: z.string().default(""),
+  /** v2 setup: default content format and how videos open. */
+  format: z.string().default(""),
+  opening: z.string().default(""),
+  /** v2 setup: from the Concept stage. */
+  niche: z.string().default(""),
+  goal: z.string().default(""),
 });
 export type CreativeKit = z.infer<typeof CreativeKitSchema>;
 
@@ -185,4 +191,83 @@ export function endingBrief(raw: unknown, fallbackHandle = ""): string {
       : "- The cta beat headline is the call to action itself (<= 5 words).",
   ];
   return lines.filter(Boolean).join("\n");
+}
+
+// ---------------------------------------------------------------------------
+// Guided setup (docs/FLOW.md) — Discovery → Concept → Creative Kit → Pillars
+// ---------------------------------------------------------------------------
+export const SETUP_STAGES = ["discovery", "concept", "kit", "pillars", "done"] as const;
+export type SetupStage = (typeof SETUP_STAGES)[number];
+export const SETUP_STAGE_LABELS: Record<SetupStage, string> = {
+  discovery: "Your idea",
+  concept: "Concept",
+  kit: "Creative Kit",
+  pillars: "Pillars & guardrails",
+  done: "Ready",
+};
+/** The stage after this one (pillars → done). */
+export function nextSetupStage(s: SetupStage): SetupStage {
+  return SETUP_STAGES[Math.min(SETUP_STAGES.indexOf(s) + 1, SETUP_STAGES.length - 1)];
+}
+
+/** What the content is about and for whom (the "what"); the kit is the "how". */
+export const ConceptSchema = z.object({
+  title: z.string().trim().max(80).default(""),
+  emoji: z.string().max(8).default(""),
+  summary: z.string().max(400).default(""),
+  niche: z.string().max(200).default(""),
+  audience: z.string().max(300).default(""),
+  goal: z.string().max(300).default(""),
+  language: z.string().max(60).default("English"),
+});
+export type Concept = z.infer<typeof ConceptSchema>;
+
+export const SetupKitSchema = z.object({
+  tone: z.string().max(300).default(""),
+  voice: z.string().max(800).default(""),
+  visualStyle: z.string().max(500).default(""),
+  palette: z.string().max(200).default(""),
+  recurringSubject: z.string().max(400).default(""),
+  format: z.string().max(200).default(""),
+  opening: z.string().max(300).default(""),
+  ending: z.object({ cta: z.enum(CTA_TYPES).catch("follow"), series: z.coerce.boolean().default(true) }).partial().default({}),
+});
+export type SetupKit = z.infer<typeof SetupKitSchema>;
+
+export const SetupPillarsSchema = z.object({
+  pillars: z.array(z.string().trim().min(1).max(200)).min(1).max(6),
+  guardrails: z.array(z.string().trim().min(1).max(200)).min(1).max(6),
+});
+export type SetupPillars = z.infer<typeof SetupPillarsSchema>;
+
+export const SETUP_TASKS = ["chat", "concept", "kit", "pillars"] as const;
+export type SetupTask = (typeof SETUP_TASKS)[number];
+
+/** n8n WF-05 → /api/internal/setup/complete */
+export const SetupCompleteSchema = z.object({
+  projectId: z.string().uuid(),
+  task: z.enum(SETUP_TASKS),
+  /** Short message to the creator (chat answer, or the intro line for a stage result). */
+  reply: z.string().max(3000).default(""),
+  /** chat only: what the server should do next. */
+  action: z
+    .object({
+      type: z.enum(["ask", "propose", "refine", "continue", "similar"]).catch("ask"),
+      feedback: z.string().max(1500).default(""),
+      projectId: z.string().default(""),
+      chips: z.array(z.string().max(80)).max(4).default([]),
+    })
+    .partial()
+    .default({}),
+  concept: ConceptSchema.optional(),
+  kit: SetupKitSchema.optional(),
+  pillars: SetupPillarsSchema.optional(),
+});
+export type SetupComplete = z.infer<typeof SetupCompleteSchema>;
+
+/** Extra data on a chat message (quick replies, stage result, similar project). */
+export interface MessageMeta {
+  chips?: string[];
+  stage?: SetupStage;
+  similar?: { projectId: string; title: string };
 }

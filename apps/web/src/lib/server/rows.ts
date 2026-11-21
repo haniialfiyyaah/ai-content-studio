@@ -1,7 +1,10 @@
 import type {
   ContentOptions,
   ContentStatus,
+  Concept,
   CreativeKit,
+  MessageMeta,
+  SetupStage,
   ProjectStatus,
   PublishStatus,
   RenderStatus,
@@ -27,6 +30,10 @@ export interface ProjectRow {
   visual_mode: "ai" | "ai_with_references" | "references";
   image_engine?: "openai" | "fal";
   ending?: unknown;
+  setup_stage?: SetupStage;
+  setup_busy?: boolean;
+  setup_started_at?: string | null;
+  concept?: Partial<Concept>;
   ideation_every_days: number;
   next_ideation_at: string | null;
   activated_at: string | null;
@@ -121,5 +128,6 @@ export interface MessageRow {
   conversation_id: string;
   role: "user" | "assistant" | "system";
   content: string;
+  meta?: MessageMeta | null;
   created_at: string;
 }

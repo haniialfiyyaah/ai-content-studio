@@ -67,7 +67,7 @@ export async function notifyTelegram(
   });
 }
 
-export async function postAssistantMessage(admin: Admin, ownerId: string, projectId: string, content: string) {
+export async function postAssistantMessage(admin: Admin, ownerId: string, projectId: string, content: string, meta?: Record<string, unknown>) {
   const { data: convo } = await admin
     .from("conversations")
     .select("id")
@@ -77,5 +77,5 @@ export async function postAssistantMessage(admin: Admin, ownerId: string, projec
     .limit(1)
     .maybeSingle();
   if (!convo) return;
-  await admin.from("messages").insert({ conversation_id: convo.id, owner_id: ownerId, role: "assistant", content });
+  await admin.from("messages").insert({ conversation_id: convo.id, owner_id: ownerId, role: "assistant", content, meta: meta ?? null });
 }

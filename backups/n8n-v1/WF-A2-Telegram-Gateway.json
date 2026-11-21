@@ -1,0 +1,194 @@
+{
+ "id": "CNN8fpiUxy2JVKaq",
+ "name": "WF-A2 Telegram Gateway",
+ "active": true,
+ "settings": {
+  "errorWorkflow": "Hs5qQeqXcbQ46etY",
+  "executionOrder": "v1"
+ },
+ "connections": {
+  "A2-01 Telegram updates": {
+   "main": [
+    [
+     {
+      "node": "A2-02 Forward to Studio",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "A2-02 Forward to Studio": {
+   "main": [
+    [
+     {
+      "node": "A2-03 Any reply?",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "A2-03 Any reply?": {
+   "main": [
+    [
+     {
+      "node": "A2-04 Calls",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "A2-04 Calls": {
+   "main": [
+    [
+     {
+      "node": "A2-05 Send via Telegram",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  }
+ },
+ "nodes": [
+  {
+   "id": "0d50ce4a-5d6d-4368-978c-7d0118a25652",
+   "name": "A2-01 Telegram updates",
+   "webhookId": "7c54bab1-8aa7-4a37-86f6-d8beca06d691",
+   "type": "n8n-nodes-base.telegramTrigger",
+   "typeVersion": 1.1,
+   "position": [
+    0,
+    0
+   ],
+   "parameters": {
+    "updates": [
+     "message",
+     "callback_query"
+    ],
+    "additionalFields": {}
+   },
+   "credentials": {
+    "telegramApi": {
+     "id": "CUBIv7SV53OwjH13",
+     "name": "Telegram account"
+    }
+   }
+  },
+  {
+   "id": "5b4ad781-4b70-4b2c-827b-c9d0595a32a5",
+   "name": "A2-02 Forward to Studio",
+   "type": "n8n-nodes-base.httpRequest",
+   "typeVersion": 4.2,
+   "position": [
+    240,
+    0
+   ],
+   "parameters": {
+    "method": "POST",
+    "url": "={{ $env.ACS_API_BASE_URL }}/api/internal/telegram/update",
+    "sendHeaders": true,
+    "headerParameters": {
+     "parameters": [
+      {
+       "name": "x-acs-service-token",
+       "value": "={{ $env.ACS_INTERNAL_SERVICE_TOKEN }}"
+      },
+      {
+       "name": "Content-Type",
+       "value": "application/json"
+      }
+     ]
+    },
+    "sendBody": true,
+    "contentType": "json",
+    "specifyBody": "json",
+    "jsonBody": "={{ JSON.stringify({ update: $json }) }}",
+    "options": {
+     "timeout": 120000
+    }
+   }
+  },
+  {
+   "id": "e1da5793-211a-4486-b6f6-d7613cca5a5a",
+   "name": "A2-03 Any reply?",
+   "type": "n8n-nodes-base.if",
+   "typeVersion": 2.2,
+   "position": [
+    464,
+    0
+   ],
+   "parameters": {
+    "conditions": {
+     "options": {
+      "caseSensitive": true,
+      "leftValue": "",
+      "typeValidation": "strict",
+      "version": 2
+     },
+     "conditions": [
+      {
+       "id": "has",
+       "leftValue": "={{ ($json.data?.calls || []).length }}",
+       "rightValue": 0,
+       "operator": {
+        "type": "number",
+        "operation": "gt"
+       }
+      }
+     ],
+     "combinator": "and"
+    },
+    "options": {}
+   }
+  },
+  {
+   "id": "023ed7da-9ddc-4859-bef0-cd5cf128b4b1",
+   "name": "A2-04 Calls",
+   "type": "n8n-nodes-base.set",
+   "typeVersion": 3.4,
+   "position": [
+    688,
+    -64
+   ],
+   "parameters": {
+    "assignments": {
+     "assignments": [
+      {
+       "id": "calls",
+       "name": "calls",
+       "value": "={{ $json.data.calls }}",
+       "type": "array"
+      }
+     ]
+    },
+    "options": {}
+   }
+  },
+  {
+   "id": "dece0d76-316a-489f-a44d-87864d2ab1d6",
+   "name": "A2-05 Send via Telegram",
+   "type": "n8n-nodes-base.executeWorkflow",
+   "typeVersion": 1.2,
+   "position": [
+    896,
+    -64
+   ],
+   "parameters": {
+    "source": "database",
+    "workflowId": {
+     "__rl": true,
+     "mode": "id",
+     "value": "hXxZiAIs1TNZ7dfx",
+     "cachedResultName": "SUB Telegram Send"
+    },
+    "mode": "each",
+    "options": {
+     "waitForSubWorkflow": false
+    }
+   }
+  }
+ ]
+}
