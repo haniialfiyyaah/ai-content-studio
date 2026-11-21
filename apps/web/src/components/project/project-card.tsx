@@ -4,12 +4,13 @@ import { coverClass, pillClass, statusLabel } from "@/lib/format";
 import type { ProjectRow } from "@/lib/server/rows";
 import type { ProjectSignals } from "@/lib/server/signals";
 import { SignalBadges } from "./signal-badges";
+import { PHASE_LABELS, PHASE_PILL } from "@/lib/phase";
 
 export function ProjectCard({ p, signals }: { p: ProjectRow; signals?: ProjectSignals }) {
   return (
     <Link href={`/projects/${p.id}`} className="project-card" style={{ textDecoration: "none" }}>
       <div className={coverClass(p.cover_tone)}><span>{p.emoji || "✳︎"}</span></div>
-      <div className="row between"><h3>{p.title}</h3><span className={pillClass(p.status)}>{statusLabel(p.status)}</span></div>
+      <div className="row between"><h3>{p.title}</h3><span className={signals ? PHASE_PILL[signals.phase] : pillClass(p.status)}>{signals ? PHASE_LABELS[signals.phase] : statusLabel(p.status)}</span></div>
       <p>{p.summary || p.idea}</p>
       <SignalBadges s={signals} status={p.status} timezone={p.schedule?.timezone} compact />
       <div className="project-card-foot"><span>{p.status === "setup" ? "Setup in progress" : describeSchedule(p.schedule)}</span><span className="linklike">Open Project →</span></div>

@@ -15,6 +15,7 @@ import { StoryboardView } from "@/components/project/storyboard-view";
 import { ReadyModal } from "@/components/project/ready-modal";
 import { ArchiveButton } from "@/components/project/archive-button";
 import { GenerationControl } from "@/components/project/generation-control";
+import { PHASE_LABELS, PHASE_PILL, contentPhaseLabel } from "@/lib/phase";
 import { SetupSummary } from "@/components/project/setup-summary";
 import { VideoView } from "@/components/project/video-view";
 import { WorkspaceFrame } from "@/components/project/workspace-frame";
@@ -119,7 +120,8 @@ export default async function ProjectPage({
                 <h1 style={{ fontSize: 27 }}>{p.emoji ? `${p.emoji} ` : ""}{p.title}</h1>
               </div>
               <div className="row" style={{ gap: 8 }}>
-                {p.auto_approve && <SignalBadges s={{ needsYou: 0, inProgress: false, nextUpload: null, auto: true }} status="draft" />}
+                <span className={PHASE_PILL.setting_up}>{PHASE_LABELS.setting_up}</span>
+                {p.auto_approve && <span className="signal auto">⚡ Auto setup</span>}
                 <GenerationControl projectId={p.id} working={sp.setup_busy && !setupStale(sp) && sp.setup_stage !== "similar"} halted={Boolean(p.halted)} />
                 <ArchiveButton projectId={p.id} />
               </div>
@@ -199,6 +201,7 @@ export default async function ProjectPage({
           )
         : [];
     const drawing = boards.some((b) => b.frames.some((f) => f?.status === "drawing" || f?.status === "editing"));
+    const phase = (await projectSignals(supabase, [p])).get(p.id)?.phase;
     // Anything the agent is making right now (Stop is shown while this is true).
     const working =
       busy ||
@@ -239,7 +242,8 @@ export default async function ProjectPage({
                 format={plan.format === "series" ? `Series · ${cards.length} videos` : plan.format === "single" ? "Single video" : null}
               />
               <div className="row" style={{ gap: 8 }}>
-                {p.auto_approve && <SignalBadges s={{ needsYou: 0, inProgress: false, nextUpload: null, auto: true }} status={p.status} />}
+                {phase && <span className={PHASE_PILL[phase]}>{PHASE_LABELS[phase]}</span>}
+                {p.auto_approve && <span className="signal auto">⚡ Auto setup</span>}
                 <GenerationControl projectId={p.id} working={working} halted={Boolean(p.halted)} />
                 <ArchiveButton projectId={p.id} />
               </div>
@@ -272,6 +276,8 @@ export default async function ProjectPage({
                     label: c.label ?? "",
                     title: resolveContent(c.options, c.selection).title,
                     render: r ? { id: r.id, status: r.status, phase: r.phase, url: r.url, error: r.error } : null,
+                    scheduled: ["scheduled", "publishing"].includes(ws.jobs.get(c.id)?.status ?? ""),
+                    published: ws.jobs.get(c.id)?.status === "published",
                   };
                 })}
               />
@@ -510,7 +516,7 @@ export default async function ProjectPage({
                     return (
                       <Link key={c.id} href={`/projects/${p.id}?c=${c.id}`} scroll={false} className="listrow rowclick" style={{ textDecoration: "none" }}>
                         <div><div className="small semibold">{resolveContent(c.options, c.selection).title}</div><div className="xs muted">{fmtDateTime(j?.scheduled_for ?? c.scheduled_for, tz)}</div></div>
-                        <span className={pillClass(j?.status ?? c.status)}>{c.on_hold ? "On hold" : j ? statusLabel(j.status) : c.status === "approved" ? "Approved" : "Pending"}</span>
+                        <span className={pillClass(j?.status ?? c.status)}>{contentPhaseLabel(c, ws.renders.get(c.id), j)}</span>
                       </Link>
                     );
                   })}

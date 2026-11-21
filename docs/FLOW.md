@@ -275,3 +275,9 @@ never published until resumed, later content moves up a slot) or **Reject**
 - Project cards show only counted badges ("Needs you (n)").
 - Fix: renders saved a removed column (`model`) → steps never saved → empty
   job → "Renderer rejected the job (400)". Saving now fails loudly.
+- **Phase labels** (`lib/phase.ts`, derived — no extra DB state): Setting up ·
+  Planning (concept / storyboards) · Producing (videos rendering, or not all
+  ready) · Ready to publish (every approved video ready) · Live · Paused ·
+  Stopped · Archived. Shown on project cards, the project header and as the
+  Projects filters. Per content: Idea → Approved → Video ready → Scheduled →
+  Published (+ Skipped / On hold).

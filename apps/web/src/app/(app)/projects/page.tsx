@@ -9,25 +9,23 @@ import { SAVED_PROJECTS_FILTER, projectSignals, type ProjectSignals } from "@/li
 const FILTERS = [
   ["all", "All"],
   ["needs", "Needs you"],
-  ["progress", "In progress"],
+  ["setting_up", "Setting up"],
+  ["planning", "Planning"],
+  ["producing", "Producing"],
+  ["ready", "Ready to publish"],
   ["live", "Live"],
-  ["setup", "Setting up"],
-  ["draft", "Draft"],
   ["paused", "Paused / stopped"],
   ["archived", "Archived"],
 ] as const;
 type Filter = (typeof FILTERS)[number][0];
 
 function matches(f: Filter, p: ProjectRow, s?: ProjectSignals) {
+  const phase = s?.phase;
   switch (f) {
-    case "needs": return p.status !== "archived" && (s?.needsYou ?? 0) > 0;
-    case "progress": return p.status !== "archived" && Boolean(s?.inProgress);
-    case "live": return p.status === "live";
-    case "setup": return p.status === "setup";
-    case "draft": return p.status === "draft";
-    case "paused": return p.status === "paused" || p.status === "stopped";
-    case "archived": return p.status === "archived";
-    default: return p.status !== "archived";
+    case "all": return phase !== "archived";
+    case "needs": return phase !== "archived" && (s?.needsYou ?? 0) > 0;
+    case "paused": return phase === "paused" || phase === "stopped";
+    default: return phase === f;
   }
 }
 

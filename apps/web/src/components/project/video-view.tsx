@@ -7,6 +7,8 @@ export interface VideoItem {
   label: string;
   title: string;
   render: { id: string; status: string; phase?: string | null; url?: string | null; error?: string | null } | null;
+  scheduled?: boolean;
+  published?: boolean;
 }
 
 /** Steps a render goes through, in the creator's words. */
@@ -52,7 +54,10 @@ export function VideoView({ items, series }: { items: VideoItem[]; series: boole
                 )}
               </div>
               <div className="vid-body">
-                {series && <span className="plan-label">{it.label || `#${it.n}`}</span>}
+                <div className="row" style={{ gap: 6 }}>
+                  {series && <span className="plan-label">{it.label || `#${it.n}`}</span>}
+                  {r?.status === "ready" && <span className="pill approved">{it.published ? "Published" : it.scheduled ? "Scheduled" : "Video ready"}</span>}
+                </div>
                 <h3 className="vid-title">{it.title}</h3>
                 {failed && r?.error && <div className="xs err">{r.error}</div>}
                 <div className="actions" style={{ gap: 6 }}>

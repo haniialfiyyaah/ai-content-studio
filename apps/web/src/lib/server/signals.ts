@@ -1,6 +1,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ProjectRow } from "./rows";
+import { projectPhase, type Phase } from "@/lib/phase";
 
 /**
  * What a creator needs to know about a project at a glance, next to its status:
@@ -14,6 +15,8 @@ export interface ProjectSignals {
   /** Next scheduled upload (ISO) or null. */
   nextUpload: string | null;
   auto: boolean;
+  /** Setting up · Planning · Producing · Ready to publish · Live · Paused · Stopped · Archived */
+  phase: Phase;
 }
 
 /** Projects the creator has actually saved: setup drafts count once the agent made the concept. */
@@ -23,12 +26,14 @@ export async function projectSignals(supabase: SupabaseClient, projects: Project
   const ids = projects.map((p) => p.id);
   const out = new Map<string, ProjectSignals>();
   if (!ids.length) return out;
-  const [drafts, runs, renders, boards, jobs] = await Promise.all([
+  const [drafts, runs, renders, boards, jobs, approvedRows, readyRows] = await Promise.all([
     supabase.from("contents").select("project_id").in("project_id", ids).eq("status", "idea"),
     supabase.from("generation_runs").select("project_id").in("project_id", ids).in("status", ["queued", "running"]),
     supabase.from("video_renders").select("project_id").in("project_id", ids).in("status", ["queued", "rendering"]),
     supabase.from("contents").select("project_id").in("project_id", ids).eq("storyboard_status", "generating"),
     supabase.from("publish_jobs").select("project_id, scheduled_for").in("project_id", ids).eq("status", "scheduled").order("scheduled_for"),
+    supabase.from("contents").select("project_id").in("project_id", ids).eq("status", "approved"),
+    supabase.from("video_renders").select("project_id, content_id").in("project_id", ids).eq("status", "ready"),
   ]);
   const count = (rows: { project_id: string }[] | null) => {
     const m = new Map<string, number>();
@@ -36,6 +41,15 @@ export async function projectSignals(supabase: SupabaseClient, projects: Project
     return m;
   };
   const draftN = count(drafts.data);
+  const approvedN = count(approvedRows.data);
+  const renderingN = count(renders.data);
+  const readyN = new Map<string, number>();
+  const seen = new Set<string>();
+  for (const r of readyRows.data ?? []) {
+    if (seen.has(r.content_id)) continue;
+    seen.add(r.content_id);
+    readyN.set(r.project_id, (readyN.get(r.project_id) ?? 0) + 1);
+  }
   const busy = new Set([...(runs.data ?? []), ...(renders.data ?? []), ...(boards.data ?? [])].map((r) => r.project_id));
   const next = new Map<string, string>();
   for (const j of jobs.data ?? []) if (!next.has(j.project_id)) next.set(j.project_id, j.scheduled_for);
@@ -49,6 +63,7 @@ export async function projectSignals(supabase: SupabaseClient, projects: Project
       inProgress: setupBusy || busy.has(p.id),
       nextUpload: p.status === "live" ? (next.get(p.id) ?? null) : null,
       auto: Boolean(p.auto_approve),
+      phase: projectPhase(p, { approved: approvedN.get(p.id) ?? 0, ready: readyN.get(p.id) ?? 0, rendering: renderingN.get(p.id) ?? 0 }),
     });
   }
   return out;
