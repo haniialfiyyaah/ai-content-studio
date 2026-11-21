@@ -178,7 +178,7 @@ async function advance(p: SetupProject) {
   const db = admin();
   const next = nextSetupStage(p.setup_stage);
   if (next === "done") return finishSetup(p);
-  await db.from("projects").update({ setup_stage: next }).eq("id", p.id);
+  await db.from("projects").update({ setup_stage: next, setup_retries: 0 }).eq("id", p.id);
   await runTask(p.id, next as SetupTask);
   return { stage: next };
 }
@@ -211,6 +211,15 @@ export async function setupContext(input: { projectId: string; task: SetupTask; 
     score: c.score,
     stillInSetup: c.status === "setup",
   }));
+  // Projects this one must not overlap with (the similar ones found at the start).
+  const { data: avoidRows } = candidates.length
+    ? await db.from("projects").select("title, summary, concept, creative_kit").in("id", candidates.map((c) => c.id))
+    : { data: [] };
+  const avoidProjects = (avoidRows ?? []).map((o) => {
+    const oc = (o.concept ?? {}) as { niche?: string; audience?: string };
+    const ok = (o.creative_kit ?? {}) as { niche?: string; audience?: string; pillars?: string[] };
+    return { title: o.title, niche: oc.niche || ok.niche || "", audience: oc.audience || ok.audience || "", summary: o.summary ?? "", pillars: ok.pillars ?? [] };
+  });
   const kit = p.creative_kit ?? {};
   return {
     projectId: p.id,
@@ -235,6 +244,8 @@ export async function setupContext(input: { projectId: string; task: SetupTask; 
     pillars: { pillars: kit.pillars ?? [], guardrails: kit.guardrails ?? [] },
     /** Scored by embeddings: ≥0.55 = same idea, 0.35–0.55 = maybe (judge by topic). */
     similarCandidates: candidates,
+    /** Existing projects the new concept and pillars must stay clearly different from. */
+    avoidProjects,
   };
 }
 
@@ -250,6 +261,19 @@ export async function setupComplete(raw: unknown) {
 
   if (input.task === "concept" && input.concept) {
     const c = input.concept;
+    // No overlap with existing projects: one automatic redo, then a heads-up.
+    const overlap = (await findSimilarProjects(p.owner_id, p.id, [c.title, c.niche, c.audience, c.summary].join(". "))).find((m) => m.score >= SIMILAR_STRONG);
+    const firstDraft = !(p.concept as { title?: string } | undefined)?.title;
+    if (overlap && firstDraft && ((p as SetupProject & { setup_retries?: number }).setup_retries ?? 0) < 1) {
+      await db.from("projects").update({ setup_retries: 1, setup_started_at: new Date().toISOString() }).eq("id", p.id);
+      dispatchToN8n("setup", {
+        projectId: p.id,
+        task: "concept",
+        feedback: `The draft "${c.title}" (niche: ${c.niche}; audience: ${c.audience}) is too close to the existing project "${overlap.title}". Make the niche angle and the audience clearly different from it, with a new title.`,
+      });
+      return { ok: true, retried: true };
+    }
+    if (overlap) input.reply = `${input.reply.trim()}\n\nHeads-up: this still overlaps with your project “${overlap.title}”. Change the niche or audience with ✏️ to keep them apart.`;
     await db
       .from("projects")
       .update({

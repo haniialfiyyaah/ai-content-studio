@@ -122,5 +122,10 @@ Free = manual approve. Paid = Autopilot, trending mode, more redraws.
 - **Language:** chat and setup cards use the app language (English for now);
   the concept's *Content language* (one language or a mix) only drives scripts.
 - Pillars and guardrails are shown as two lists of short points.
+- **No overlap after "create a different project":** the concept and pillars
+  agents get the similar projects (niche, audience, summary, pillars) and must
+  differ. The new concept is scored again in code; ≥ 0.55 → one automatic redo
+  (first draft only), after that a heads-up — the creator's own edits are
+  never overridden.
 - After *Lock setup* the workspace shows a drafting card while the first
   content is written.

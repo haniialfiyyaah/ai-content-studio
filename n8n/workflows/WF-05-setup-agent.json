@@ -2,9 +2,9 @@
  "name": "WF-05 Setup Agent",
  "nodes": [
   {
-   "id": "642302e7-e488-4ab5-b6b4-90a842124de0",
+   "id": "f2679f56-b891-4624-8b67-1b015f1171b7",
    "name": "05-01 Webhook",
-   "webhookId": "13740f12-cd4f-4a26-ad60-bfb6b7e9cb45",
+   "webhookId": "1120cf5f-9c1d-4183-8414-7be6baf391b3",
    "type": "n8n-nodes-base.webhook",
    "typeVersion": 2,
    "position": [
@@ -18,7 +18,7 @@
    }
   },
   {
-   "id": "0a9b0064-ed44-4ad3-b7a1-ee89373d52ea",
+   "id": "9e471ad8-315b-45c3-9f77-ffdc253a07e0",
    "name": "05-02 Load context",
    "type": "n8n-nodes-base.httpRequest",
    "typeVersion": 4.2,
@@ -52,7 +52,7 @@
    }
   },
   {
-   "id": "162f90ab-8dbd-4d15-bcd2-9cbc5040f1da",
+   "id": "54af6d02-54a4-4e19-8d24-e47adc2999b4",
    "name": "05-90 Mark failed",
    "type": "n8n-nodes-base.httpRequest",
    "typeVersion": 4.2,
@@ -86,7 +86,7 @@
    }
   },
   {
-   "id": "39c37ea4-b3cc-4478-959b-afb13f8fa17b",
+   "id": "e6fd5f44-c1bf-481d-a851-9c9ca94447a0",
    "name": "05-10 Task chat?",
    "type": "n8n-nodes-base.if",
    "typeVersion": 2.2,
@@ -104,7 +104,7 @@
      },
      "conditions": [
       {
-       "id": "deaf2f45-db91-4ca1-a2c4-372d18b6fbb8",
+       "id": "091623e5-2710-4974-99e0-b54a253cbf63",
        "leftValue": "={{ $('05-02 Load context').item.json.data.task }}",
        "rightValue": "chat",
        "operator": {
@@ -119,7 +119,7 @@
    }
   },
   {
-   "id": "412671c8-ec6a-4d26-8328-421ba6ec8b7c",
+   "id": "b9b50428-5bd3-4a2d-83ef-f088d8bbb94e",
    "name": "05-20 Chat",
    "type": "@n8n/n8n-nodes-langchain.chainLlm",
    "typeVersion": 1.9,
@@ -131,7 +131,7 @@
    "parameters": {
     "promptType": "define",
     "hasOutputParser": true,
-    "text": "=Stage: {{ $('05-02 Load context').item.json.data.stage }}\nSimilar candidates: {{ JSON.stringify($('05-02 Load context').item.json.data.similarCandidates) }}\nApp language (write the reply and every field in it): {{ $('05-02 Load context').item.json.data.appLanguage }}\nIdea: {{ $('05-02 Load context').item.json.data.idea }}\nConversation (oldest first): {{ JSON.stringify($('05-02 Load context').item.json.data.history) }}\nCurrent concept: {{ JSON.stringify($('05-02 Load context').item.json.data.concept) }}\nCurrent Creative Kit: {{ JSON.stringify($('05-02 Load context').item.json.data.kit) }}\nCurrent pillars & guardrails: {{ JSON.stringify($('05-02 Load context').item.json.data.pillars) }}\nChange request (empty = first draft): {{ $('05-02 Load context').item.json.data.feedback }}\nReply to the creator's latest message.",
+    "text": "=Stage: {{ $('05-02 Load context').item.json.data.stage }}\nSimilar candidates: {{ JSON.stringify($('05-02 Load context').item.json.data.similarCandidates) }}\nApp language (write the reply and every field in it): {{ $('05-02 Load context').item.json.data.appLanguage }}\nIdea: {{ $('05-02 Load context').item.json.data.idea }}\nConversation (oldest first): {{ JSON.stringify($('05-02 Load context').item.json.data.history) }}\nCurrent concept: {{ JSON.stringify($('05-02 Load context').item.json.data.concept) }}\nCurrent Creative Kit: {{ JSON.stringify($('05-02 Load context').item.json.data.kit) }}\nCurrent pillars & guardrails: {{ JSON.stringify($('05-02 Load context').item.json.data.pillars) }}\nExisting projects to stay clearly different from: {{ JSON.stringify($('05-02 Load context').item.json.data.avoidProjects) }}\nChange request (empty = first draft): {{ $('05-02 Load context').item.json.data.feedback }}\nReply to the creator's latest message.",
     "messages": {
      "messageValues": [
       {
@@ -143,7 +143,7 @@
    }
   },
   {
-   "id": "dbdaff29-8fef-4632-905d-d90d615d640b",
+   "id": "45629f71-7562-4baf-a120-202bb9d5c297",
    "name": "OpenAI (Chat)",
    "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
    "typeVersion": 1.3,
@@ -171,7 +171,7 @@
    }
   },
   {
-   "id": "00e74f4b-75b0-43e6-81f6-957492208c0a",
+   "id": "a4384cc2-49ed-4a13-b360-17ba11b65048",
    "name": "Schema (Chat)",
    "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
    "typeVersion": 1.3,
@@ -185,7 +185,7 @@
    }
   },
   {
-   "id": "d629ba11-acfa-49be-97bf-1c6bf830c286",
+   "id": "f81a3eeb-7147-44bc-97a1-4689bc4f1a27",
    "name": "05-30 Save chat",
    "type": "n8n-nodes-base.httpRequest",
    "typeVersion": 4.2,
@@ -219,7 +219,7 @@
    }
   },
   {
-   "id": "de46197f-d120-490a-9bf5-dd4a8190e1c6",
+   "id": "98d5e13e-96cd-466d-bbf6-a831a319a2d7",
    "name": "05-11 Task concept?",
    "type": "n8n-nodes-base.if",
    "typeVersion": 2.2,
@@ -237,7 +237,7 @@
      },
      "conditions": [
       {
-       "id": "1c2be60e-a624-4816-9ec1-57e904a5843e",
+       "id": "68776944-071e-4482-9969-7d0e29c3a081",
        "leftValue": "={{ $('05-02 Load context').item.json.data.task }}",
        "rightValue": "concept",
        "operator": {
@@ -252,7 +252,7 @@
    }
   },
   {
-   "id": "28ef57c3-d7f8-4efb-8b3c-94ab4e887e20",
+   "id": "b2dfc06b-e984-4ecb-922a-afd5cd26fcd8",
    "name": "05-21 Concept",
    "type": "@n8n/n8n-nodes-langchain.chainLlm",
    "typeVersion": 1.9,
@@ -264,19 +264,19 @@
    "parameters": {
     "promptType": "define",
     "hasOutputParser": true,
-    "text": "=App language (write the reply and every field in it): {{ $('05-02 Load context').item.json.data.appLanguage }}\nIdea: {{ $('05-02 Load context').item.json.data.idea }}\nConversation (oldest first): {{ JSON.stringify($('05-02 Load context').item.json.data.history) }}\nCurrent concept: {{ JSON.stringify($('05-02 Load context').item.json.data.concept) }}\nCurrent Creative Kit: {{ JSON.stringify($('05-02 Load context').item.json.data.kit) }}\nCurrent pillars & guardrails: {{ JSON.stringify($('05-02 Load context').item.json.data.pillars) }}\nChange request (empty = first draft): {{ $('05-02 Load context').item.json.data.feedback }}",
+    "text": "=App language (write the reply and every field in it): {{ $('05-02 Load context').item.json.data.appLanguage }}\nIdea: {{ $('05-02 Load context').item.json.data.idea }}\nConversation (oldest first): {{ JSON.stringify($('05-02 Load context').item.json.data.history) }}\nCurrent concept: {{ JSON.stringify($('05-02 Load context').item.json.data.concept) }}\nCurrent Creative Kit: {{ JSON.stringify($('05-02 Load context').item.json.data.kit) }}\nCurrent pillars & guardrails: {{ JSON.stringify($('05-02 Load context').item.json.data.pillars) }}\nExisting projects to stay clearly different from: {{ JSON.stringify($('05-02 Load context').item.json.data.avoidProjects) }}\nChange request (empty = first draft): {{ $('05-02 Load context').item.json.data.feedback }}",
     "messages": {
      "messageValues": [
       {
        "type": "SystemMessagePromptTemplate",
-       "message": "You are the creative director of a short-form video studio. Write the project CONCEPT - the \"what and for whom\" - from the creator's idea and the conversation (the conversation is the source of truth). If a change request is given, apply exactly that to the current concept and keep everything else.\n\n- title: punchy project name, max 6 words\n- emoji: one emoji\n- summary: one sentence, what the channel/series is\n- niche: the specific theme or territory, narrow enough to be ownable (e.g. \"budget cooking for Indonesian university students\", not \"food\")\n- audience: who exactly watches, with one detail about their situation\n- goal: what success means for the creator (e.g. \"grow to 10k followers by teaching quick wins\", \"sell the handmade candles\")\n- language: the CONTENT language for the scripts - what the creator asked for (one language or a mix, e.g. \"Indonesian, casual, with English food terms\"); if never mentioned, the language the creator wrote the idea in\nWrite every field except language in the APP LANGUAGE.\n- reply: ONE short line presenting the concept and asking if they want to refine anything or continue."
+       "message": "You are the creative director of a short-form video studio. Write the project CONCEPT - the \"what and for whom\" - from the creator's idea and the conversation (the conversation is the source of truth). If a change request is given, apply exactly that to the current concept and keep everything else.\n\n- title: punchy project name, max 6 words\n- emoji: one emoji\n- summary: one sentence, what the channel/series is\n- niche: the specific theme or territory, narrow enough to be ownable (e.g. \"budget cooking for Indonesian university students\", not \"food\")\n- audience: who exactly watches, with one detail about their situation\n- goal: what success means for the creator (e.g. \"grow to 10k followers by teaching quick wins\", \"sell the handmade candles\")\n- language: the CONTENT language for the scripts - what the creator asked for (one language or a mix, e.g. \"Indonesian, casual, with English food terms\"); if never mentioned, the language the creator wrote the idea in\nWrite every field except language in the APP LANGUAGE.\nNO OVERLAP: the creator already has the \"existing projects\" listed. This must be a DIFFERENT project: choose a clearly different niche angle and/or audience from each of them (e.g. same broad topic but a different audience, situation or format), never reuse or paraphrase their titles, so the videos will not duplicate. Only a change request from the creator may move it closer.\n- reply: ONE short line presenting the concept (when there were existing projects, say in a few words how this one differs) and asking if they want to refine anything or continue."
       }
      ]
     }
    }
   },
   {
-   "id": "21f3c213-52aa-46a9-bd29-0a09c08de664",
+   "id": "35e7537f-1c72-48db-8f53-2f0084640945",
    "name": "OpenAI (Concept)",
    "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
    "typeVersion": 1.3,
@@ -304,7 +304,7 @@
    }
   },
   {
-   "id": "6b5d8887-ce3d-4709-9958-fd8f035488b4",
+   "id": "b1d3afef-370c-43ab-beeb-5d0249e7139a",
    "name": "Schema (Concept)",
    "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
    "typeVersion": 1.3,
@@ -318,7 +318,7 @@
    }
   },
   {
-   "id": "d0e59abd-03cc-44f1-92b5-456f679b4391",
+   "id": "8de77cdb-9aab-494f-b9cc-b9727d5987f6",
    "name": "05-31 Save concept",
    "type": "n8n-nodes-base.httpRequest",
    "typeVersion": 4.2,
@@ -352,7 +352,7 @@
    }
   },
   {
-   "id": "19143c42-6b49-4172-8112-e5caa6e87d50",
+   "id": "f7b812c2-0a96-496b-ba2b-350583809282",
    "name": "05-12 Task kit?",
    "type": "n8n-nodes-base.if",
    "typeVersion": 2.2,
@@ -370,7 +370,7 @@
      },
      "conditions": [
       {
-       "id": "bb61bee2-15b1-43b2-8877-00dc308e0705",
+       "id": "b6cda31f-2797-4f9a-8088-771d250ac8f7",
        "leftValue": "={{ $('05-02 Load context').item.json.data.task }}",
        "rightValue": "kit",
        "operator": {
@@ -385,7 +385,7 @@
    }
   },
   {
-   "id": "d8182f4e-87b1-487b-8d37-57218b900a22",
+   "id": "8f603cdc-03c2-41ba-8f85-5081590a772d",
    "name": "05-22 Kit",
    "type": "@n8n/n8n-nodes-langchain.chainLlm",
    "typeVersion": 1.9,
@@ -397,7 +397,7 @@
    "parameters": {
     "promptType": "define",
     "hasOutputParser": true,
-    "text": "=App language (write the reply and every field in it): {{ $('05-02 Load context').item.json.data.appLanguage }}\nIdea: {{ $('05-02 Load context').item.json.data.idea }}\nConversation (oldest first): {{ JSON.stringify($('05-02 Load context').item.json.data.history) }}\nCurrent concept: {{ JSON.stringify($('05-02 Load context').item.json.data.concept) }}\nCurrent Creative Kit: {{ JSON.stringify($('05-02 Load context').item.json.data.kit) }}\nCurrent pillars & guardrails: {{ JSON.stringify($('05-02 Load context').item.json.data.pillars) }}\nChange request (empty = first draft): {{ $('05-02 Load context').item.json.data.feedback }}",
+    "text": "=App language (write the reply and every field in it): {{ $('05-02 Load context').item.json.data.appLanguage }}\nIdea: {{ $('05-02 Load context').item.json.data.idea }}\nConversation (oldest first): {{ JSON.stringify($('05-02 Load context').item.json.data.history) }}\nCurrent concept: {{ JSON.stringify($('05-02 Load context').item.json.data.concept) }}\nCurrent Creative Kit: {{ JSON.stringify($('05-02 Load context').item.json.data.kit) }}\nCurrent pillars & guardrails: {{ JSON.stringify($('05-02 Load context').item.json.data.pillars) }}\nExisting projects to stay clearly different from: {{ JSON.stringify($('05-02 Load context').item.json.data.avoidProjects) }}\nChange request (empty = first draft): {{ $('05-02 Load context').item.json.data.feedback }}",
     "messages": {
      "messageValues": [
       {
@@ -409,7 +409,7 @@
    }
   },
   {
-   "id": "331170a3-1398-4b2b-94aa-e75fa818365c",
+   "id": "3e025ea1-82b1-4d5c-8b32-c9ffd513a894",
    "name": "OpenAI (Kit)",
    "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
    "typeVersion": 1.3,
@@ -437,7 +437,7 @@
    }
   },
   {
-   "id": "ed69d4ca-0e28-4b93-b4fa-14381680678c",
+   "id": "35fe4832-25c3-40d6-a8f3-06efdd028be2",
    "name": "Schema (Kit)",
    "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
    "typeVersion": 1.3,
@@ -451,7 +451,7 @@
    }
   },
   {
-   "id": "d9ed6e23-dc15-4564-9bfd-4cb273aee417",
+   "id": "553a173d-dacd-4a81-b6e5-72dc5b4f9dfd",
    "name": "05-32 Save kit",
    "type": "n8n-nodes-base.httpRequest",
    "typeVersion": 4.2,
@@ -485,7 +485,7 @@
    }
   },
   {
-   "id": "0734b780-e84a-4c7b-b08b-15e0a2aeec46",
+   "id": "6889e773-0269-42e4-9ac3-aac298c50f0d",
    "name": "05-13 Task pillars?",
    "type": "n8n-nodes-base.if",
    "typeVersion": 2.2,
@@ -503,7 +503,7 @@
      },
      "conditions": [
       {
-       "id": "a6ebfcbe-cc5c-4eb9-8a58-2c07ef845198",
+       "id": "f961e5b5-f814-4c7d-b85c-557422d001c1",
        "leftValue": "={{ $('05-02 Load context').item.json.data.task }}",
        "rightValue": "pillars",
        "operator": {
@@ -518,7 +518,7 @@
    }
   },
   {
-   "id": "5753898e-02b1-4ec7-abb8-04f0042bce78",
+   "id": "bd8d18df-1e05-4bca-9035-b7a218a7f861",
    "name": "05-23 Pillars",
    "type": "@n8n/n8n-nodes-langchain.chainLlm",
    "typeVersion": 1.9,
@@ -530,19 +530,19 @@
    "parameters": {
     "promptType": "define",
     "hasOutputParser": true,
-    "text": "=App language (write the reply and every field in it): {{ $('05-02 Load context').item.json.data.appLanguage }}\nIdea: {{ $('05-02 Load context').item.json.data.idea }}\nConversation (oldest first): {{ JSON.stringify($('05-02 Load context').item.json.data.history) }}\nCurrent concept: {{ JSON.stringify($('05-02 Load context').item.json.data.concept) }}\nCurrent Creative Kit: {{ JSON.stringify($('05-02 Load context').item.json.data.kit) }}\nCurrent pillars & guardrails: {{ JSON.stringify($('05-02 Load context').item.json.data.pillars) }}\nChange request (empty = first draft): {{ $('05-02 Load context').item.json.data.feedback }}",
+    "text": "=App language (write the reply and every field in it): {{ $('05-02 Load context').item.json.data.appLanguage }}\nIdea: {{ $('05-02 Load context').item.json.data.idea }}\nConversation (oldest first): {{ JSON.stringify($('05-02 Load context').item.json.data.history) }}\nCurrent concept: {{ JSON.stringify($('05-02 Load context').item.json.data.concept) }}\nCurrent Creative Kit: {{ JSON.stringify($('05-02 Load context').item.json.data.kit) }}\nCurrent pillars & guardrails: {{ JSON.stringify($('05-02 Load context').item.json.data.pillars) }}\nExisting projects to stay clearly different from: {{ JSON.stringify($('05-02 Load context').item.json.data.avoidProjects) }}\nChange request (empty = first draft): {{ $('05-02 Load context').item.json.data.feedback }}",
     "messages": {
      "messageValues": [
       {
        "type": "SystemMessagePromptTemplate",
-       "message": "You are the content strategist of a short-form video studio. From the confirmed concept and Creative Kit write the content PILLARS and GUARDRAILS. If a change request is given, apply exactly that and keep the rest.\n\n- pillars: 3-5 recurring content themes that serve the goal and stay inside the niche; each a short scannable point, max 8 words (e.g. \"10-minute meals under Rp20k\")\n- guardrails: 2-4 rules every video must respect (claims, safety, brand, tone); each a short point, max 10 words\nWrite everything in the APP LANGUAGE.\n- reply: ONE short line asking if they want to refine anything, or lock the setup and start drafting content."
+       "message": "You are the content strategist of a short-form video studio. From the confirmed concept and Creative Kit write the content PILLARS and GUARDRAILS. If a change request is given, apply exactly that and keep the rest.\n\n- pillars: 3-5 recurring content themes that serve the goal and stay inside the niche; each a short scannable point, max 8 words (e.g. \"10-minute meals under Rp20k\")\n- guardrails: 2-4 rules every video must respect (claims, safety, brand, tone); each a short point, max 10 words\nNO OVERLAP: pillars must not repeat or paraphrase the pillars of the \"existing projects\" listed - find themes only this project covers.\nWrite everything in the APP LANGUAGE.\n- reply: ONE short line asking if they want to refine anything, or lock the setup and start drafting content."
       }
      ]
     }
    }
   },
   {
-   "id": "4d1b9441-0368-4dfb-bca0-a2fbb61b07bb",
+   "id": "63ba4ebd-2e56-4987-925e-613d79d2e2e1",
    "name": "OpenAI (Pillars)",
    "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
    "typeVersion": 1.3,
@@ -570,7 +570,7 @@
    }
   },
   {
-   "id": "9cc71bbc-04e3-4f27-834f-26d45a8691ba",
+   "id": "a7565026-90ab-4967-9ddf-ace07cbbd4bc",
    "name": "Schema (Pillars)",
    "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
    "typeVersion": 1.3,
@@ -584,7 +584,7 @@
    }
   },
   {
-   "id": "5b24c42b-d173-4453-a8ac-827d251d2fe1",
+   "id": "3f90af26-7864-43de-aabf-68573e8b16d8",
    "name": "05-33 Save pillars",
    "type": "n8n-nodes-base.httpRequest",
    "typeVersion": 4.2,

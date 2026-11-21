@@ -84,3 +84,4 @@ a.btn,a.navitem,a.newbtn,a.tab,a.manage-nav{text-decoration:none}
 .icbtn.tinybtn{width:24px;height:24px;border-radius:7px;flex:none}
 .typing{display:flex;align-items:center;gap:8px;color:#8b84a0}.dots{display:inline-flex;gap:3px}.dots i{width:5px;height:5px;border-radius:50%;background:#a796e8;animation:dot 1s infinite}.dots i:nth-child(2){animation-delay:.15s}.dots i:nth-child(3){animation-delay:.3s}@keyframes dot{50%{opacity:.25;transform:translateY(-2px)}}
 .workspace.split-in .agent-panel{animation:splitPanel .6s cubic-bezier(.2,.8,.2,1)}@keyframes splitPanel{from{width:100%;max-width:100%}to{width:338px}}.workspace.split-in .workspace-main{animation:splitMain .5s .35s ease-out both}@keyframes splitMain{from{opacity:0;transform:translateX(24px)}}
+.bubble{white-space:pre-line}
