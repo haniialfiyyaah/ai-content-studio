@@ -23,8 +23,8 @@ export function SignalBadges({ s, status, timezone, compact }: { s?: ProjectSign
         </span>
       )}
       {s.auto && (
-        <span className="signal auto" title="Steps continue without waiting for your confirm">
-          <Zap size={11} /> Auto
+        <span className="signal auto" title="The agent sets up the project without stopping">
+          <Zap size={11} /> Auto setup
         </span>
       )}
     </div>

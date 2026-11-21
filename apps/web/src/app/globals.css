@@ -139,3 +139,4 @@ a.btn,a.navitem,a.newbtn,a.tab,a.manage-nav{text-decoration:none}
 @media (max-width:640px){.brief-title{font-size:21px}.brief-row{grid-template-columns:1fr;gap:2px}.plan-grid{grid-template-columns:1fr}}
 .start-bar{display:flex;align-items:center;gap:8px;margin-top:8px;flex-wrap:wrap}.start-auto{display:flex;align-items:center;gap:7px;cursor:pointer;margin-left:auto}.start-send{flex:none}.start-auto-help{margin-top:6px;padding:0 4px;line-height:1.5}
 @media (max-width:520px){.start-auto{margin-left:0}.start-send{margin-left:auto}}
+.start-auto-label{color:#5e43c6;animation:setupIn .2s ease-out}

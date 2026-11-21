@@ -69,9 +69,9 @@ export function StartProject() {
         <div className="start-bar">
           <input ref={picker} type="file" accept={ACCEPT} multiple hidden onChange={(e) => { setFiles([...files, ...Array.from(e.target.files ?? [])].slice(0, 10)); e.target.value = ""; }} />
           <button type="button" className="btn ghost small" onClick={() => picker.current?.click()}><ImagePlus size={14} /> Add reference</button>
-          <label className="start-auto" title="Auto: the agent sets up the whole project without stopping">
-            <button type="button" className={`toggle ${auto ? "on" : ""}`} role="switch" aria-checked={auto} aria-label="Auto" onClick={() => setAuto(!auto)} />
-            <span className="small semibold">⚡ Auto</span>
+          <label className="start-auto" title="Auto setup: the agent sets up the whole project without stopping">
+            {auto && <span className="small semibold start-auto-label">⚡ Auto setup</span>}
+            <button type="button" className={`toggle ${auto ? "on" : ""}`} role="switch" aria-checked={auto} aria-label="Auto setup" onClick={() => setAuto(!auto)} />
           </label>
           <button className="btn primary start-send" disabled={pending || !prompt.trim()} onClick={submit}>
             {pending ? <Spinner /> : <Send size={14} />} {pending ? status ?? "Starting…" : "Send"}
@@ -79,8 +79,8 @@ export function StartProject() {
         </div>
         <div className="tiny muted start-auto-help">
           {auto
-            ? "Auto: I set up the whole project (concept, kit, pillars) without stopping — you see every step and can refine later."
-            : "Step by step: I stop after each part of the setup so you can check it. Turn on ⚡ Auto to skip the stops."}
+            ? "Auto setup is on: I set up the whole project (concept, kit, pillars) without stopping. You still see every step."
+            : "I'll stop after each part of the project setup so you can check it. Switch on auto setup to skip the stops."}
         </div>
       </div>
       {error && <div className="err">{error}</div>}
