@@ -1,13 +1,13 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import { Pencil, RotateCcw } from "lucide-react";
 import type { Scene } from "@acs/domain";
 import { api } from "@/lib/client/api";
 import { compose } from "@/lib/client/compose";
 import { Spinner } from "@/components/ui/spinner";
-import { SketchFrame } from "./sketch-frame";
+import { SketchBack, SketchFrame } from "./sketch-frame";
 
 export interface StoryboardItem {
   id: string;
@@ -85,7 +85,7 @@ export function StoryboardView({ projectId, items, series, fontClass }: { projec
                 {it.scenes.map((s, i) => (
                   <figure key={i} className="sb-beat">
                     <div className="sk-wrap">
-                      <SketchFrame s={s} index={i} />
+                      <FlipFrame s={s} index={i} disabled={it.status === "writing"} />
                       {it.status === "writing" && <span className="sk-overlay"><Spinner size={16} /></span>}
                     </div>
                     <figcaption>
@@ -97,7 +97,7 @@ export function StoryboardView({ projectId, items, series, fontClass }: { projec
                           </button>
                         )}
                       </div>
-                      {s.narration && <p className="sb-narr">{s.narration}</p>}
+                      {s.narration && <p className="sb-narr">“{s.narration}”</p>}
                     </figcaption>
                   </figure>
                 ))}
@@ -117,5 +117,23 @@ export function StoryboardView({ projectId, items, series, fontClass }: { projec
         Check {series ? "the storyboards" : "the storyboard"} and tell the agent anything to change — tap ✏️ on a scene to point at it. Next step: images &amp; video.
       </div>
     </div>
+  );
+}
+
+/** Click a sketch to flip it and read the scene's details; click again to flip back. */
+function FlipFrame({ s, index, disabled }: { s: Scene; index: number; disabled?: boolean }) {
+  const [back, setBack] = useState(false);
+  return (
+    <button
+      type="button"
+      className={`sk-flip ${back ? "flipped" : ""}`}
+      onClick={() => setBack(!back)}
+      disabled={disabled}
+      aria-pressed={back}
+      aria-label={back ? `Show scene ${index + 1} sketch` : `Show scene ${index + 1} details`}
+    >
+      <span className="sk-face sk-front"><SketchFrame s={s} index={index} /></span>
+      <span className="sk-face sk-rear"><SketchBack s={s} index={index} /></span>
+    </button>
   );
 }
