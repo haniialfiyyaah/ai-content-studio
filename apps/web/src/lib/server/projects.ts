@@ -328,6 +328,51 @@ export async function approveAll(ownerId: string, projectId: string) {
   return { approved: count };
 }
 
+/**
+ * The single "Approve & schedule" step: ideas in `exclude` are set aside
+ * (rejected, restorable), ideas in `include` are approved, every approved idea
+ * gets a slot, and a draft project goes live when YouTube is connected.
+ */
+export async function launchProject(ownerId: string, projectId: string, input: { include: string[]; exclude: string[] }) {
+  const project = await loadOwnedProject(ownerId, projectId);
+  if (project.status === "generating") throw conflict("Wait for generation to finish");
+  if (project.status === "stopped") throw conflict("Stopped projects can't be scheduled");
+  const schedule = ScheduleSchema.safeParse(project.schedule);
+  if (!schedule.success) throw new AppError(ErrorCodes.NOT_READY, "Set publishing days and time first", 409);
+
+  const db = admin();
+  const exclude = [...new Set(input.exclude)].filter((id) => !input.include.includes(id));
+  for (const id of exclude) await rejectContent(ownerId, id).catch(() => undefined);
+
+  const { data: approvedRows } = input.include.length
+    ? await db
+        .from("contents")
+        .update({ status: "approved", approved_at: new Date().toISOString() })
+        .eq("project_id", projectId)
+        .eq("owner_id", ownerId)
+        .eq("status", "draft")
+        .in("id", input.include)
+        .select("id")
+    : { data: [] };
+  const approvedNow = (approvedRows ?? []).map((r) => r.id as string);
+  if (approvedNow.length) {
+    await logActivity(db, { ownerId, projectId, kind: "content.approved", message: `Approved ${approvedNow.length} content` });
+    queueStoryboards(approvedNow);
+  }
+
+  const { count } = await db.from("contents").select("id", { count: "exact", head: true }).eq("project_id", projectId).eq("status", "approved");
+  if (!count) throw conflict("Keep at least one idea to schedule");
+
+  const ytOk = await youtubeConnected(ownerId);
+  if (project.status === "draft" && ytOk) {
+    await activateProject(ownerId, projectId);
+    return { approved: approvedNow.length, excluded: exclude.length, status: "active", needsYoutube: false };
+  }
+  if (project.status === "active") await scheduleAndQueue(project);
+  else await assignSlots(projectId, schedule.data, false);
+  return { approved: approvedNow.length, excluded: exclude.length, status: project.status, needsYoutube: !ytOk };
+}
+
 export async function saveEnding(ownerId: string, projectId: string, ending: Ending) {
   await loadOwnedProject(ownerId, projectId);
   const db = admin();

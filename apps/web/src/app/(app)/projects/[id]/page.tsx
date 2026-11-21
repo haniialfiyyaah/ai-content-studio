@@ -9,6 +9,7 @@ import { AgentActions } from "@/components/project/agent-actions";
 import { ReviewFlow } from "@/components/content/review-flow";
 import { AutomationForm } from "@/components/project/automation-form";
 import { EndingForm } from "@/components/project/ending-form";
+import { LaunchPanel } from "@/components/project/launch-panel";
 import { GeneratingView } from "@/components/project/generating-view";
 import { ScheduleForm } from "@/components/project/schedule-form";
 import { WorkspaceFrame } from "@/components/project/workspace-frame";
@@ -136,15 +137,9 @@ export default async function ProjectPage({
             </div>
             <div className="actions">
               {p.status === "draft" && (
-                <ActionButton
-                  path={`/api/projects/${p.id}/lifecycle`}
-                  body={{ action: "activate" }}
-                  className="btn primary"
-                  disabled={!readiness.canActivate}
-                  title={readiness.canActivate ? "Start rendering and scheduled publishing" : "Finish the readiness checklist first"}
-                >
-                  <Play size={14} /> Activate Project
-                </ActionButton>
+                <Link href={`/projects/${p.id}?tab=overview#launch`} className="btn primary">
+                  <Play size={14} /> Approve &amp; schedule
+                </Link>
               )}
               {p.status === "active" && (
                 <ActionButton path={`/api/projects/${p.id}/lifecycle`} body={{ action: "pause" }}><Pause size={14} /> Pause</ActionButton>
@@ -177,27 +172,20 @@ export default async function ProjectPage({
           {tab === "overview" && (
             <div className="grid split-main">
               <div className="stack">
-                <div className="card pad">
-                  <div className="section">
-                    <div><h2>Project readiness</h2><p>Review content, schedule it and connect YouTube — then activate.</p></div>
-                    <span className={pillClass(p.status === "draft" ? "pending" : p.status)}>{p.status === "draft" ? "Preparing" : statusLabel(p.status)}</span>
-                  </div>
-                  <div className="checks">
-                    {readiness.steps.map((s) => (
-                      <div key={s.key} className="checkrow">
-                        <span className={`checkdot ${s.done ? "done" : ""}`}>{s.done ? <Check size={12} /> : <Clock size={12} />}</span>
-                        <div><div className="semibold">{s.label}</div><div className="xs muted">{s.detail}</div></div>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="divider" />
-                  <div className="row between">
-                    <span className="xs muted">
-                      {p.status === "active" ? "Active: videos render automatically and upload at each slot." : "Next step"}
-                    </span>
-                    {p.status === "draft" && <NextStep steps={readiness.steps} projectId={p.id} />}
-                  </div>
-                </div>
+                {editable && (p.status === "draft" || drafts > 0) ? (
+                  <LaunchPanel
+                    projectId={p.id}
+                    projectStatus={p.status}
+                    schedule={p.schedule}
+                    youtubeConnected={readiness.steps.find((s) => s.key === "youtube")?.done ?? false}
+                    items={contents
+                      .map((c, i) => ({ c, n: i + 1 }))
+                      .filter(({ c }) => !["published", "publishing"].includes(ws.jobs.get(c.id)?.status ?? "") && (p.status === "draft" || c.status === "draft"))
+                      .map(({ c, n }) => ({ id: c.id, n, title: resolveContent(c.options, c.selection).title, status: c.status, scenes: c.scenes.length }))}
+                  />
+                ) : (
+                  <div className="note green">{p.status === "active" ? "Live — videos render automatically and upload at each slot." : statusLabel(p.status)}</div>
+                )}
 
                 <div className="card pad">
                   <div className="section">
@@ -282,7 +270,7 @@ export default async function ProjectPage({
                     </ActionButton>
                   )}
                   {drafts > 0 && editable && (
-                    <ActionButton path={`/api/projects/${p.id}/approve-all`} className="btn primary"><Check size={14} /> Approve all ({drafts})</ActionButton>
+                    <Link href={`/projects/${p.id}?tab=overview#launch`} className="btn primary"><Check size={14} /> Approve &amp; schedule ({drafts})</Link>
                   )}
                 </div>
               </div>
@@ -466,13 +454,3 @@ export default async function ProjectPage({
   );
 }
 
-function NextStep({ steps, projectId }: { steps: { key: string; done: boolean }[]; projectId: string }) {
-  const next = steps.find((s) => !s.done)?.key;
-  const map: Record<string, [string, string]> = {
-    approved: [`/projects/${projectId}?tab=content`, "Review content"],
-    scheduled: [`/projects/${projectId}?tab=schedule`, "Set schedule"],
-    youtube: ["/settings?section=connections", "Connect YouTube"],
-  };
-  if (!next || !map[next]) return <span className="pill approved">Ready to activate</span>;
-  return <Link href={map[next][0]} className="btn soft">{map[next][1]} →</Link>;
-}

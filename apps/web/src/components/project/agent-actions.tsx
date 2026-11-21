@@ -43,7 +43,7 @@ export function AgentActions(s: AgentActionState) {
 
   if (s.status === "generating" || s.status === "stopped") return null;
   const actions = [
-    s.drafts > 0 && chip("aa", `✅ Approve all (${s.drafts})`, () => run("aa", `/api/projects/${s.projectId}/approve-all`), true),
+    (s.drafts > 0 || s.status === "draft") && chip("aa", s.drafts > 0 ? `✅ Approve & schedule (${s.drafts})` : "🚀 Go live", () => nav(`/projects/${s.projectId}?tab=overview#launch`), true),
     s.drafts > 0 && s.firstPendingId && chip("rv", "▶️ Review next", () => nav(`/projects/${s.projectId}?tab=content&review=${s.firstPendingId}`)),
     s.approvedWithoutVideo > 0 &&
       chip("ra", `🎬 Render ${s.approvedWithoutVideo}`, () => run("ra", `/api/projects/${s.projectId}/render-all`, undefined, () => nav(`/projects/${s.projectId}?tab=videos`))),

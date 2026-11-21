@@ -73,28 +73,15 @@ export function ReviewFlow({
     });
   }
 
-  function approveAll() {
-    setError(null);
-    start(async () => {
-      try {
-        await api(`/api/projects/${projectId}/approve-all`, "POST");
-        go(null);
-        router.refresh();
-      } catch (e) {
-        setError(e instanceof Error ? e.message : "Could not approve");
-      }
-    });
-  }
-
   if (!current) {
     return (
       <div className="card pad" style={{ textAlign: "center" }}>
         <div className="iconTile green" style={{ margin: "0 auto 10px" }}><Check size={17} /></div>
         <h2 style={{ fontSize: 18 }}>All {items.length} content approved 🎉</h2>
-        <p className="small muted" style={{ margin: "8px auto 16px", maxWidth: 440 }}>Render the videos now, or set a schedule and activate to publish automatically.</p>
+        <p className="small muted" style={{ margin: "8px auto 16px", maxWidth: 440 }}>One step left: check the slots and go live.</p>
         <div className="actions" style={{ justifyContent: "center" }}>
           <Link className="btn soft" href={`/projects/${projectId}?tab=videos`}>🎬 Videos</Link>
-          <Link className="btn primary" href={`/projects/${projectId}?tab=schedule`}>📅 Schedule</Link>
+          <Link className="btn primary" href={`/projects/${projectId}?tab=overview#launch`}>🚀 Approve &amp; schedule</Link>
         </div>
       </div>
     );
@@ -193,7 +180,7 @@ export function ReviewFlow({
               <button className="btn ghost" disabled={busy} onClick={() => go(nextPending.id)}><SkipForward size={14} /> Skip</button>
             )}
             {pending.length > 1 && (
-              <button className="btn soft" disabled={busy} onClick={approveAll}>{busy ? <Spinner /> : <Check size={14} />} Approve all ({pending.length})</button>
+              <Link className="btn soft" href={`/projects/${projectId}?tab=overview#launch`}><Check size={14} /> Approve &amp; schedule all ({pending.length})</Link>
             )}
           </div>
           <button className="btn primary" disabled={busy} onClick={approveNext}>
