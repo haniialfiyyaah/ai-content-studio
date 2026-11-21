@@ -1,0 +1,464 @@
+/**
+ * Code-drawn mascot scenes — the free visual source. One project mascot (shape,
+ * colours, accessory) acted out per scene (pose, expression, prop, setting).
+ * Pure React + SVG, no dependencies: rendered in the web app (storyboard) and,
+ * via a synced copy, by the Remotion renderer (pass `t` in seconds to animate).
+ *
+ * SOURCE OF TRUTH: packages/mascot/src/index.tsx
+ */
+
+export const MASCOT_SHAPES = ["blob", "bean", "cat", "bear", "robot", "bird"] as const;
+export const MASCOT_ACCESSORIES = ["none", "scarf", "glasses", "cap", "bow", "headphones", "apron"] as const;
+export const MASCOT_POSES = ["wave", "point", "think", "celebrate", "hold", "shrug", "sleep", "walk"] as const;
+export const MASCOT_EXPRESSIONS = ["happy", "excited", "surprised", "sad", "thinking", "calm", "wink"] as const;
+export const MASCOT_SETTINGS = ["plain", "room", "kitchen", "desk", "outdoor", "night", "stage"] as const;
+
+export type MascotShape = (typeof MASCOT_SHAPES)[number];
+export type MascotAccessory = (typeof MASCOT_ACCESSORIES)[number];
+export type MascotPose = (typeof MASCOT_POSES)[number];
+export type MascotExpression = (typeof MASCOT_EXPRESSIONS)[number];
+export type MascotSetting = (typeof MASCOT_SETTINGS)[number];
+
+/** The project's mascot (from the Creative Kit). */
+export interface MascotSpec {
+  shape: MascotShape;
+  /** body colour (hex) */
+  color: string;
+  /** accent colour for accessory / details (hex) */
+  accent: string;
+  accessory: MascotAccessory;
+}
+
+/** What the mascot does in one scene. */
+export interface MascotAction {
+  pose: MascotPose;
+  expression: MascotExpression;
+  /** one emoji the mascot holds or points at, e.g. "🍳" (optional) */
+  prop?: string;
+  setting: MascotSetting;
+}
+
+const pick = <T extends string>(list: readonly T[], v: unknown, fallback: T): T => (list.includes(v as T) ? (v as T) : fallback);
+
+export function normalizeSpec(raw: Partial<MascotSpec> | null | undefined, palette?: string[]): MascotSpec {
+  const hex = (v: unknown) => (typeof v === "string" && /^#[0-9a-f]{3,8}$/i.test(v.trim()) ? v.trim() : null);
+  return {
+    shape: pick(MASCOT_SHAPES, raw?.shape, "blob"),
+    color: hex(raw?.color) ?? palette?.[0] ?? "#8166e2",
+    accent: hex(raw?.accent) ?? palette?.[1] ?? "#f2a65a",
+    accessory: pick(MASCOT_ACCESSORIES, raw?.accessory, "none"),
+  };
+}
+
+export function normalizeAction(raw: Partial<MascotAction> | null | undefined): MascotAction {
+  return {
+    pose: pick(MASCOT_POSES, raw?.pose, "wave"),
+    expression: pick(MASCOT_EXPRESSIONS, raw?.expression, "happy"),
+    prop: typeof raw?.prop === "string" ? raw.prop.slice(0, 8) : "",
+    setting: pick(MASCOT_SETTINGS, raw?.setting, "plain"),
+  };
+}
+
+/** Hex colours found in a palette description ("coral #E8735A, navy #1F2A44"). */
+export function paletteHexes(palette?: string | null): string[] {
+  return (palette ?? "").match(/#[0-9a-f]{6}\b|#[0-9a-f]{3}\b/gi) ?? [];
+}
+
+// ---------------------------------------------------------------------------
+// colour helpers
+// ---------------------------------------------------------------------------
+function shade(hex: string, amt: number) {
+  let h = hex.replace("#", "");
+  if (h.length === 3) h = h.split("").map((c) => c + c).join("");
+  const n = parseInt(h.slice(0, 6), 16);
+  const ch = (s: number) => Math.max(0, Math.min(255, Math.round(((n >> s) & 255) + amt * 255)));
+  return `#${[16, 8, 0].map((s) => ch(s).toString(16).padStart(2, "0")).join("")}`;
+}
+
+// ---------------------------------------------------------------------------
+// the scene (9:16, viewBox 360×640)
+// ---------------------------------------------------------------------------
+const W = 360;
+const H = 640;
+const CX = 180;
+const CY = 455; // body centre
+const GROUND = 575;
+
+export function MascotScene({
+  spec,
+  action,
+  palette = [],
+  t = 0,
+  className,
+  style,
+}: {
+  spec: MascotSpec;
+  action: MascotAction;
+  palette?: string[];
+  /** seconds — gentle bob, blink, waving */
+  t?: number;
+  className?: string;
+  style?: React.CSSProperties;
+}) {
+  const bg1 = palette[2] ?? shade(spec.color, 0.42);
+  const bg2 = palette[3] ?? shade(spec.accent, 0.3);
+  const bob = action.pose === "sleep" ? Math.sin(t * 1.4) * 2 : Math.sin(t * 3) * 4;
+  const id = `m${Math.abs(hash(`${spec.color}${action.setting}`))}`;
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} className={className} style={style} xmlns="http://www.w3.org/2000/svg" role="img" aria-label={`${action.pose} ${action.expression}`}>
+      <defs>
+        <linearGradient id={`${id}bg`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor={action.setting === "night" ? "#1d1838" : bg1} />
+          <stop offset="1" stopColor={action.setting === "night" ? "#3b2f6b" : bg2} />
+        </linearGradient>
+        <radialGradient id={`${id}spot`} cx="0.5" cy="0" r="1">
+          <stop offset="0" stopColor="#ffffff" stopOpacity="0.55" />
+          <stop offset="1" stopColor="#ffffff" stopOpacity="0" />
+        </radialGradient>
+      </defs>
+      <rect width={W} height={H} fill={`url(#${id}bg)`} />
+      <Setting setting={action.setting} spec={spec} id={id} t={t} />
+      <ellipse cx={CX} cy={GROUND + 6} rx={92} ry={14} fill="#000" opacity={0.14} />
+      <g transform={`translate(0 ${bob})`}>
+        <Character spec={spec} action={action} t={t} />
+      </g>
+    </svg>
+  );
+}
+
+function hash(s: string) {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
+  return h;
+}
+
+// ---------------------------------------------------------------------------
+// settings
+// ---------------------------------------------------------------------------
+function Setting({ setting, spec, id, t }: { setting: MascotSetting; spec: MascotSpec; id: string; t: number }) {
+  const line = shade(spec.color, -0.35);
+  switch (setting) {
+    case "room":
+      return (
+        <g>
+          <rect x={210} y={70} width={110} height={130} rx={8} fill="#fff" opacity={0.75} />
+          <path d="M265 70 V200 M210 135 H320" stroke={line} strokeWidth={4} opacity={0.35} />
+          <rect y={GROUND} width={W} height={H - GROUND} fill="#000" opacity={0.08} />
+          <rect x={30} y={455} width={34} height={44} rx={6} fill={shade(spec.accent, -0.1)} />
+          <circle cx={47} cy={440} r={24} fill="#5fae7c" />
+          <circle cx={34} cy={428} r={14} fill="#73c290" />
+        </g>
+      );
+    case "kitchen":
+      return (
+        <g>
+          <rect x={20} y={110} width={320} height={10} rx={4} fill="#fff" opacity={0.6} />
+          {[50, 110, 170].map((x, i) => (
+            <rect key={x} x={x} y={74} width={34} height={36} rx={6} fill={["#f6c66a", "#e8735a", "#7fc6a4"][i]} />
+          ))}
+          <rect y={510} width={W} height={H - 510} fill={shade(spec.accent, 0.25)} />
+          <rect y={510} width={W} height={14} fill={shade(spec.accent, -0.05)} />
+          {Array.from({ length: 6 }, (_, i) => (
+            <line key={i} x1={i * 60} y1={524} x2={i * 60} y2={H} stroke="#fff" strokeOpacity={0.35} strokeWidth={2} />
+          ))}
+        </g>
+      );
+    case "desk":
+      return (
+        <g>
+          <rect y={535} width={W} height={H - 535} fill={shade(spec.accent, -0.15)} />
+          <rect x={235} y={470} width={86} height={58} rx={6} fill="#2d2a3a" />
+          <rect x={242} y={477} width={72} height={44} rx={3} fill="#8fd3ff" />
+          <rect x={222} y={528} width={112} height={8} rx={3} fill="#2d2a3a" />
+          <circle cx={60} cy={110} r={30} fill="#fff" opacity={0.5} />
+        </g>
+      );
+    case "outdoor":
+      return (
+        <g>
+          <circle cx={290} cy={110} r={42} fill="#ffd66b" />
+          <ellipse cx={80} cy={590} rx={220} ry={90} fill="#7cc58f" />
+          <ellipse cx={330} cy={600} rx={200} ry={80} fill="#5fae7c" />
+          <ellipse cx={90} cy={150} rx={46} ry={16} fill="#fff" opacity={0.8} />
+        </g>
+      );
+    case "night":
+      return (
+        <g>
+          <circle cx={285} cy={105} r={36} fill="#fff6c9" />
+          <circle cx={298} cy={96} r={34} fill="#2a2251" />
+          {[[40, 80], [120, 140], [70, 230], [200, 60], [330, 230], [160, 210]].map(([x, y], i) => (
+            <circle key={i} cx={x} cy={y} r={2.4} fill="#fff" opacity={0.4 + 0.6 * Math.abs(Math.sin(t * 2 + i))} />
+          ))}
+          <rect y={GROUND} width={W} height={H - GROUND} fill="#000" opacity={0.25} />
+        </g>
+      );
+    case "stage":
+      return (
+        <g>
+          <path d={`M120 0 L240 0 L330 ${GROUND} L30 ${GROUND} Z`} fill={`url(#${id}spot)`} />
+          <path d={`M0 0 H70 Q50 300 70 ${H} H0 Z`} fill={shade(spec.accent, -0.2)} />
+          <path d={`M${W} 0 H${W - 70} Q${W - 50} 300 ${W - 70} ${H} H${W} Z`} fill={shade(spec.accent, -0.2)} />
+          <rect y={GROUND} width={W} height={H - GROUND} fill="#000" opacity={0.18} />
+        </g>
+      );
+    default:
+      return (
+        <g opacity={0.5}>
+          <circle cx={60} cy={120} r={46} fill="#fff" opacity={0.35} />
+          <circle cx={310} cy={250} r={70} fill="#fff" opacity={0.22} />
+          <circle cx={280} cy={70} r={18} fill="#fff" opacity={0.4} />
+        </g>
+      );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// the character
+// ---------------------------------------------------------------------------
+type Pt = [number, number];
+
+function arms(pose: MascotPose, t: number): { left: Pt[]; right: Pt[]; propAt: Pt } {
+  // shoulder points
+  const L: Pt = [CX - 70, CY - 6];
+  const R: Pt = [CX + 70, CY - 6];
+  const wave = Math.sin(t * 7) * 14;
+  const swing = Math.sin(t * 5) * 16;
+  switch (pose) {
+    case "wave":
+      return { left: [L, [CX - 96, CY + 40], [CX - 92, CY + 70]], right: [R, [CX + 112, CY - 50], [CX + 122 + wave, CY - 108]], propAt: [CX - 92, CY + 70] };
+    case "point":
+      return { left: [L, [CX - 96, CY + 40], [CX - 92, CY + 70]], right: [R, [CX + 118, CY - 30], [CX + 158, CY - 66]], propAt: [CX + 172, CY - 82] };
+    case "think":
+      return { left: [L, [CX - 62, CY + 46], [CX - 10, CY + 40]], right: [R, [CX + 96, CY - 10], [CX + 46, CY - 46]], propAt: [CX + 110, CY - 150] };
+    case "celebrate":
+      return { left: [L, [CX - 116, CY - 60], [CX - 110 + wave * 0.5, CY - 128]], right: [R, [CX + 116, CY - 60], [CX + 110 - wave * 0.5, CY - 128]], propAt: [CX + 118, CY - 150] };
+    case "hold":
+      return { left: [L, [CX - 74, CY + 46], [CX - 26, CY + 30]], right: [R, [CX + 74, CY + 46], [CX + 26, CY + 30]], propAt: [CX, CY + 16] };
+    case "shrug":
+      return { left: [L, [CX - 116, CY + 6], [CX - 128, CY - 30]], right: [R, [CX + 116, CY + 6], [CX + 128, CY - 30]], propAt: [CX + 140, CY - 60] };
+    case "sleep":
+      return { left: [L, [CX - 86, CY + 40], [CX - 70, CY + 66]], right: [R, [CX + 86, CY + 40], [CX + 70, CY + 66]], propAt: [CX + 104, CY - 160] };
+    case "walk":
+      return { left: [L, [CX - 92, CY + 34 + swing], [CX - 88, CY + 66 + swing]], right: [R, [CX + 92, CY + 34 - swing], [CX + 88, CY + 66 - swing]], propAt: [CX + 88, CY + 66 - swing] };
+  }
+}
+
+function Character({ spec, action, t }: { spec: MascotSpec; action: MascotAction; t: number }) {
+  const body = spec.color;
+  const dark = shade(body, -0.22);
+  const belly = shade(body, 0.28);
+  const ink = "#2b2535";
+  const { left, right, propAt } = arms(action.pose, t);
+  const armPath = (p: Pt[]) => `M${p[0][0]} ${p[0][1]} Q${p[1][0]} ${p[1][1]} ${p[2][0]} ${p[2][1]}`;
+  const walk = action.pose === "walk" ? Math.sin(t * 5) * 8 : 0;
+  const top = CY - 108; // top of the head area
+
+  return (
+    <g>
+      {/* legs */}
+      <rect x={CX - 52} y={GROUND - 40 + walk} width={34} height={44} rx={16} fill={dark} />
+      <rect x={CX + 18} y={GROUND - 40 - walk} width={34} height={44} rx={16} fill={dark} />
+
+      {/* back parts by shape */}
+      {spec.shape === "cat" && (
+        <>
+          <path d={`M${CX + 80} ${CY + 70} Q${CX + 150} ${CY + 40} ${CX + 130} ${CY - 30}`} stroke={dark} strokeWidth={16} fill="none" strokeLinecap="round" />
+          <path d={`M${CX - 78} ${top + 40} L${CX - 62} ${top - 16} L${CX - 24} ${top + 22} Z`} fill={body} />
+          <path d={`M${CX + 78} ${top + 40} L${CX + 62} ${top - 16} L${CX + 24} ${top + 22} Z`} fill={body} />
+          <path d={`M${CX - 64} ${top + 30} L${CX - 58} ${top + 2} L${CX - 40} ${top + 22} Z`} fill="#f7a8b8" />
+          <path d={`M${CX + 64} ${top + 30} L${CX + 58} ${top + 2} L${CX + 40} ${top + 22} Z`} fill="#f7a8b8" />
+        </>
+      )}
+      {spec.shape === "bear" && (
+        <>
+          <circle cx={CX - 62} cy={top + 18} r={26} fill={body} />
+          <circle cx={CX + 62} cy={top + 18} r={26} fill={body} />
+          <circle cx={CX - 62} cy={top + 18} r={13} fill={belly} />
+          <circle cx={CX + 62} cy={top + 18} r={13} fill={belly} />
+        </>
+      )}
+      {spec.shape === "robot" && (
+        <>
+          <line x1={CX} y1={top - 4} x2={CX} y2={top - 36} stroke={ink} strokeWidth={5} />
+          <circle cx={CX} cy={top - 40} r={9} fill={spec.accent} />
+        </>
+      )}
+      {spec.shape === "bird" && (
+        <path d={`M${CX - 10} ${top - 2} Q${CX} ${top - 34} ${CX + 14} ${top - 4}`} fill={spec.accent} />
+      )}
+
+      {/* body */}
+      <BodyShape shape={spec.shape} fill={body} />
+      <ellipse cx={CX} cy={CY + 40} rx={spec.shape === "robot" ? 52 : 56} ry={spec.shape === "robot" ? 40 : 52} fill={belly} opacity={spec.shape === "robot" ? 0.6 : 0.9} />
+      {spec.shape === "robot" && (
+        <g>
+          <rect x={CX - 26} y={CY + 22} width={52} height={30} rx={6} fill={shade(spec.accent, 0.1)} />
+          <circle cx={CX - 10} cy={CY + 37} r={5} fill="#fff" />
+          <circle cx={CX + 10} cy={CY + 37} r={5} fill={ink} />
+        </g>
+      )}
+      {spec.shape === "bird" && (
+        <>
+          <ellipse cx={CX - 86} cy={CY + 10} rx={20} ry={34} fill={dark} transform={`rotate(20 ${CX - 86} ${CY + 10})`} />
+          <ellipse cx={CX + 86} cy={CY + 10} rx={20} ry={34} fill={dark} transform={`rotate(-20 ${CX + 86} ${CY + 10})`} />
+        </>
+      )}
+
+      {/* accessories under the arms */}
+      {spec.accessory === "apron" && <path d={`M${CX - 44} ${CY - 6} H${CX + 44} V${CY + 72} Q${CX} ${CY + 92} ${CX - 44} ${CY + 72} Z`} fill={spec.accent} opacity={0.95} />}
+      {spec.accessory === "scarf" && (
+        <g>
+          <path d={`M${CX - 84} ${CY + 2} Q${CX} ${CY + 30} ${CX + 84} ${CY + 2} L${CX + 80} ${CY + 20} Q${CX} ${CY + 48} ${CX - 80} ${CY + 20} Z`} fill={spec.accent} />
+          <rect x={CX + 30} y={CY + 22} width={20} height={56} rx={8} fill={spec.accent} transform={`rotate(-12 ${CX + 40} ${CY + 40})`} />
+        </g>
+      )}
+
+      {/* face */}
+      <Face expression={action.pose === "sleep" ? "calm" : action.expression} sleeping={action.pose === "sleep"} spec={spec} t={t} />
+
+      {/* head accessories */}
+      {spec.accessory === "glasses" && (
+        <g stroke={ink} strokeWidth={4} fill="none">
+          <circle cx={CX - 30} cy={CY - 58} r={23} />
+          <circle cx={CX + 30} cy={CY - 58} r={23} />
+          <path d={`M${CX - 7} ${CY - 60} H${CX + 7}`} />
+        </g>
+      )}
+      {spec.accessory === "cap" && (
+        <g>
+          <path d={`M${CX - 62} ${top + 18} Q${CX} ${top - 46} ${CX + 62} ${top + 18} Z`} fill={spec.accent} />
+          <path d={`M${CX + 20} ${top + 16} H${CX + 100} Q${CX + 96} ${top + 28} ${CX + 20} ${top + 27} Z`} fill={shade(spec.accent, -0.18)} />
+        </g>
+      )}
+      {spec.accessory === "bow" && (
+        <g fill={spec.accent}>
+          <path d={`M${CX + 30} ${top + 18} L${CX + 4} ${top} L${CX + 4} ${top + 36} Z`} />
+          <path d={`M${CX + 30} ${top + 18} L${CX + 56} ${top} L${CX + 56} ${top + 36} Z`} />
+          <circle cx={CX + 30} cy={top + 18} r={8} />
+        </g>
+      )}
+      {spec.accessory === "headphones" && (
+        <g>
+          <path d={`M${CX - 80} ${CY - 50} Q${CX} ${top - 50} ${CX + 80} ${CY - 50}`} stroke={ink} strokeWidth={8} fill="none" />
+          <rect x={CX - 96} y={CY - 72} width={24} height={44} rx={10} fill={spec.accent} />
+          <rect x={CX + 72} y={CY - 72} width={24} height={44} rx={10} fill={spec.accent} />
+        </g>
+      )}
+
+      {/* arms + hands */}
+      <path d={armPath(left)} stroke={dark} strokeWidth={18} fill="none" strokeLinecap="round" />
+      <path d={armPath(right)} stroke={dark} strokeWidth={18} fill="none" strokeLinecap="round" />
+      <circle cx={left[2][0]} cy={left[2][1]} r={14} fill={body} stroke={dark} strokeWidth={3} />
+      <circle cx={right[2][0]} cy={right[2][1]} r={14} fill={body} stroke={dark} strokeWidth={3} />
+
+      {/* prop, thought dots, sleep z's */}
+      {action.pose === "think" && (
+        <g fill="#fff" opacity={0.9}>
+          <circle cx={CX + 74} cy={CY - 118} r={6} />
+          <circle cx={CX + 92} cy={CY - 138} r={9} />
+        </g>
+      )}
+      {action.pose === "sleep" && (
+        <text x={CX + 70} y={CY - 130 - Math.abs(Math.sin(t * 1.4)) * 8} fontSize={34} fontWeight={800} fill="#fff" opacity={0.85} fontFamily="sans-serif">
+          z<tspan fontSize={24} dx={4} dy={-14}>z</tspan>
+        </text>
+      )}
+      {action.prop ? (
+        <text x={propAt[0]} y={propAt[1]} fontSize={action.pose === "hold" ? 64 : 54} textAnchor="middle" dominantBaseline="middle">
+          {action.prop}
+        </text>
+      ) : null}
+    </g>
+  );
+}
+
+function BodyShape({ shape, fill }: { shape: MascotShape; fill: string }) {
+  switch (shape) {
+    case "bean":
+      return <rect x={CX - 82} y={CY - 112} width={164} height={226} rx={80} fill={fill} />;
+    case "robot":
+      return <rect x={CX - 86} y={CY - 112} width={172} height={212} rx={28} fill={fill} />;
+    case "cat":
+    case "bear":
+      return <ellipse cx={CX} cy={CY - 6} rx={90} ry={110} fill={fill} />;
+    case "bird":
+      return <ellipse cx={CX} cy={CY - 2} rx={84} ry={104} fill={fill} />;
+    default:
+      return (
+        <path
+          d={`M${CX} ${CY - 116} C${CX + 74} ${CY - 118} ${CX + 98} ${CY - 50} ${CX + 92} ${CY + 18} C${CX + 88} ${CY + 86} ${CX + 52} ${CY + 112} ${CX} ${CY + 112} C${CX - 54} ${CY + 112} ${CX - 92} ${CY + 84} ${CX - 94} ${CY + 18} C${CX - 98} ${CY - 52} ${CX - 72} ${CY - 116} ${CX} ${CY - 116} Z`}
+          fill={fill}
+        />
+      );
+  }
+}
+
+function Face({ expression, sleeping, spec, t }: { expression: MascotExpression; sleeping: boolean; spec: MascotSpec; t: number }) {
+  const ink = "#2b2535";
+  const ey = CY - 58;
+  const ex = 30;
+  const blink = !sleeping && t % 3.4 > 3.25;
+  const closed = sleeping || blink || expression === "calm";
+  const look: Pt = expression === "thinking" ? [-5, -6] : [0, 1];
+  const eye = (x: number, wink = false) =>
+    closed || wink ? (
+      <path d={`M${x - 13} ${ey + 2} Q${x} ${ey + (expression === "calm" || sleeping ? 10 : 4)} ${x + 13} ${ey + 2}`} stroke={ink} strokeWidth={4.5} fill="none" strokeLinecap="round" />
+    ) : (
+      <g>
+        <ellipse cx={x} cy={ey} rx={expression === "surprised" ? 17 : 15} ry={expression === "surprised" ? 19 : 17} fill="#fff" />
+        <circle cx={x + look[0]} cy={ey + look[1]} r={expression === "surprised" ? 6 : expression === "excited" ? 10 : 8.5} fill={ink} />
+        <circle cx={x + look[0] + 3} cy={ey + look[1] - 4} r={3} fill="#fff" />
+        {expression === "excited" && <circle cx={x + look[0] - 4} cy={ey + look[1] + 4} r={1.8} fill="#fff" />}
+      </g>
+    );
+  const brow = (x: number, side: 1 | -1) => {
+    if (expression === "sad") return <path d={`M${x - 12 * side} ${ey - 20} L${x + 12 * side} ${ey - 26}`} stroke={ink} strokeWidth={4} strokeLinecap="round" />;
+    if (expression === "surprised") return <path d={`M${x - 12} ${ey - 30} Q${x} ${ey - 38} ${x + 12} ${ey - 30}`} stroke={ink} strokeWidth={4} fill="none" strokeLinecap="round" />;
+    if (expression === "thinking" && side === 1) return <path d={`M${x - 12} ${ey - 30} L${x + 12} ${ey - 24}`} stroke={ink} strokeWidth={4} strokeLinecap="round" />;
+    return null;
+  };
+  const my = CY - 20;
+  const mouth = (() => {
+    switch (expression) {
+      case "excited":
+        return <path d={`M${CX - 22} ${my - 4} Q${CX} ${my + 28} ${CX + 22} ${my - 4} Z`} fill="#7a2d3a" stroke={ink} strokeWidth={3} />;
+      case "surprised":
+        return <ellipse cx={CX} cy={my + 4} rx={10} ry={13} fill="#7a2d3a" stroke={ink} strokeWidth={3} />;
+      case "sad":
+        return <path d={`M${CX - 16} ${my + 10} Q${CX} ${my - 4} ${CX + 16} ${my + 10}`} stroke={ink} strokeWidth={4} fill="none" strokeLinecap="round" />;
+      case "thinking":
+        return <path d={`M${CX - 12} ${my + 4} H${CX + 12}`} stroke={ink} strokeWidth={4} strokeLinecap="round" />;
+      case "calm":
+        return <path d={`M${CX - 12} ${my} Q${CX} ${my + 9} ${CX + 12} ${my}`} stroke={ink} strokeWidth={4} fill="none" strokeLinecap="round" />;
+      default:
+        return <path d={`M${CX - 18} ${my - 2} Q${CX} ${my + 18} ${CX + 18} ${my - 2}`} stroke={ink} strokeWidth={4.5} fill="none" strokeLinecap="round" />;
+    }
+  })();
+  return (
+    <g>
+      {eye(CX - ex)}
+      {eye(CX + ex, expression === "wink")}
+      {brow(CX - ex, -1)}
+      {brow(CX + ex, 1)}
+      <ellipse cx={CX - 52} cy={CY - 30} rx={12} ry={8} fill="#ff8fa3" opacity={0.45} />
+      <ellipse cx={CX + 52} cy={CY - 30} rx={12} ry={8} fill="#ff8fa3" opacity={0.45} />
+      {spec.shape === "bird" ? (
+        <path d={`M${CX - 12} ${my - 8} L${CX + 12} ${my - 8} L${CX} ${my + 8} Z`} fill={spec.accent} stroke={ink} strokeWidth={2} />
+      ) : spec.shape === "cat" ? (
+        <>
+          <path d={`M${CX - 6} ${my - 14} L${CX + 6} ${my - 14} L${CX} ${my - 7} Z`} fill="#f7a8b8" />
+          {mouth}
+          <g stroke={ink} strokeWidth={2} opacity={0.5}>
+            <path d={`M${CX - 44} ${my - 10} H${CX - 74}`} />
+            <path d={`M${CX - 44} ${my - 2} L${CX - 72} ${my + 6}`} />
+            <path d={`M${CX + 44} ${my - 10} H${CX + 74}`} />
+            <path d={`M${CX + 44} ${my - 2} L${CX + 72} ${my + 6}`} />
+          </g>
+        </>
+      ) : (
+        mouth
+      )}
+    </g>
+  );
+}
