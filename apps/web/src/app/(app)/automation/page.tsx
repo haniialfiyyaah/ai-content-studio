@@ -9,22 +9,21 @@ import { requireUser } from "@/lib/server/session";
 export default async function AutomationPage() {
   const { supabase } = await requireUser();
   const [{ data: projects }, { data: activity }, { count: rendering }, { count: scheduled }, { data: runs }] = await Promise.all([
-    supabase.from("projects").select("*").in("status", ["active", "paused", "draft"]).order("updated_at", { ascending: false }),
+    supabase.from("projects").select("*").in("status", ["live", "paused", "draft"]).order("updated_at", { ascending: false }),
     supabase.from("activity_events").select("id, project_id, kind, message, created_at").order("created_at", { ascending: false }).limit(25),
     supabase.from("video_renders").select("id", { count: "exact", head: true }).in("status", ["queued", "rendering"]),
     supabase.from("publish_jobs").select("id", { count: "exact", head: true }).eq("status", "scheduled"),
     supabase.from("generation_runs").select("id, kind, status, stage, created_at, projects(title)").order("created_at", { ascending: false }).limit(10),
   ]);
   const list = (projects ?? []) as ProjectRow[];
-  const active = list.filter((p) => p.status === "active");
+  const active = list.filter((p) => p.status === "live");
 
   return (
     <main className="page">
       <LiveRefresh sources={[{ table: "projects" }, { table: "activity_events" }, { table: "generation_runs" }, { table: "video_renders" }]} />
-      <PageHead eyebrow="MANAGE" title="Automation Center" text="Everything the workflows do on your behalf: generation, rendering, uploads and recurring ideation." />
+      <PageHead eyebrow="MANAGE" title="Automation Center" text="Everything the workflows do on your behalf: generation, rendering and uploads." />
       <div className="manage-metrics">
-        <div className="manage-metric"><span className="xs muted">Active projects</span><strong>{active.length}</strong><small>Publishing on schedule</small></div>
-        <div className="manage-metric"><span className="xs muted">Recurring ideation</span><strong>{active.filter((p) => p.ideation_enabled).length}</strong><small>Projects drafting new ideas</small></div>
+        <div className="manage-metric"><span className="xs muted">Live projects</span><strong>{active.length}</strong><small>Publishing on schedule</small></div>
         <div className="manage-metric"><span className="xs muted">Rendering</span><strong>{rendering ?? 0}</strong><small>Videos in the queue</small></div>
         <div className="manage-metric"><span className="xs muted">Uploads scheduled</span><strong>{scheduled ?? 0}</strong><small>YouTube</small></div>
       </div>
@@ -36,7 +35,7 @@ export default async function AutomationPage() {
               <Link key={p.id} href={`/projects/${p.id}?tab=schedule`} className="listrow rowclick" style={{ textDecoration: "none" }}>
                 <div>
                   <div className="small semibold">{p.title}</div>
-                  <div className="xs muted">Publishing {describeSchedule(p.schedule)} · Ideation {p.ideation_enabled ? `every ${p.ideation_every_days}d (next ${fmtDateTime(p.next_ideation_at)})` : "off"}</div>
+                  <div className="xs muted">Publishing {describeSchedule(p.schedule)}</div>
                 </div>
                 <span className={pillClass(p.status)}>{statusLabel(p.status)}</span>
               </Link>

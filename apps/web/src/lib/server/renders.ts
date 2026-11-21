@@ -1,5 +1,5 @@
 import "server-only";
-import { AppError, CTA_LABELS, ErrorCodes, notFound, parseEnding, resolveContent, type Scene } from "@acs/domain";
+import { AppError, CTA_LABELS, ErrorCodes, notFound, parseEnding, resolveContent, type Scene, projectKit } from "@acs/domain";
 import {
   FAL_IMAGE_FALLBACK_MODEL,
   evenCaptions,
@@ -103,7 +103,7 @@ export async function startRender(renderId: string) {
         ? storyboard.map((f) => ({ ...f, status: "completed" as const }))
         : await (async () => {
       // Older projects: create the character reference on first render (consistency across scenes).
-      if (p.visual_mode !== "references" && p.creative_kit?.recurringSubject?.trim()) {
+      if (p.visual_mode !== "references" && projectKit(p).recurringSubject?.trim()) {
         const { count } = await db.from("project_assets").select("id", { count: "exact", head: true }).eq("project_id", p.id).eq("label", IDENTITY_LABEL);
         if (!count) {
           try {
@@ -140,9 +140,9 @@ export async function startRender(renderId: string) {
           visual: s.visual,
           heading: s.heading,
           layout: s.layout,
-          visualStyle: p.creative_kit?.visualStyle,
-          palette: p.creative_kit?.palette,
-          recurringSubject: p.creative_kit?.recurringSubject,
+          visualStyle: projectKit(p).visualStyle,
+          palette: projectKit(p).palette,
+          recurringSubject: projectKit(p).recurringSubject,
           fallback: c.video_prompt || picked.title,
         }),
       );
@@ -219,7 +219,7 @@ export async function startRender(renderId: string) {
       const proj = p as ProjectRow & { voice_id?: string | null };
       const voice = await synthesizeNarration(picked.script, {
         preferredVoice: proj.voice_id,
-        description: [p.creative_kit?.voice, p.creative_kit?.audience, p.creative_kit?.tone].filter(Boolean).join(" "),
+        description: [projectKit(p).voice, projectKit(p).audience, projectKit(p).tone].filter(Boolean).join(" "),
       });
       // Keep the series consistent: the first voice that works becomes the project's voice.
       if (voice && voice.voice !== proj.voice_id) {
@@ -382,7 +382,7 @@ async function dispatchToRenderer(render: LoadedRender) {
   const [{ data: identity }, { data: siblings }] = await Promise.all([
     db.from("project_assets").select("storage_path").eq("project_id", render.project_id).eq("label", IDENTITY_LABEL).limit(1).maybeSingle(),
     ending.series
-      ? db.from("contents").select("id, options, selection, position").eq("project_id", render.project_id).neq("status", "archived").order("position")
+      ? db.from("contents").select("id, options, selection, position").eq("project_id", render.project_id).neq("status", "removed").order("position")
       : Promise.resolve({ data: [] as { id: string; options: ContentRow["options"]; selection: ContentRow["selection"]; position: number }[] }),
   ]);
   const idx = (siblings ?? []).findIndex((x) => x.id === c.id);

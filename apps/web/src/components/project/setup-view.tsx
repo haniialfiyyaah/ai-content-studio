@@ -19,7 +19,7 @@ import { Spinner } from "@/components/ui/spinner";
 const STEPS = SETUP_STAGES.filter((s) => s !== "done");
 
 const BUSY_TEXT: Record<SetupStage, string> = {
-  discovery: "Checking your other projects…",
+  similar: "Checking your other projects…",
   concept: "Sketching the concept — niche, audience and goal…",
   kit: "Building the Creative Kit — voice, look and format…",
   pillars: "Writing pillars and guardrails…",
@@ -27,7 +27,7 @@ const BUSY_TEXT: Record<SetupStage, string> = {
 };
 
 const NEXT_LABEL: Record<SetupStage, string> = {
-  discovery: "Create a different project",
+  similar: "Create a different project",
   concept: "Continue to Creative Kit",
   kit: "Continue to pillars",
   pillars: "Lock setup & draft content",
@@ -62,7 +62,7 @@ export function SetupView({
   const [error, setError] = useState<string | null>(null);
   const at = STEPS.indexOf(stage as (typeof STEPS)[number]);
   const working = busy && !stale;
-  const needRetry = stale || (!busy && stage !== "discovery" && !hasResult(stage, concept, kit));
+  const needRetry = stale || (!busy && stage !== "similar" && !hasResult(stage, concept, kit));
 
   function act(action: "continue" | "retry" | "start_new") {
     setError(null);
@@ -96,7 +96,7 @@ export function SetupView({
       {at > 2 && kit.tone && <Summary label="Creative Kit" text={`${kit.tone} · ${kit.visualStyle ?? ""}`} />}
 
       <div className="card pad setup-card">
-        {stage === "discovery" && (
+        {stage === "similar" && (
           <>
             <div className="eyebrow">STEP 1 · YOUR IDEA</div>
             <h2 className="setup-title">{busy && !stale ? "Checking your other projects…" : similarPending ? "Looks like one you already have" : "Your idea"}</h2>
@@ -111,7 +111,7 @@ export function SetupView({
           </>
         )}
 
-        {stage !== "discovery" && working && (
+        {stage !== "similar" && working && (
           <div className="setup-busy">
             <Spinner size={18} />
             <div>
@@ -172,19 +172,19 @@ export function SetupView({
           </div>
         )}
 
-        {!working && (stage === "discovery" || hasResult(stage, concept, kit)) && (
+        {!working && (stage === "similar" || hasResult(stage, concept, kit)) && (
           <>
             <div className="divider" />
             <div className="row between" style={{ flexWrap: "wrap", gap: 10 }}>
-              {stage === "discovery" ? (
+              {stage === "similar" ? (
                 <span className="xs muted">{similarPending ? "Or continue in the similar project from the chat." : "Or tell the agent which way you want to go."}</span>
               ) : (
                 <span className="xs muted">Tap ✏️ on any field to change it, or tell the agent.</span>
               )}
               <button
-                className={`btn ${stage === "discovery" ? "" : "primary"}`}
+                className={`btn ${stage === "similar" ? "" : "primary"}`}
                 disabled={pending}
-                onClick={() => act(stage === "discovery" && similarPending ? "start_new" : "continue")}
+                onClick={() => act(stage === "similar" && similarPending ? "start_new" : "continue")}
               >
                 {pending ? <Spinner size={13} /> : null} {NEXT_LABEL[stage]} <ArrowRight size={14} />
               </button>

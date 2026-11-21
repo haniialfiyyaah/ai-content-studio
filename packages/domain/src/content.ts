@@ -46,7 +46,7 @@ export function readiness(input: ReadinessInput): { steps: ReadinessStep[]; canA
       key: "generated",
       label: "Content and Creative Kit generated",
       detail: input.contentCount ? `${input.contentCount} content ideas ready to review` : "Waiting for the agent",
-      done: input.status !== "generating" && input.contentCount > 0,
+      done: input.contentCount > 0,
     },
     {
       key: "approved",

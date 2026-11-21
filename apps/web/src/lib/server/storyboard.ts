@@ -1,7 +1,7 @@
 import "server-only";
 import { createHash } from "node:crypto";
 import { after } from "next/server";
-import { AppError, ErrorCodes, notFound, resolveContent, type Scene } from "@acs/domain";
+import { AppError, ErrorCodes, notFound, resolveContent, type Scene, projectKit } from "@acs/domain";
 import {
   editOpenAiImage,
   extractImageUrl,
@@ -49,7 +49,7 @@ type Project = ProjectRow & { visual_mode: "ai" | "ai_with_references" | "refere
 export function storyboardKey(c: Pick<ContentRow, "scenes">, p: Project) {
   const scenes = (c.scenes ?? []).slice(0, MAX_BEATS).map((s) => [s.visual, s.heading, s.layout, s.background, s.referenceIndex]);
   return createHash("sha1")
-    .update(JSON.stringify([scenes, p.creative_kit?.visualStyle, p.creative_kit?.palette, p.visual_mode, p.image_engine ?? "openai"]))
+    .update(JSON.stringify([scenes, projectKit(p).visualStyle, projectKit(p).palette, p.visual_mode, p.image_engine ?? "openai"]))
     .digest("hex")
     .slice(0, 16);
 }
@@ -138,7 +138,7 @@ export async function generateStoryboard(contentId: string, opts: { force?: bool
     const scenes: Scene[] = (c.scenes?.length ? c.scenes : [{ heading: picked.title } as Scene]).slice(0, MAX_BEATS);
 
     // The recurring character keeps scenes consistent; draw it once if missing.
-    if (p.visual_mode !== "references" && p.creative_kit?.recurringSubject?.trim() && openAiImagesConfigured()) {
+    if (p.visual_mode !== "references" && projectKit(p).recurringSubject?.trim() && openAiImagesConfigured()) {
       const { count } = await db.from("project_assets").select("id", { count: "exact", head: true }).eq("project_id", p.id).eq("label", IDENTITY_LABEL);
       if (!count) {
         await generateIdentityReference(p.id).catch(() => undefined);
@@ -177,9 +177,9 @@ export async function generateStoryboard(contentId: string, opts: { force?: bool
         visual: s.visual,
         heading: s.heading,
         layout: s.layout,
-        visualStyle: p.creative_kit?.visualStyle,
-        palette: p.creative_kit?.palette,
-        recurringSubject: p.creative_kit?.recurringSubject,
+        visualStyle: projectKit(p).visualStyle,
+        palette: projectKit(p).palette,
+        recurringSubject: projectKit(p).recurringSubject,
         fallback: c.video_prompt || picked.title,
       });
       for (const engine of engines) {

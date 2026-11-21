@@ -10,7 +10,7 @@ import {
   notFound,
   readiness,
   type OptionField,
-  type Schedule, inferContentCount, type Ending } from "@acs/domain";
+  type Schedule, type Ending } from "@acs/domain";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { dispatchToN8n } from "./dispatch";
 import { queueStoryboards } from "./storyboard";
@@ -37,68 +37,10 @@ async function youtubeConnected(ownerId: string): Promise<boolean> {
   return Boolean(data);
 }
 
-// ---------------------------------------------------------------------------
-// Start: one prompt → new project + its own conversation + a generation run
-// ---------------------------------------------------------------------------
-export async function startProject(input: {
-  ownerId: string;
-  prompt: string;
-  contentCount?: number;
-  channel?: "web" | "telegram";
-  /** Client uploads references first, then calls kickGeneration (scheduler is the backstop). */
-  deferGeneration?: boolean;
-}) {
-  const db = admin();
-  const prompt = input.prompt.trim();
-  if (prompt.length < 4) throw new AppError(ErrorCodes.VALIDATION_ERROR, "Tell the agent a bit more about your idea", 400);
-
-  const { data: project, error } = await db
-    .from("projects")
-    .insert({
-      owner_id: input.ownerId,
-      prompt,
-      title: prompt.length > 60 ? `${prompt.slice(0, 57)}…` : prompt,
-      cover_tone: Math.floor(Math.random() * 4),
-      status: "generating",
-    })
-    .select("id")
-    .single();
-  if (error || !project) throw new AppError(ErrorCodes.INTERNAL_ERROR, "Could not create project", 500);
-
-  const { data: convo } = await db
-    .from("conversations")
-    .insert({ owner_id: input.ownerId, project_id: project.id, channel: "web", title: "Project conversation" })
-    .select("id")
-    .single();
-  if (convo) {
-    await db.from("messages").insert([
-      { conversation_id: convo.id, owner_id: input.ownerId, role: "user", content: prompt },
-      {
-        conversation_id: convo.id,
-        owner_id: input.ownerId,
-        role: "assistant",
-        content:
-          "I'll research angles, build a Creative Kit and draft your content — each with a few options you can pick from.",
-      },
-    ]);
-  }
-
-  const run = await queueGeneration(input.ownerId, project.id, "project_setup", input.contentCount || inferContentCount(prompt) || 3, !input.deferGeneration, {
-    channel: input.channel ?? "web",
-  });
-  await logActivity(db, {
-    ownerId: input.ownerId,
-    projectId: project.id,
-    kind: "project.created",
-    message: input.channel === "telegram" ? "Project started from Telegram" : "Project started from Overview",
-  });
-  return { projectId: project.id as string, runId: run.id, conversationId: (convo?.id as string) ?? null };
-}
-
 export async function queueGeneration(
   ownerId: string,
   projectId: string,
-  kind: "project_setup" | "ideation" | "revision",
+  kind: "ideation" | "revision",
   contentCount: number,
   dispatch = true,
   extra: { feedback?: string; targetIds?: string[]; channel?: "web" | "telegram" } = {},
@@ -120,21 +62,6 @@ export async function queueGeneration(
   if (error || !run) throw new AppError(ErrorCodes.INTERNAL_ERROR, "Could not queue generation", 500);
   if (dispatch) dispatchToN8n("generate", { runId: run.id });
   return run as { id: string };
-}
-
-/** Starts a deferred project_setup run once reference uploads are done. */
-export async function kickGeneration(ownerId: string, projectId: string) {
-  await loadOwnedProject(ownerId, projectId);
-  const { data: run } = await admin()
-    .from("generation_runs")
-    .select("id")
-    .eq("project_id", projectId)
-    .eq("status", "queued")
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  if (run) dispatchToN8n("generate", { runId: run.id });
-  return { runId: run?.id ?? null };
 }
 
 /**
@@ -169,16 +96,30 @@ export async function requestRender(ownerId: string, contentId: string) {
   return { renderId: created.id as string, alreadyRunning: false };
 }
 
+/** True while an idea / revision run is queued or running for this project. */
+export async function runInFlight(projectId: string): Promise<boolean> {
+  const { count } = await admin().from("generation_runs").select("id", { count: "exact", head: true }).eq("project_id", projectId).in("status", ["queued", "running"]);
+  return Boolean(count);
+}
+
+/** Re-run the last failed idea run (e.g. the first content after setup). */
 export async function retryGeneration(ownerId: string, projectId: string) {
-  const project = await loadOwnedProject(ownerId, projectId);
-  if (project.status !== "failed") throw conflict("Only a failed project can be regenerated");
-  await admin().from("projects").update({ status: "generating" }).eq("id", projectId);
-  return queueGeneration(ownerId, projectId, "project_setup", 4);
+  await loadOwnedProject(ownerId, projectId);
+  if (await runInFlight(projectId)) throw conflict("Still generating");
+  const { data: last } = await admin()
+    .from("generation_runs")
+    .select("kind, content_count, feedback, target_ids, status")
+    .eq("project_id", projectId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (!last || last.status !== "failed") throw conflict("Nothing to retry");
+  return queueGeneration(ownerId, projectId, last.kind, last.content_count, true, { feedback: last.feedback ?? undefined, targetIds: last.target_ids ?? [] });
 }
 
 export async function generateMore(ownerId: string, projectId: string, count: number, channel: "web" | "telegram" = "web", brief?: string) {
-  const project = await loadOwnedProject(ownerId, projectId);
-  if (project.status === "generating") throw conflict("The project is still generating");
+  await loadOwnedProject(ownerId, projectId);
+  if (await runInFlight(projectId)) throw conflict("Still generating — one moment");
   return queueGeneration(ownerId, projectId, "ideation", count, true, { channel, feedback: brief?.slice(0, 1500) });
 }
 
@@ -189,14 +130,14 @@ export async function generateMore(ownerId: string, projectId: string, count: nu
  * back to draft with fresh options — the user never types into fields.
  */
 export async function reviseContents(ownerId: string, projectId: string, feedback: string, channel: "web" | "telegram" = "web") {
-  const project = await loadOwnedProject(ownerId, projectId);
-  if (project.status === "generating") throw conflict("The project is still generating");
+  await loadOwnedProject(ownerId, projectId);
+  if (await runInFlight(projectId)) throw conflict("Still generating — one moment");
   const db = admin();
   const { data: rows } = await db
     .from("contents")
     .select("id, position")
     .eq("project_id", projectId)
-    .neq("status", "archived")
+    .neq("status", "removed")
     .order("position");
   const list = rows ?? [];
   const { data: published } = await db.from("publish_jobs").select("content_id").eq("project_id", projectId).eq("status", "published");
@@ -226,12 +167,12 @@ export async function selectOption(ownerId: string, contentId: string, field: Op
     throw new AppError(ErrorCodes.VALIDATION_ERROR, "Not one of the generated options", 400);
   }
   // Approved content is locked; the user must unlock (which drops approval) first.
-  if (content.status !== "draft") throw conflict("This content is approved — unlock it to change options");
+  if (content.status !== "idea") throw conflict("This content is approved — unlock it to change options");
   const { data: updated } = await db
     .from("contents")
     .update({ selection: { ...content.selection, [field]: index } })
     .eq("id", contentId)
-    .eq("status", "draft")
+    .eq("status", "idea")
     .select("id, selection, status")
     .single();
   // The old video no longer matches these picks: retire it so it can't be published.
@@ -247,17 +188,17 @@ export async function approveContent(ownerId: string, contentId: string) {
   const { data } = await db.from("contents").select("id, project_id, status").eq("id", contentId).eq("owner_id", ownerId).maybeSingle();
   if (!data) throw notFound("Content");
   const project = await loadOwnedProject(ownerId, data.project_id);
-  if (data.status === "draft") {
-    await db.from("contents").update({ status: "approved", approved_at: new Date().toISOString() }).eq("id", contentId).eq("status", "draft");
+  if (data.status === "idea") {
+    await db.from("contents").update({ status: "approved", approved_at: new Date().toISOString() }).eq("id", contentId).eq("status", "idea");
     await logActivity(db, { ownerId, projectId: data.project_id, kind: "content.approved", message: "Approved 1 content" });
     queueStoryboards([contentId]);
-    if (project.status === "active") await scheduleAndQueue(project);
+    if (project.status === "live") await scheduleAndQueue(project);
   }
   const { data: next } = await db
     .from("contents")
     .select("id")
     .eq("project_id", data.project_id)
-    .eq("status", "draft")
+    .eq("status", "idea")
     .order("position")
     .limit(1)
     .maybeSingle();
@@ -274,11 +215,11 @@ export async function rejectContent(ownerId: string, contentId: string) {
   if (!data) throw notFound("Content");
   const { data: job } = await db.from("publish_jobs").select("status").eq("content_id", contentId).in("status", ["published", "publishing"]).maybeSingle();
   if (job) throw conflict("Published content can't be rejected");
-  await db.from("contents").update({ status: "archived", approved_at: null, scheduled_for: null }).eq("id", contentId);
+  await db.from("contents").update({ status: "removed", approved_at: null, scheduled_for: null }).eq("id", contentId);
   await db.from("publish_jobs").delete().eq("content_id", contentId).eq("status", "scheduled");
   await db.from("video_renders").update({ status: "cancelled" }).eq("content_id", contentId).eq("status", "queued");
   await logActivity(db, { ownerId, projectId: data.project_id, kind: "content.rejected", message: "Rejected 1 content idea" });
-  const { data: next } = await db.from("contents").select("id").eq("project_id", data.project_id).eq("status", "draft").order("position").limit(1).maybeSingle();
+  const { data: next } = await db.from("contents").select("id").eq("project_id", data.project_id).eq("status", "idea").order("position").limit(1).maybeSingle();
   return { rejected: contentId, nextId: (next?.id as string | undefined) ?? null };
 }
 
@@ -296,7 +237,7 @@ export async function holdContent(ownerId: string, contentId: string, hold: bool
   await db.from("contents").update({ on_hold: hold, ...(hold ? { scheduled_for: null } : {}) }).eq("id", contentId);
   if (hold) await db.from("publish_jobs").delete().eq("content_id", contentId).eq("status", "scheduled");
   const schedule = ScheduleSchema.safeParse(project.schedule);
-  if (project.status === "active") await scheduleAndQueue(project);
+  if (project.status === "live") await scheduleAndQueue(project);
   else if (schedule.success) await assignSlots(project.id, schedule.data, false);
   await logActivity(db, { ownerId, projectId: data.project_id, kind: hold ? "content.held" : "content.resumed", message: hold ? "Content on hold — it won't be published" : "Content resumed" });
   return { onHold: hold };
@@ -311,8 +252,8 @@ export async function restoreContent(ownerId: string, contentId: string) {
   const db = admin();
   const { data } = await db.from("contents").select("id, project_id, status").eq("id", contentId).eq("owner_id", ownerId).maybeSingle();
   if (!data) throw notFound("Content");
-  if (data.status !== "archived") return { restored: contentId };
-  await db.from("contents").update({ status: "draft" }).eq("id", contentId);
+  if (data.status !== "removed") return { restored: contentId };
+  await db.from("contents").update({ status: "idea" }).eq("id", contentId);
   await logActivity(db, { ownerId, projectId: data.project_id, kind: "content.restored", message: "Restored a rejected idea" });
   return { restored: contentId };
 }
@@ -327,7 +268,7 @@ export async function unlockContent(ownerId: string, contentId: string) {
   if (!data) throw notFound("Content");
   const { data: job } = await db.from("publish_jobs").select("status").eq("content_id", contentId).in("status", ["published", "publishing"]).maybeSingle();
   if (job) throw conflict("Published content can't be changed");
-  await db.from("contents").update({ status: "draft", approved_at: null }).eq("id", contentId);
+  await db.from("contents").update({ status: "idea", approved_at: null }).eq("id", contentId);
   // A scheduled upload must not publish an unapproved version.
   await db.from("publish_jobs").delete().eq("content_id", contentId).eq("status", "scheduled");
   await logActivity(db, { ownerId, projectId: data.project_id, kind: "content.unlocked", message: "Content unlocked for changes" });
@@ -336,13 +277,13 @@ export async function unlockContent(ownerId: string, contentId: string) {
 
 export async function approveAll(ownerId: string, projectId: string) {
   const project = await loadOwnedProject(ownerId, projectId);
-  if (project.status === "generating") throw conflict("Wait for generation to finish");
+  if (await runInFlight(projectId)) throw conflict("Wait for generation to finish");
   const db = admin();
   const { data } = await db
     .from("contents")
     .update({ status: "approved", approved_at: new Date().toISOString() })
     .eq("project_id", projectId)
-    .eq("status", "draft")
+    .eq("status", "idea")
     .select("id");
   const count = data?.length ?? 0;
   if (count) {
@@ -350,7 +291,7 @@ export async function approveAll(ownerId: string, projectId: string) {
     queueStoryboards((data ?? []).map((r) => r.id as string));
   }
   // Active project: newly approved ideas join the schedule immediately.
-  if (project.status === "active" && count) await scheduleAndQueue(project);
+  if (project.status === "live" && count) await scheduleAndQueue(project);
   return { approved: count };
 }
 
@@ -361,7 +302,7 @@ export async function approveAll(ownerId: string, projectId: string) {
  */
 export async function launchProject(ownerId: string, projectId: string, input: { include: string[]; exclude: string[] }) {
   const project = await loadOwnedProject(ownerId, projectId);
-  if (project.status === "generating") throw conflict("Wait for generation to finish");
+  if (await runInFlight(projectId)) throw conflict("Wait for generation to finish");
   if (project.status === "stopped") throw conflict("Stopped projects can't be scheduled");
   const schedule = ScheduleSchema.safeParse(project.schedule);
   if (!schedule.success) throw new AppError(ErrorCodes.NOT_READY, "Set publishing days and time first", 409);
@@ -376,7 +317,7 @@ export async function launchProject(ownerId: string, projectId: string, input: {
         .update({ status: "approved", approved_at: new Date().toISOString() })
         .eq("project_id", projectId)
         .eq("owner_id", ownerId)
-        .eq("status", "draft")
+        .eq("status", "idea")
         .in("id", input.include)
         .select("id")
     : { data: [] };
@@ -392,9 +333,9 @@ export async function launchProject(ownerId: string, projectId: string, input: {
   const ytOk = await youtubeConnected(ownerId);
   if (project.status === "draft" && ytOk) {
     await activateProject(ownerId, projectId);
-    return { approved: approvedNow.length, excluded: exclude.length, status: "active", needsYoutube: false };
+    return { approved: approvedNow.length, excluded: exclude.length, status: "live", needsYoutube: false };
   }
-  if (project.status === "active") await scheduleAndQueue(project);
+  if (project.status === "live") await scheduleAndQueue(project);
   else await assignSlots(projectId, schedule.data, false);
   return { approved: approvedNow.length, excluded: exclude.length, status: project.status, needsYoutube: !ytOk };
 }
@@ -415,7 +356,7 @@ export async function saveSchedule(ownerId: string, projectId: string, raw: unkn
   const project = await loadOwnedProject(ownerId, projectId);
   const db = admin();
   await db.from("projects").update({ schedule }).eq("id", projectId);
-  await assignSlots(projectId, schedule, project.status === "active");
+  await assignSlots(projectId, schedule, project.status === "live");
   await logActivity(db, { ownerId, projectId, kind: "schedule.updated", message: "Publishing schedule updated" });
   return { schedule };
 }
@@ -427,7 +368,7 @@ async function assignSlots(projectId: string, schedule: Schedule, syncJobs: bool
     .from("contents")
     .select("id, position, status")
     .eq("project_id", projectId)
-    .neq("status", "archived")
+    .neq("status", "removed")
     .eq("on_hold", false)
     .order("position");
   const { data: published } = await db
@@ -465,7 +406,7 @@ async function assignSlots(projectId: string, schedule: Schedule, syncJobs: bool
 // Lifecycle
 // ---------------------------------------------------------------------------
 export async function projectReadiness(ownerId: string, project: ProjectRow) {
-  const { data } = await admin().from("contents").select("status").eq("project_id", project.id).neq("status", "archived");
+  const { data } = await admin().from("contents").select("status").eq("project_id", project.id).neq("status", "removed");
   const contents = data ?? [];
   return readiness({
     status: project.status,
@@ -488,15 +429,9 @@ export async function activateProject(ownerId: string, projectId: string) {
   const now = new Date();
   await db
     .from("projects")
-    .update({
-      status: "active",
-      activated_at: now.toISOString(),
-      next_ideation_at: project.ideation_enabled
-        ? new Date(now.getTime() + project.ideation_every_days * 86_400_000).toISOString()
-        : null,
-    })
+    .update({ status: "live", live_at: now.toISOString() })
     .eq("id", projectId);
-  const queued = await scheduleAndQueue({ ...project, status: "active" });
+  const queued = await scheduleAndQueue({ ...project, status: "live" });
 
   await logActivity(db, {
     ownerId,
@@ -582,12 +517,12 @@ async function scheduleAndQueue(project: ProjectRow): Promise<number> {
 export async function setLifecycle(ownerId: string, projectId: string, action: "pause" | "resume" | "stop") {
   const project = await loadOwnedProject(ownerId, projectId);
   const allowed: Record<typeof action, string[]> = {
-    pause: ["active"],
+    pause: ["live"],
     resume: ["paused"],
-    stop: ["active", "paused"],
+    stop: ["live", "paused"],
   };
   if (!allowed[action].includes(project.status)) throw conflict(`Cannot ${action} a ${project.status} project`);
-  const next = { pause: "paused", resume: "active", stop: "stopped" }[action];
+  const next = { pause: "paused", resume: "live", stop: "stopped" }[action];
   const db = admin();
   await db.from("projects").update({ status: next }).eq("id", projectId);
   if (action === "stop") {
@@ -596,23 +531,6 @@ export async function setLifecycle(ownerId: string, projectId: string, action: "
   }
   await logActivity(db, { ownerId, projectId, kind: `project.${action}`, message: `Project ${next}` });
   return { status: next };
-}
-
-export async function updateAutomation(ownerId: string, projectId: string, input: { ideationEnabled: boolean; everyDays: number }) {
-  const project = await loadOwnedProject(ownerId, projectId);
-  const everyDays = Math.min(Math.max(Math.round(input.everyDays), 1), 60);
-  await admin()
-    .from("projects")
-    .update({
-      ideation_enabled: input.ideationEnabled,
-      ideation_every_days: everyDays,
-      next_ideation_at:
-        input.ideationEnabled && project.status === "active"
-          ? new Date(Date.now() + everyDays * 86_400_000).toISOString()
-          : null,
-    })
-    .eq("id", projectId);
-  return { ideationEnabled: input.ideationEnabled, everyDays };
 }
 
 export async function retryRender(ownerId: string, renderId: string) {

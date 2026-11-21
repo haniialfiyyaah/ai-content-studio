@@ -12,7 +12,7 @@ import { api } from "@/lib/client/api";
 export interface ReviewItem {
   id: string;
   n: number;
-  status: "draft" | "approved" | "archived";
+  status: "idea" | "approved" | "removed";
   options: Partial<ContentOptions>;
   selection: Selection;
   scenes: { heading: string; onScreenText?: string; layout?: string; narration?: string; headline?: string; background?: string; seconds?: number; visual?: string }[];
@@ -35,8 +35,8 @@ export function ReviewFlow({
   images?: { id: string; urls: (string | null)[]; drawing: boolean };
 }) {
   const router = useRouter();
-  const pending = items.filter((i) => i.status === "draft");
-  const current = items.find((i) => i.id === currentId && i.status === "draft") ?? pending[0];
+  const pending = items.filter((i) => i.status === "idea");
+  const current = items.find((i) => i.id === currentId && i.status === "idea") ?? pending[0];
   const [busy, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [board, setBoard] = useState(false);
@@ -117,8 +117,8 @@ export function ReviewFlow({
                 className={`daychip ${i.id === current.id ? "on" : ""}`}
                 style={{ padding: "6px 10px" }}
                 title={i.status === "approved" ? "Approved" : "Pending"}
-                onClick={() => i.status === "draft" && go(i.id)}
-                disabled={i.status !== "draft"}
+                onClick={() => i.status === "idea" && go(i.id)}
+                disabled={i.status !== "idea"}
               >
                 #{i.n}{i.status === "approved" ? " ✓" : ""}
               </button>

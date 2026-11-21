@@ -69,11 +69,11 @@ export async function startSetup(ownerId: string, prompt: string) {
     .from("projects")
     .insert({
       owner_id: ownerId,
-      prompt: text,
+      idea: text,
       title: text.length > 60 ? `${text.slice(0, 57)}…` : text,
       cover_tone: Math.floor(Math.random() * 4),
       status: "setup",
-      setup_stage: "discovery",
+      setup_stage: "similar",
     })
     .select("id")
     .single();
@@ -144,7 +144,7 @@ export async function setupAction(ownerId: string, projectId: string, action: "c
   if (p.status !== "setup") throw conflict("Setup is finished");
   if (p.setup_busy && !setupStale(p)) throw conflict("The agent is still working — one moment");
   if (action === "retry") {
-    await runTask(projectId, p.setup_stage === "discovery" ? "chat" : (p.setup_stage as SetupTask));
+    await runTask(projectId, p.setup_stage === "similar" ? "chat" : (p.setup_stage as SetupTask));
     return { stage: p.setup_stage };
   }
   // Every button press is part of the conversation.
@@ -158,7 +158,7 @@ export async function setupAction(ownerId: string, projectId: string, action: "c
 }
 
 const CONTINUE_TEXT: Partial<Record<SetupStage, string>> = {
-  discovery: "Create a different project",
+  similar: "Create a different project",
   concept: "✅ Concept looks good — continue to the Creative Kit",
   kit: "✅ Kit looks good — continue to pillars & guardrails",
   pillars: "✅ Lock the setup and draft my first content",
@@ -171,7 +171,7 @@ async function userMessage(ownerId: string, projectId: string, content: string) 
 
 /** Carries the idea into an existing project's chat and removes this empty draft. */
 async function continueInSimilar(p: SetupProject, targetId?: string) {
-  if (p.setup_stage !== "discovery") throw conflict("This project is already being set up");
+  if (p.setup_stage !== "similar") throw conflict("This project is already being set up");
   const db = admin();
   const { data: target } = await db.from("projects").select("id, status").eq("id", targetId ?? "").eq("owner_id", p.owner_id).maybeSingle();
   if (!target || target.id === p.id) throw notFound("Project");
@@ -181,7 +181,7 @@ async function continueInSimilar(p: SetupProject, targetId?: string) {
     db,
     p.owner_id,
     target.id as string,
-    `You're back with an idea for this project: “${p.prompt}”.\nWant me to turn it into a new content?`,
+    `You're back with an idea for this project: “${p.idea}”.\nWant me to turn it into a new content?`,
     { chips: ["Yes, create it", "Not now"] },
   );
   return { redirect: `/projects/${target.id}` };
@@ -200,10 +200,10 @@ async function advance(p: SetupProject) {
 /** Setup confirmed → the existing idea generation takes over (phase 2 replaces this). */
 async function finishSetup(p: SetupProject) {
   const db = admin();
-  await db.from("projects").update({ setup_stage: "done", setup_busy: false, status: "generating" }).eq("id", p.id);
+  await db.from("projects").update({ setup_stage: "done", setup_busy: false, status: "draft" }).eq("id", p.id);
   await logActivity(db, { ownerId: p.owner_id, projectId: p.id, kind: "setup.done", message: "Setup confirmed — drafting content" });
   await postAssistantMessage(db, p.owner_id, p.id, "Setup locked in ✅ Now I'm drafting your first content from it.");
-  await queueGeneration(p.owner_id, p.id, "ideation", inferContentCount(p.prompt) || 3);
+  await queueGeneration(p.owner_id, p.id, "ideation", inferContentCount(p.idea) || 3);
   return { stage: "done" as const };
 }
 
@@ -227,14 +227,14 @@ export async function setupContext(input: { projectId: string; task: SetupTask; 
   }));
   // Projects this one must not overlap with (the similar ones found at the start).
   const { data: avoidRows } = candidates.length
-    ? await db.from("projects").select("title, summary, concept, creative_kit").in("id", candidates.map((c) => c.id))
+    ? await db.from("projects").select("title, summary, concept, kit").in("id", candidates.map((c) => c.id))
     : { data: [] };
   const avoidProjects = (avoidRows ?? []).map((o) => {
     const oc = (o.concept ?? {}) as { niche?: string; audience?: string };
-    const ok = (o.creative_kit ?? {}) as { niche?: string; audience?: string; pillars?: string[] };
+    const ok = (o.kit ?? {}) as { niche?: string; audience?: string; pillars?: string[] };
     return { title: o.title, niche: oc.niche || ok.niche || "", audience: oc.audience || ok.audience || "", summary: o.summary ?? "", pillars: ok.pillars ?? [] };
   });
-  const kit = p.creative_kit ?? {};
+  const kit = p.kit ?? {};
   return {
     projectId: p.id,
     task: input.task,
@@ -242,7 +242,7 @@ export async function setupContext(input: { projectId: string; task: SetupTask; 
     stage: p.setup_stage,
     /** Language of the chat and the setup cards (the app's language). Scripts use concept.language. */
     appLanguage: "English",
-    idea: p.prompt,
+    idea: p.idea,
     history: (msgs ?? []).reverse(),
     concept: p.concept ?? {},
     kit: {
@@ -270,7 +270,7 @@ export async function setupComplete(raw: unknown) {
   if (!data) throw notFound("Project");
   const p = data as SetupProject;
   if (p.status !== "setup") return { ok: true, ignored: true };
-  const kit = p.creative_kit ?? {};
+  const kit = p.kit ?? {};
   const meta: MessageMeta = {};
 
   if (input.task === "concept" && input.concept) {
@@ -294,9 +294,7 @@ export async function setupComplete(raw: unknown) {
         concept: c,
         title: c.title || p.title,
         summary: c.summary || p.summary,
-        cover_emoji: c.emoji || p.cover_emoji,
-        // Downstream steps (WF-01, renderer) read the flattened kit.
-        creative_kit: { ...kit, niche: c.niche, goal: c.goal, audience: c.audience, language: c.language },
+        emoji: c.emoji || p.emoji,
       })
       .eq("id", p.id);
     meta.stage = "concept";
@@ -306,12 +304,12 @@ export async function setupComplete(raw: unknown) {
     const current = parseEnding(p.ending);
     await db
       .from("projects")
-      .update({ creative_kit: { ...kit, ...rest }, ending: { ...current, ...(ending ?? {}) } })
+      .update({ kit: { ...kit, ...rest }, ending: { ...current, ...(ending ?? {}) } })
       .eq("id", p.id);
     meta.stage = "kit";
     meta.data = { ...rest, ending: { ...current, ...(ending ?? {}) } };
   } else if (input.task === "pillars" && input.pillars) {
-    await db.from("projects").update({ creative_kit: { ...kit, ...input.pillars } }).eq("id", p.id);
+    await db.from("projects").update({ kit: { ...kit, ...input.pillars } }).eq("id", p.id);
     meta.stage = "pillars";
     meta.data = input.pillars;
   }
@@ -331,9 +329,9 @@ export async function setupComplete(raw: unknown) {
   if (input.task !== "chat") return { ok: true };
   // The agent's decision drives the next step.
   const fresh = { ...p, setup_busy: false };
-  if (action.type === "propose" && p.setup_stage === "discovery") await advance(fresh);
-  else if (action.type === "continue" && p.setup_stage !== "discovery") await advance(fresh);
-  else if (action.type === "refine" && p.setup_stage !== "discovery" && action.feedback?.trim()) {
+  if (action.type === "propose" && p.setup_stage === "similar") await advance(fresh);
+  else if (action.type === "continue" && p.setup_stage !== "similar") await advance(fresh);
+  else if (action.type === "refine" && p.setup_stage !== "similar" && action.feedback?.trim()) {
     await runTask(p.id, p.setup_stage as SetupTask, action.feedback.trim());
   }
   return { ok: true };

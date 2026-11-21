@@ -8,9 +8,9 @@ import { SignalBadges } from "./signal-badges";
 export function ProjectCard({ p, signals }: { p: ProjectRow; signals?: ProjectSignals }) {
   return (
     <Link href={`/projects/${p.id}`} className="project-card" style={{ textDecoration: "none" }}>
-      <div className={coverClass(p.cover_tone)}><span>{p.cover_emoji || "✳︎"}</span></div>
+      <div className={coverClass(p.cover_tone)}><span>{p.emoji || "✳︎"}</span></div>
       <div className="row between"><h3>{p.title}</h3><span className={pillClass(p.status)}>{statusLabel(p.status)}</span></div>
-      <p>{p.summary || p.prompt}</p>
+      <p>{p.summary || p.idea}</p>
       <SignalBadges s={signals} status={p.status} timezone={p.schedule?.timezone} compact />
       <div className="project-card-foot"><span>{p.status === "setup" ? "Setup in progress" : describeSchedule(p.schedule)}</span><span className="linklike">Open Project →</span></div>
     </Link>

@@ -3,12 +3,14 @@ import { z } from "zod";
 // ---------------------------------------------------------------------------
 // Status vocabularies (mirror DB CHECK constraints)
 // ---------------------------------------------------------------------------
-export const PROJECT_STATUSES = ["setup", "generating", "draft", "active", "paused", "stopped", "failed"] as const;
+/** setup → draft → live (schedule running) → paused / stopped. "Generating" / "failed" are run signals, not states. */
+export const PROJECT_STATUSES = ["setup", "draft", "live", "paused", "stopped"] as const;
 export type ProjectStatus = (typeof PROJECT_STATUSES)[number];
 
 export type RunStatus = "queued" | "running" | "succeeded" | "failed";
-export type RunKind = "project_setup" | "ideation" | "research" | "revision";
-export type ContentStatus = "draft" | "approved" | "archived";
+export type RunKind = "ideation" | "revision";
+/** idea → approved; removed = gone for the creator, remembered so it is never suggested again. */
+export type ContentStatus = "idea" | "approved" | "removed";
 export type RenderStatus = "queued" | "rendering" | "ready" | "failed" | "cancelled";
 export type PublishStatus = "scheduled" | "publishing" | "published" | "failed" | "cancelled";
 
@@ -196,10 +198,10 @@ export function endingBrief(raw: unknown, fallbackHandle = ""): string {
 // ---------------------------------------------------------------------------
 // Guided setup (docs/FLOW.md) — Discovery → Concept → Creative Kit → Pillars
 // ---------------------------------------------------------------------------
-export const SETUP_STAGES = ["discovery", "concept", "kit", "pillars", "done"] as const;
+export const SETUP_STAGES = ["similar", "concept", "kit", "pillars", "done"] as const;
 export type SetupStage = (typeof SETUP_STAGES)[number];
 export const SETUP_STAGE_LABELS: Record<SetupStage, string> = {
-  discovery: "Your idea",
+  similar: "Your idea",
   concept: "Concept",
   kit: "Creative Kit",
   pillars: "Pillars & guardrails",
@@ -272,4 +274,20 @@ export interface MessageMeta {
   similar?: { projectId: string; title: string };
   /** Snapshot of the stage result this message presented (cards keep their version). */
   data?: Record<string, unknown>;
+}
+
+/**
+ * The full Creative Kit downstream steps read (scripts, images, voice): the
+ * project's kit ("how") merged with its concept ("what & for whom").
+ */
+export function projectKit(p: { kit?: Partial<CreativeKit> | null; concept?: Partial<Concept> | null }): Partial<CreativeKit> {
+  const k = p.kit ?? {};
+  const c = p.concept ?? {};
+  return {
+    ...k,
+    niche: c.niche ?? k.niche ?? "",
+    goal: c.goal ?? k.goal ?? "",
+    audience: c.audience ?? k.audience ?? "",
+    language: c.language || k.language || "English",
+  };
 }

@@ -68,7 +68,7 @@ describe("readiness", () => {
     expect(readiness({ ...base, approvedCount: 0 }).canActivate).toBe(false);
     expect(readiness({ ...base, hasSchedule: false }).canActivate).toBe(false);
     expect(readiness({ ...base, youtubeConnected: false }).canActivate).toBe(false);
-    expect(readiness({ ...base, status: "active" }).canActivate).toBe(false);
+    expect(readiness({ ...base, status: "live" }).canActivate).toBe(false);
   });
 });
 

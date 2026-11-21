@@ -54,10 +54,10 @@ export async function latestRendersForProject(supabase: SupabaseClient, projectI
 
 /** Everything the project workspace needs, fetched in ONE parallel round. */
 export async function loadWorkspace(supabase: SupabaseClient, userId: string, projectId: string) {
-  const [projectRes, contentsRes, runRes, convoRes, msgsRes, jobsRes, activityRes, researchRes, profileRes, ytRes, renders, assets] =
+  const [projectRes, contentsRes, runRes, convoRes, msgsRes, jobsRes, activityRes, profileRes, ytRes, renders, assets] =
     await Promise.all([
       supabase.from("projects").select("*").eq("id", projectId).maybeSingle(),
-      supabase.from("contents").select("*").eq("project_id", projectId).neq("status", "archived").order("position"),
+      supabase.from("contents").select("*").eq("project_id", projectId).neq("status", "removed").order("position"),
       supabase.from("generation_runs").select("*").eq("project_id", projectId).order("created_at", { ascending: false }).limit(1).maybeSingle(),
       supabase.from("conversations").select("id").eq("project_id", projectId).eq("channel", "web").order("created_at").limit(1).maybeSingle(),
       supabase
@@ -69,7 +69,6 @@ export async function loadWorkspace(supabase: SupabaseClient, userId: string, pr
         .limit(100),
       supabase.from("publish_jobs").select("*").eq("project_id", projectId),
       supabase.from("activity_events").select("id, project_id, kind, message, created_at").eq("project_id", projectId).order("created_at", { ascending: false }).limit(30),
-      supabase.from("research_notes").select("payload").eq("project_id", projectId).order("created_at", { ascending: false }).limit(1).maybeSingle(),
       supabase.from("profiles").select("timezone").eq("id", userId).maybeSingle(),
       supabase.from("connected_accounts").select("id").eq("platform", "youtube").eq("status", "connected").maybeSingle(),
       latestRendersForProject(supabase, projectId),
@@ -87,7 +86,6 @@ export async function loadWorkspace(supabase: SupabaseClient, userId: string, pr
     messages: (msgsRes.data ?? []) as MessageRow[],
     jobs: new Map(((jobsRes.data ?? []) as PublishJobRow[]).map((j) => [j.content_id, j])),
     activity: (activityRes.data ?? []) as ActivityRow[],
-    research: ((researchRes.data?.payload as { angles?: { title: string; why: string }[] } | undefined)?.angles ?? []),
     renders,
     assets,
     readiness: readiness({

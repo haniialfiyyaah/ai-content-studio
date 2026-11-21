@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Check } from "lucide-react";
-import { OPTION_FIELDS, resolveContent } from "@acs/domain";
+import { OPTION_FIELDS, resolveContent, projectKit } from "@acs/domain";
 import { OptionPicker } from "@/components/content/option-picker";
 import { RenderControls } from "@/components/content/render-controls";
 import { ActionButton } from "@/components/ui/action-button";
@@ -65,7 +65,7 @@ export default async function ContentDetail({
           <div className="tagrow">
             <span className="badge-outline">{p.title}</span>
             <span className="badge-outline">{c.scenes.length} scenes</span>
-            <span className="badge-outline">{p.creative_kit?.language ?? "English"}</span>
+            <span className="badge-outline">{projectKit(p).language ?? "English"}</span>
             <span className={job?.status === "published" ? "pill approved" : job ? "pill blue" : "badge-outline"}>
               {job?.status === "published"
                 ? "✅ Published"
@@ -77,7 +77,7 @@ export default async function ContentDetail({
           </div>
         </div>
         <div className="actions">
-          {c.status === "draft" && editable && (
+          {c.status === "idea" && editable && (
             <ActionButton path={`/api/contents/${c.id}/approve`} className="btn primary"><Check size={14} /> Approve</ActionButton>
           )}
           {c.status === "approved" && editable && job?.status !== "published" && (
@@ -99,7 +99,7 @@ export default async function ContentDetail({
           <div className="card pad">
             <div className="section"><h2>Choose your options</h2></div>
             {OPTION_FIELDS.filter((f) => f !== "script").map((f) => (
-              <OptionPicker key={f} contentId={c.id} field={f} options={c.options[f] ?? []} selected={c.selection[f] ?? 0} disabled={!editable || c.status !== "draft"} preview />
+              <OptionPicker key={f} contentId={c.id} field={f} options={c.options[f] ?? []} selected={c.selection[f] ?? 0} disabled={!editable || c.status !== "idea"} preview />
             ))}
           </div>
           <div className="card pad">
@@ -117,7 +117,7 @@ export default async function ContentDetail({
 
       {tab === "script" && (
         <div className="card pad">
-          <OptionPicker contentId={c.id} field="script" options={c.options.script ?? []} selected={c.selection.script ?? 0} disabled={!editable || c.status !== "draft"} preview />
+          <OptionPicker contentId={c.id} field="script" options={c.options.script ?? []} selected={c.selection.script ?? 0} disabled={!editable || c.status !== "idea"} preview />
           <div className="divider" />
           <div className="section"><h2>Scene narration</h2></div>
           {c.scenes.map((s, i) => (
@@ -205,9 +205,9 @@ export default async function ContentDetail({
       {tab === "publishing" && (
         <div className="card pad">
           <div className="section"><div><h2>Publishing pack</h2><p>What gets uploaded to YouTube.</p></div></div>
-          <OptionPicker contentId={c.id} field="title" options={c.options.title ?? []} selected={c.selection.title ?? 0} disabled={!editable || c.status !== "draft"} preview />
-          <OptionPicker contentId={c.id} field="caption" options={c.options.caption ?? []} selected={c.selection.caption ?? 0} disabled={!editable || c.status !== "draft"} preview />
-          <OptionPicker contentId={c.id} field="hashtags" options={c.options.hashtags ?? []} selected={c.selection.hashtags ?? 0} disabled={!editable || c.status !== "draft"} preview />
+          <OptionPicker contentId={c.id} field="title" options={c.options.title ?? []} selected={c.selection.title ?? 0} disabled={!editable || c.status !== "idea"} preview />
+          <OptionPicker contentId={c.id} field="caption" options={c.options.caption ?? []} selected={c.selection.caption ?? 0} disabled={!editable || c.status !== "idea"} preview />
+          <OptionPicker contentId={c.id} field="hashtags" options={c.options.hashtags ?? []} selected={c.selection.hashtags ?? 0} disabled={!editable || c.status !== "idea"} preview />
         </div>
       )}
 
@@ -221,7 +221,6 @@ export default async function ContentDetail({
                 <div style={{ margin: "4px 0 12px" }}><RenderControls contentId={c.id} approved={c.status === "approved"} render={render} /></div>
                 <div className="kv"><label>Scene images</label><strong>{render.steps.filter((s) => s.status === "completed").length} / {render.steps.length || c.scenes.length}</strong></div>
                 <div className="kv"><label>Stage</label><strong>{render.phase === "compose" ? "Composing final cut" : render.phase === "done" ? "Done" : "Creating scene images"}</strong></div>
-                <div className="kv"><label>Model</label><strong>{render.model ?? "—"}</strong></div>
                 {render.error && <div className="note amber">{render.error}</div>}
               </>
             ) : (

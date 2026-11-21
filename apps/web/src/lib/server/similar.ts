@@ -71,7 +71,7 @@ export async function findSimilarContents(projectId: string, text: string, opts:
     .from("contents")
     .select("id, options, selection")
     .eq("project_id", projectId)
-    .neq("status", "archived")
+    .neq("status", "removed")
     .order("position");
   const all = (data ?? []).map((c, i) => ({
     number: i + 1,

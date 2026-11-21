@@ -44,7 +44,7 @@ export default async function VideoDetailPage({ params }: { params: Promise<{ id
     { label: "Rendered", detail: r.status === "ready" ? fmtDateTime(r.finished_at, tz) : r.status === "failed" ? r.error ?? "Failed" : statusLabel(r.status), state: r.status === "ready" ? "done" : r.status === "failed" ? "failed" : "current" },
     {
       label: "Scheduled",
-      detail: j ? `${fmtDateTime(j.scheduled_for, tz)} · YouTube` : p.status === "active" ? "Waiting for a slot" : "Not scheduled — set a schedule and activate the project",
+      detail: j ? `${fmtDateTime(j.scheduled_for, tz)} · YouTube` : p.status === "live" ? "Waiting for a slot" : "Not scheduled — set a schedule and activate the project",
       state: j ? "done" : "todo",
     },
     {
@@ -111,7 +111,7 @@ export default async function VideoDetailPage({ params }: { params: Promise<{ id
             <div className="kv"><label>Project</label><Link className="small semibold" href={`/projects/${p.id}`}>{p.title}</Link></div>
             <div className="kv"><label>Length</label><strong>{r.duration_seconds ? `${Math.round(Number(r.duration_seconds))} s` : "—"}</strong></div>
             <div className="kv"><label>Beats</label><strong>{r.steps.length || c.scenes.length}</strong></div>
-            <div className="kv"><label>Images</label><span className="small">{r.provider?.replace(/\+remotion$/, "") || "—"}{r.model ? ` · ${r.model}` : ""}</span></div>
+            <div className="kv"><label>Images</label><span className="small">{r.provider?.replace(/\+remotion$/, "") || "—"}</span></div>
             <div className="kv"><label>Narration</label><strong>{r.narration_path ? "Voice-over" : "Captions only"}</strong></div>
             <div className="kv"><label>Created</label><span className="small">{fmtDateTime(r.created_at, tz)}</span></div>
           </div>

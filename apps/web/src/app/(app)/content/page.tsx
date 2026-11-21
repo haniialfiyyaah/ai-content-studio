@@ -10,8 +10,8 @@ import { requireUser } from "@/lib/server/session";
 export default async function ContentLibrary({ searchParams }: { searchParams: Promise<{ status?: string }> }) {
   const { status } = await searchParams;
   const { supabase } = await requireUser();
-  let q = supabase.from("contents").select("*, projects(title)").neq("status", "archived").order("created_at", { ascending: false }).limit(200);
-  if (status === "draft" || status === "approved") q = q.eq("status", status);
+  let q = supabase.from("contents").select("*, projects(title)").neq("status", "removed").order("created_at", { ascending: false }).limit(200);
+  if (status === "idea" || status === "approved") q = q.eq("status", status);
   const { data } = await q;
   const rows = (data ?? []) as (ContentRow & { projects: { title: string } | null })[];
 
@@ -20,7 +20,7 @@ export default async function ContentLibrary({ searchParams }: { searchParams: P
       <LiveRefresh sources={[{ table: "contents" }]} />
       <PageHead eyebrow="WORKSPACE" title="Content" text="All generated content across your projects." />
       <div className="asset-filters">
-        {[["", "All"], ["draft", "Needs review"], ["approved", "Approved"]].map(([k, l]) => (
+        {[["", "All"], ["idea", "Needs review"], ["approved", "Approved"]].map(([k, l]) => (
           <Link key={k} href={k ? `/content?status=${k}` : "/content"} className={`asset-filter ${(status ?? "") === k ? "active" : ""}`}>{l}</Link>
         ))}
       </div>

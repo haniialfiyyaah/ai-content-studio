@@ -1,5 +1,5 @@
 import "server-only";
-import { AppError, ErrorCodes, notFound } from "@acs/domain";
+import { AppError, ErrorCodes, notFound, projectKit } from "@acs/domain";
 import { generateOpenAiImage, openAiImagesConfigured } from "@acs/integrations";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logActivity } from "./events";
@@ -21,7 +21,7 @@ export async function generateIdentityReference(
   const { data } = await db.from("projects").select("*").eq("id", projectId).maybeSingle();
   if (!data) throw notFound("Project");
   const p = data as ProjectRow & { visual_mode: string };
-  const kit = { ...(p.creative_kit ?? {}), ...(opts.kit ?? {}) };
+  const kit = { ...projectKit(p), ...(opts.kit ?? {}) };
   const subject = (kit as { recurringSubject?: string }).recurringSubject?.trim();
   if (!subject) throw new AppError(ErrorCodes.VALIDATION_ERROR, "This project has no recurring character or subject in its Creative Kit", 400);
   if (!openAiImagesConfigured()) throw new AppError(ErrorCodes.NOT_CONFIGURED, "OPENAI_API_KEY is not configured", 503);

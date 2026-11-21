@@ -15,29 +15,31 @@ import type {
   Selection,
 } from "@acs/domain";
 
+/** projects (v2 baseline). Use projectKit(p) from @acs/domain for the merged Creative Kit. */
 export interface ProjectRow {
   id: string;
   owner_id: string;
+  status: ProjectStatus;
+  idea: string;
   title: string;
   summary: string | null;
-  prompt: string;
-  status: ProjectStatus;
+  emoji: string | null;
   cover_tone: number;
-  cover_emoji: string | null;
-  creative_kit: Partial<CreativeKit>;
+  setup_stage: SetupStage;
+  setup_busy: boolean;
+  setup_started_at: string | null;
+  setup_retries: number;
+  setup_similar: unknown;
+  concept: Partial<Concept>;
+  kit: Partial<CreativeKit>;
+  ending: unknown;
   schedule: Partial<Schedule>;
-  ideation_enabled: boolean;
+  auto_approve: boolean;
   visual_mode: "ai" | "ai_with_references" | "references";
-  image_engine?: "openai" | "fal";
-  ending?: unknown;
-  auto_approve?: boolean;
-  setup_stage?: SetupStage;
-  setup_busy?: boolean;
-  setup_started_at?: string | null;
-  concept?: Partial<Concept>;
-  ideation_every_days: number;
-  next_ideation_at: string | null;
-  activated_at: string | null;
+  image_engine: "openai" | "fal";
+  voice_id: string | null;
+  voice_name: string | null;
+  live_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -89,10 +91,8 @@ export interface RenderRow {
   phase: "assets" | "compose" | "done";
   steps: RenderStep[];
   prompt: string | null;
-  compose_request_id: string | null;
   narration_path: string | null;
   provider: string;
-  model: string | null;
   storage_path: string | null;
   attempts: number;
   error: string | null;

@@ -5,7 +5,7 @@ import {
   GenerationCompleteSchema,
   conflict,
   notFound,
-  resolveContent, endingBrief } from "@acs/domain";
+  resolveContent, endingBrief, projectKit } from "@acs/domain";
 import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logActivity, notifyTelegram, postAssistantMessage } from "./events";
@@ -19,7 +19,6 @@ const admin = () => createAdminClient();
 
 const STAGE_LABELS: Record<string, string> = {
   understanding: "Understanding your idea",
-  research: "Researching angles",
   creative_kit: "Creating the Creative Kit",
   character: "Designing your character",
   contents: "Developing content and scenes",
@@ -51,7 +50,7 @@ export async function generationContext(runId: string) {
 
   let revision: { feedback: string; items: { number: number; current: Record<string, string>; scenes: unknown }[] } | null = null;
   if (r.kind === "revision") {
-    const { data: all } = await db.from("contents").select("id, options, selection, scenes").eq("project_id", p.id).neq("status", "archived").order("position");
+    const { data: all } = await db.from("contents").select("id, options, selection, scenes").eq("project_id", p.id).neq("status", "removed").order("position");
     const ids = (run as RunRow & { target_ids: string[] }).target_ids ?? [];
     revision = {
       feedback: (run as RunRow & { feedback: string | null }).feedback ?? "",
@@ -72,9 +71,10 @@ export async function generationContext(runId: string) {
     revision,
     contentCount: r.content_count,
     projectId: p.id,
-    prompt: p.prompt,
+    // WF-01 contract keys: prompt = the creator's idea, creativeKit = kit + concept merged.
+    prompt: p.idea,
     title: p.title,
-    creativeKit: p.creative_kit,
+    creativeKit: projectKit(p),
     /** ideation: what the creator asked these new ideas to be about (may be empty). */
     brief: r.kind === "ideation" ? ((run as RunRow & { feedback: string | null }).feedback ?? "") : "",
     endingBrief: endingBrief((p as ProjectRow & { ending?: unknown }).ending, p.title),
@@ -108,26 +108,6 @@ export async function generationComplete(raw: unknown) {
   const { data: project } = await db.from("projects").select("*").eq("id", r.project_id).single();
   const p = project as ProjectRow;
 
-  if (payload.project && r.kind === "project_setup") {
-    await db
-      .from("projects")
-      .update({
-        title: payload.project.title,
-        summary: payload.project.summary,
-        cover_emoji: payload.project.emoji ?? null,
-        creative_kit: payload.project.creativeKit,
-      })
-      .eq("id", p.id);
-    if (payload.project.research.length) {
-      await db.from("research_notes").insert({
-        owner_id: p.owner_id,
-        project_id: p.id,
-        source: "openai.angles",
-        payload: { angles: payload.project.research },
-      });
-    }
-  }
-
   const n = payload.contents.length;
   const title = payload.project?.title ?? p.title;
   const channelLink = (path: string) => path;
@@ -144,7 +124,7 @@ export async function generationComplete(raw: unknown) {
             format: payload.contents[i].format,
             video_prompt: payload.contents[i].videoPrompt,
             selection: {},
-            status: "draft",
+            status: "idea",
             approved_at: null,
             storyboard: null,
             storyboard_status: "none",
@@ -200,31 +180,13 @@ export async function generationComplete(raw: unknown) {
     .from("generation_runs")
     .update({ status: "succeeded", stage: "done", progress: 100, finished_at: new Date().toISOString() })
     .eq("id", r.id);
-  if (p.status === "generating") await db.from("projects").update({ status: "draft" }).eq("id", p.id);
 
   const newIds = (inserted ?? []).map((x) => x.id as string);
   await duplicateHeadsUp(p, newIds, payload.contents.map((c) => `${c.options.title[0]}. ${c.options.hook[0]}`));
-  if (r.kind === "project_setup") {
-    await logActivity(db, { ownerId: p.owner_id, projectId: p.id, kind: "generation.done", message: `Generated ${n} content ideas` });
-    await postAssistantMessage(
-      db,
-      p.owner_id,
-      p.id,
-      `Your project is ready: ${n} content ideas, each with a few options per field. Pick your favourites, approve all, set a schedule and activate.`,
-    );
-    await notifyTelegram(db, {
-      ownerId: p.owner_id,
-      projectId: p.id,
-      template: "project.ready",
-      chat: false,
-      text: `✨ "${title}" is ready — ${n} content ideas to review.`,
-      path: `/projects/${p.id}?tab=content`,
-      cards: { contentIds: newIds },
-    });
-  } else {
+  {
     await logActivity(db, { ownerId: p.owner_id, projectId: p.id, kind: "ideation.done", message: `${n} new content ideas to review` });
     // First content right after guided setup.
-    if (p.status === "generating") {
+    if (start === 0) {
       await postAssistantMessage(db, p.owner_id, p.id, `Your first ${n} content ideas are ready, written from the setup we agreed on. Review them, untick any you don't want, then Approve & schedule.`);
     }
     await notifyTelegram(db, {
@@ -279,8 +241,7 @@ export async function generationFail(input: { runId: string; error: string }) {
     .from("generation_runs")
     .update({ status: "failed", error: input.error.slice(0, 500), finished_at: new Date().toISOString() })
     .eq("id", r.id);
-  const { data: project } = await db.from("projects").select("status, owner_id").eq("id", r.project_id).single();
-  if (project?.status === "generating") await db.from("projects").update({ status: "failed" }).eq("id", r.project_id);
+  await postAssistantMessage(db, r.owner_id, r.project_id, "⚠️ I couldn't finish drafting this time. Tap Try again on the project, or ask me again.");
   await logActivity(db, {
     ownerId: r.owner_id,
     projectId: r.project_id,
@@ -306,26 +267,7 @@ export async function claimDue(raw: unknown) {
   const now = new Date().toISOString();
 
   if (kind === "generation") {
-    // 1) recurring ideation for active projects that are due
-    const { data: due } = await db
-      .from("projects")
-      .select("id, owner_id, ideation_every_days")
-      .eq("status", "active")
-      .eq("ideation_enabled", true)
-      .lte("next_ideation_at", now)
-      .limit(limit);
-    for (const p of due ?? []) {
-      const next = new Date(Date.now() + p.ideation_every_days * 86_400_000).toISOString();
-      const { data: bumped } = await db
-        .from("projects")
-        .update({ next_ideation_at: next })
-        .eq("id", p.id)
-        .lte("next_ideation_at", now)
-        .select("id")
-        .maybeSingle();
-      if (bumped) await generateMore(p.owner_id, p.id, 3);
-    }
-    // 2) queued runs the webhook never started (> 1 min, < 1 day)
+    // queued runs the webhook never started (Autopilot adds due projects here in phase 3) (> 1 min, < 1 day)
     const { data: runs } = await db
       .from("generation_runs")
       .select("id")
@@ -378,7 +320,7 @@ export async function claimDue(raw: unknown) {
       .select("id, project_id, projects!inner(status)")
       .eq("status", "scheduled")
       .lte("scheduled_for", now)
-      .eq("projects.status", "active")
+      .eq("projects.status", "live")
       .order("scheduled_for")
       .limit(limit);
     return { kind, jobs: (data ?? []).map((j) => ({ publishJobId: j.id })) };
@@ -428,14 +370,14 @@ export async function agentContext(conversationId: string) {
     .order("created_at", { ascending: false })
     .limit(16);
   // Same numbering as the page and "revise #n": rejected ideas are left out.
-  const { data: contents } = await db.from("contents").select("options, selection, status").eq("project_id", p.id).neq("status", "archived").order("position");
+  const { data: contents } = await db.from("contents").select("options, selection, status").eq("project_id", p.id).neq("status", "removed").order("position");
   // Duplicate check (code, not the model): the latest request vs this project's content.
   const recent = (msgs ?? []).slice(0, 2).map((m) => m.content).join("\n");
   const similar = recent.trim() ? await findSimilarContents(p.id, recent) : [];
   return {
     conversationId,
     projectId: p.id,
-    project: { title: p.title, summary: p.summary, status: p.status, creativeKit: p.creative_kit, schedule: p.schedule },
+    project: { title: p.title, summary: p.summary, status: p.status, creativeKit: projectKit(p), schedule: p.schedule },
     contents: (contents ?? []).map((c: Pick<ContentRow, "options" | "selection" | "status">) => ({
       title: resolveContent(c.options, c.selection).title,
       status: c.status,

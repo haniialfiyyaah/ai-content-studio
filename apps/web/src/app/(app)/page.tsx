@@ -14,16 +14,15 @@ export default async function OverviewPage() {
   const [{ data: profile }, { data: projects }, { count: toReview }, { count: videosReady }, { data: nextJob }] = await Promise.all([
     supabase.from("profiles").select("display_name").eq("id", user.id).maybeSingle(),
     supabase.from("projects").select("*").or(SAVED_PROJECTS_FILTER).order("updated_at", { ascending: false }).limit(24),
-    supabase.from("contents").select("id", { count: "exact", head: true }).eq("status", "draft"),
+    supabase.from("contents").select("id", { count: "exact", head: true }).eq("status", "idea"),
     supabase.from("video_renders").select("id", { count: "exact", head: true }).eq("status", "ready"),
     supabase.from("publish_jobs").select("scheduled_for").eq("status", "scheduled").order("scheduled_for").limit(1).maybeSingle(),
   ]);
   const list = (projects ?? []) as ProjectRow[];
-  const active = list.filter((p) => p.status === "active");
+  const active = list.filter((p) => p.status === "live");
   const signals = await projectSignals(supabase, list);
   const needs = (p: ProjectRow) => signals.get(p.id)?.needsYou ?? 0;
   const attention = [
-    ...list.filter((p) => p.status === "failed").map((p) => ({ p, text: "Generation failed — retry", icon: "peach" })),
     ...list.filter((p) => p.status === "setup" && needs(p)).map((p) => ({ p, text: "Setup is waiting for you", icon: "" })),
     ...list.filter((p) => p.status !== "setup" && needs(p)).map((p) => ({ p, text: `${needs(p)} content to review`, icon: "" })),
     ...list.filter((p) => !needs(p) && signals.get(p.id)?.inProgress).map((p) => ({ p, text: "In progress…", icon: "gray" })),
@@ -98,7 +97,6 @@ export default async function OverviewPage() {
           )}
           <div className="kv"><label>Live projects</label><strong>{active.length}</strong></div>
           <div className="kv"><label>Next upload</label><strong>{fmtDateTime(nextJob?.scheduled_for)}</strong></div>
-          <div className="kv"><label>Recurring ideation</label><strong>{active.filter((p) => p.ideation_enabled).length} projects</strong></div>
         </div>
       </div>
 

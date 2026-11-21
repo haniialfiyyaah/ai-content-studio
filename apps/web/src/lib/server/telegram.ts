@@ -20,8 +20,8 @@ import {
   renderAllApproved,
   reviseContents,
   saveSchedule,
-  startProject,
-  updateAutomation, rejectContent } from "./projects";
+  rejectContent } from "./projects";
+import { startSetup } from "./setup";
 import { after } from "next/server";
 import { publishNow, runPublishJob } from "./publishing";
 import { signedVideoUrl } from "./renders";
@@ -75,12 +75,11 @@ const SCHEDULE_PRESETS: Record<string, { label: string; days: Schedule["days"]; 
 };
 
 const STATUS_EMOJI: Record<string, string> = {
-  generating: "⏳",
+  setup: "🧭",
   draft: "📝",
-  active: "🟢",
+  live: "🟢",
   paused: "⏸",
   stopped: "⏹",
-  failed: "⚠️",
 };
 
 const open = (path: string): TgButton => ({ text: "🔗 Open in Studio", url: `${appUrl()}${path}` });
@@ -109,7 +108,7 @@ async function ownedProject(ownerId: string, projectId: string) {
 }
 
 async function listContents(projectId: string) {
-  const { data } = await admin().from("contents").select("*").eq("project_id", projectId).neq("status", "archived").order("position");
+  const { data } = await admin().from("contents").select("*").eq("project_id", projectId).neq("status", "removed").order("position");
   return (data ?? []) as ContentRow[];
 }
 
@@ -131,7 +130,7 @@ export async function sendProjectCards(chatId: string | number, projectId: strin
 
   const header = [
     intro ? esc(intro) : null,
-    `<b>${esc(`${p.cover_emoji ?? "✨"} ${p.title}`)}</b>`,
+    `<b>${esc(`${p.emoji ?? "✨"} ${p.title}`)}</b>`,
     p.summary ? `<i>${esc(p.summary)}</i>` : null,
   ]
     .filter(Boolean)
@@ -150,7 +149,7 @@ export async function sendProjectCards(chatId: string | number, projectId: strin
 
   for (const chunk of chunkMessages([header, ...cards])) say(chatId, chunk);
 
-  const drafts = all.filter((c) => c.status === "draft").length;
+  const drafts = all.filter((c) => c.status === "idea").length;
   say(
     chatId,
     drafts
@@ -162,7 +161,7 @@ export async function sendProjectCards(chatId: string | number, projectId: strin
       ...(() => {
         const btns = all
           .map((c, i) => ({ c, n: i + 1 }))
-          .filter(({ c }) => c.status === "draft")
+          .filter(({ c }) => c.status === "idea")
           .slice(0, 6)
           .map(({ c, n }) => ({ text: `🗑 Remove #${n}`, data: `rj:${c.id}` }));
         const rows: TgButton[][] = [];
@@ -360,7 +359,7 @@ async function onText(link: Link, chatId: number, text: string) {
   if (cmd === "/projects") {
     const { data } = await admin()
       .from("projects")
-      .select("id, title, status, cover_emoji")
+      .select("id, title, status, emoji")
       .eq("owner_id", link.owner_id)
       .or(SAVED_PROJECTS_FILTER)
       .order("updated_at", { ascending: false })
@@ -372,7 +371,7 @@ async function onText(link: Link, chatId: number, text: string) {
     say(
       chatId,
       "<b>Your projects</b>\n" + data.map((p) => `${STATUS_EMOJI[p.status] ?? "•"} ${esc(p.title)} — ${statusLabel(p.status)}`).join("\n"),
-      data.map((p) => [{ text: `${p.cover_emoji ?? "📁"} ${p.title}`.slice(0, 60), data: `pv:${p.id}` }]),
+      data.map((p) => [{ text: `${p.emoji ?? "📁"} ${p.title}`.slice(0, 60), data: `pv:${p.id}` }]),
     );
     return { ok: true };
   }
@@ -418,9 +417,10 @@ async function onText(link: Link, chatId: number, text: string) {
 
 async function startFromTelegram(link: Link, chatId: number, idea: string) {
   act(chatId, "typing");
-  const { projectId } = await startProject({ ownerId: link.owner_id, prompt: idea, channel: "telegram" });
+  // Same guided setup as the web (similar check → concept → kit → pillars); it continues in the app.
+  const { projectId } = await startSetup(link.owner_id, idea);
   await setState(link, { currentProjectId: projectId, awaiting: null });
-  say(chatId, "On it — creating your project. I'll send the content here for review in about a minute.", [
+  say(chatId, "On it — checking your other projects, then sketching the concept. Continue the setup in the app:", [
     [open(`/projects/${projectId}`)],
   ]);
   return { ok: true, projectId };
@@ -548,15 +548,7 @@ async function onCallback(link: Link, chatId: number, callbackId: string, data: 
 
     case "nd":
       answer(callbackId, "No publishing");
-      say(chatId, "📥 Got it — no publishing. Videos arrive here as they finish; you can schedule later with /schedule.", [
-        [{ text: "💡 Suggest new ideas weekly", data: `id:${project.id}:on` }],
-      ]);
-      return { ok: true };
-
-    case "id":
-      await updateAutomation(owner, project.id, { ideationEnabled: extra === "on", everyDays: 7 });
-      answer(callbackId, extra === "on" ? "Weekly ideas on" : "Ideas off");
-      say(chatId, extra === "on" ? "💡 I'll draft 3 new ideas every week for your approval." : "Recurring ideas are off.");
+      say(chatId, "📥 Got it — no publishing. Videos arrive here as they finish; you can schedule later with /schedule.");
       return { ok: true };
 
     case "ac": {

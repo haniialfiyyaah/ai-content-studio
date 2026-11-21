@@ -59,7 +59,7 @@ export function LaunchPanel({
     ? "Keep at least one idea"
     : goesLive
       ? `Approve ${kept.length} & go live`
-      : projectStatus === "active"
+      : projectStatus === "live"
         ? `Approve ${kept.length} & add to schedule`
         : `Approve ${kept.length} & schedule`;
 

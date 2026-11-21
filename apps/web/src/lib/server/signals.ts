@@ -24,7 +24,7 @@ export async function projectSignals(supabase: SupabaseClient, projects: Project
   const out = new Map<string, ProjectSignals>();
   if (!ids.length) return out;
   const [drafts, runs, renders, boards, jobs] = await Promise.all([
-    supabase.from("contents").select("project_id").in("project_id", ids).eq("status", "draft"),
+    supabase.from("contents").select("project_id").in("project_id", ids).eq("status", "idea"),
     supabase.from("generation_runs").select("project_id").in("project_id", ids).in("status", ["queued", "running"]),
     supabase.from("video_renders").select("project_id").in("project_id", ids).in("status", ["queued", "rendering"]),
     supabase.from("contents").select("project_id").in("project_id", ids).eq("storyboard_status", "generating"),
@@ -45,8 +45,8 @@ export async function projectSignals(supabase: SupabaseClient, projects: Project
     const setupBusy = setup && Boolean(p.setup_busy);
     out.set(p.id, {
       needsYou: setup ? (setupBusy ? 0 : 1) : p.status === "stopped" ? 0 : (draftN.get(p.id) ?? 0),
-      inProgress: setupBusy || p.status === "generating" || busy.has(p.id),
-      nextUpload: p.status === "active" ? (next.get(p.id) ?? null) : null,
+      inProgress: setupBusy || busy.has(p.id),
+      nextUpload: p.status === "live" ? (next.get(p.id) ?? null) : null,
       auto: Boolean(p.auto_approve),
     });
   }

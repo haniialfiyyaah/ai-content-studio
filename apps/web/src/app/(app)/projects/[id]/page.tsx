@@ -1,16 +1,14 @@
 import Link from "next/link";
 import { ArrowRight, Check, Clock, Pause, Play, Square } from "lucide-react";
-import { OPTION_FIELDS, describeSchedule, parseEnding, resolveContent, type Concept, type SetupStage } from "@acs/domain";
+import { OPTION_FIELDS, describeSchedule, parseEnding, projectKit, resolveContent, type SetupStage } from "@acs/domain";
 import { OptionPicker } from "@/components/content/option-picker";
 import { RenderControls } from "@/components/content/render-controls";
 import { AssetsPanel } from "@/components/project/assets-panel";
 import { AgentPanel } from "@/components/project/agent-panel";
 import { AgentActions } from "@/components/project/agent-actions";
 import { ReviewFlow } from "@/components/content/review-flow";
-import { AutomationForm } from "@/components/project/automation-form";
 import { EndingForm } from "@/components/project/ending-form";
 import { LaunchPanel } from "@/components/project/launch-panel";
-import { GeneratingView } from "@/components/project/generating-view";
 import { ScheduleForm } from "@/components/project/schedule-form";
 import { SetupView } from "@/components/project/setup-view";
 import { WorkspaceFrame } from "@/components/project/workspace-frame";
@@ -52,7 +50,6 @@ export default async function ProjectPage({
 
   // Something is in flight → poll as a safety net behind realtime.
   const inFlight =
-    p.status === "generating" ||
     (run && (run.status === "queued" || run.status === "running")) ||
     ws.messages.at(-1)?.role === "user" ||
     contents.some((c) => (c as { storyboard_status?: string }).storyboard_status === "generating") ||
@@ -89,22 +86,22 @@ export default async function ProjectPage({
               projectId={p.id}
               projectTitle={p.title}
               messages={ws.messages}
-              thinking={sp.setup_busy && !setupStale(sp) && sp.setup_stage === "discovery"}
+              thinking={sp.setup_busy && !setupStale(sp) && sp.setup_stage === "similar"}
               placeholder="Answer the agent, or ask to change anything…"
             />
           }
         >
           <main className="page">
             <div className="eyebrow">NEW PROJECT · SETUP</div>
-            <h1 style={{ fontSize: 27, marginBottom: 18 }}>{p.cover_emoji ? `${p.cover_emoji} ` : ""}{p.title}</h1>
+            <h1 style={{ fontSize: 27, marginBottom: 18 }}>{p.emoji ? `${p.emoji} ` : ""}{p.title}</h1>
             <SetupView
               projectId={p.id}
               stage={sp.setup_stage}
               busy={sp.setup_busy}
               stale={setupStale(sp)}
-              idea={p.prompt}
-              concept={(p as typeof p & { concept?: Partial<Concept> }).concept ?? {}}
-              kit={p.creative_kit ?? {}}
+              idea={p.idea}
+              concept={p.concept ?? {}}
+              kit={p.kit ?? {}}
               ending={(p as typeof p & { ending?: unknown }).ending}
               similarPending={ws.messages.at(-1)?.role === "assistant" && Boolean(ws.messages.at(-1)?.meta?.similar)}
             />
@@ -114,9 +111,10 @@ export default async function ProjectPage({
     );
   }
 
-  // Right after guided setup: the chat moves to the side while the first content is drafted.
-  const fromSetup = Boolean((p as typeof p & { concept?: Partial<Concept> }).concept?.title);
-  if (p.status === "generating" && fromSetup) {
+  // No content yet: the first ideas are being drafted (chat on the side), or that run failed.
+  const drafting = !contents.length && run && (run.status === "queued" || run.status === "running");
+  const draftFailed = !contents.length && run?.status === "failed";
+  if (drafting || draftFailed) {
     const progress = Math.max(run?.progress ?? 5, 5);
     return (
       <>
@@ -124,16 +122,28 @@ export default async function ProjectPage({
         <WorkspaceFrame splitKey={p.id} agent={<AgentPanel projectId={p.id} projectTitle={p.title} messages={ws.messages} />}>
           <main className="page">
             <div className="eyebrow">PROJECT WORKSPACE</div>
-            <h1 style={{ fontSize: 27, marginBottom: 18 }}>{p.cover_emoji ? `${p.cover_emoji} ` : ""}{p.title}</h1>
+            <h1 style={{ fontSize: 27, marginBottom: 18 }}>{p.emoji ? `${p.emoji} ` : ""}{p.title}</h1>
             <div className="card pad">
-              <div className="row" style={{ gap: 12 }}>
-                <span className="spin" style={{ display: "inline-flex" }}><Clock size={18} /></span>
-                <div>
-                  <div className="semibold">Drafting your first content from the setup…</div>
-                  <div className="xs muted">Hooks, scripts and scenes in your narrator&apos;s voice. It opens here automatically.</div>
+              {draftFailed ? (
+                <div className="row between" style={{ flexWrap: "wrap", gap: 12 }}>
+                  <div>
+                    <div className="semibold">Drafting didn&apos;t finish</div>
+                    <div className="xs muted">{run?.error || "Nothing was published. Try again — your setup is kept."}</div>
+                  </div>
+                  <ActionButton path={`/api/projects/${p.id}/retry`} className="btn primary">Try again</ActionButton>
                 </div>
-              </div>
-              <div className="progressbar" style={{ marginTop: 16 }}><span style={{ width: `${progress}%` }} /></div>
+              ) : (
+                <>
+                  <div className="row" style={{ gap: 12 }}>
+                    <span className="spin" style={{ display: "inline-flex" }}><Clock size={18} /></span>
+                    <div>
+                      <div className="semibold">Drafting your first content from the setup…</div>
+                      <div className="xs muted">Hooks, scripts and scenes in your narrator&apos;s voice. It opens here automatically.</div>
+                    </div>
+                  </div>
+                  <div className="progressbar" style={{ marginTop: 16 }}><span style={{ width: `${progress}%` }} /></div>
+                </>
+              )}
             </div>
           </main>
         </WorkspaceFrame>
@@ -141,19 +151,10 @@ export default async function ProjectPage({
     );
   }
 
-  if (p.status === "generating" || (p.status === "failed" && !contents.length)) {
-    return (
-      <>
-        {live}
-        <GeneratingView projectId={p.id} run={run} messages={ws.messages} failed={p.status === "failed"} />
-      </>
-    );
-  }
-
   const signals = (await projectSignals(supabase, [p])).get(p.id);
 
   // Storyboard images for the content under review (slides in the Content tab).
-  const reviewing = contents.find((c) => c.id === review && c.status === "draft") ?? contents.find((c) => c.status === "draft");
+  const reviewing = contents.find((c) => c.id === review && c.status === "idea") ?? contents.find((c) => c.status === "idea");
   const reviewRow = reviewing as (typeof contents)[number] & { storyboard?: StoryboardFrame[] | null; storyboard_status?: string; storyboard_key?: string | null } | undefined;
   const reviewFrames = reviewRow ? await usableStoryboard(reviewRow, p as Parameters<typeof usableStoryboard>[1]) : null;
   const reviewImages = reviewFrames ? await storyboardImageUrls(reviewFrames) : [];
@@ -163,7 +164,7 @@ export default async function ProjectPage({
   const drafts = contents.length - approved;
   const ideating = run?.kind === "ideation" && (run.status === "queued" || run.status === "running");
   const editable = p.status !== "stopped";
-  const kit = p.creative_kit ?? {};
+  const kit = projectKit(p);
 
   return (
     <>
@@ -180,7 +181,7 @@ export default async function ProjectPage({
                 projectId={p.id}
                 status={p.status}
                 drafts={drafts}
-                firstPendingId={contents.find((c) => c.status === "draft")?.id ?? null}
+                firstPendingId={contents.find((c) => c.status === "idea")?.id ?? null}
                 hasSchedule={Boolean(p.schedule?.days?.length)}
                 approvedWithoutVideo={contents.filter((c) => c.status === "approved" && !["queued", "rendering", "ready"].includes(ws.renders.get(c.id)?.status ?? "")).length}
               />
@@ -193,11 +194,11 @@ export default async function ProjectPage({
             <div>
               <div className="eyebrow">PROJECT WORKSPACE</div>
               <div className="row" style={{ flexWrap: "wrap" }}>
-                <h1>{p.cover_emoji ? `${p.cover_emoji} ` : ""}{p.title}</h1>
+                <h1>{p.emoji ? `${p.emoji} ` : ""}{p.title}</h1>
                 <span className={pillClass(p.status)}>{statusLabel(p.status)}</span>
                 <SignalBadges s={signals} status={p.status} timezone={p.schedule?.timezone} />
               </div>
-              <p>{p.summary || p.prompt}</p>
+              <p>{p.summary || p.idea}</p>
               <div className="tagrow">
                 {kit.language && <span className="badge-outline">{kit.language}</span>}
                 <span className="badge-outline">{contents.length} content</span>
@@ -211,13 +212,13 @@ export default async function ProjectPage({
                   <Play size={14} /> Approve &amp; schedule
                 </Link>
               )}
-              {p.status === "active" && (
+              {p.status === "live" && (
                 <ActionButton path={`/api/projects/${p.id}/lifecycle`} body={{ action: "pause" }}><Pause size={14} /> Pause</ActionButton>
               )}
               {p.status === "paused" && (
                 <ActionButton path={`/api/projects/${p.id}/lifecycle`} body={{ action: "resume" }} className="btn primary"><Play size={14} /> Resume</ActionButton>
               )}
-              {["active", "paused"].includes(p.status) && (
+              {["live", "paused"].includes(p.status) && (
                 <ActionButton
                   path={`/api/projects/${p.id}/lifecycle`}
                   body={{ action: "stop" }}
@@ -250,11 +251,11 @@ export default async function ProjectPage({
                     youtubeConnected={readiness.steps.find((s) => s.key === "youtube")?.done ?? false}
                     items={contents
                       .map((c, i) => ({ c, n: i + 1 }))
-                      .filter(({ c }) => !["published", "publishing"].includes(ws.jobs.get(c.id)?.status ?? "") && (p.status === "draft" || c.status === "draft"))
+                      .filter(({ c }) => !["published", "publishing"].includes(ws.jobs.get(c.id)?.status ?? "") && (p.status === "draft" || c.status === "idea"))
                       .map(({ c, n }) => ({ id: c.id, n, title: resolveContent(c.options, c.selection).title, status: c.status, scenes: c.scenes.length }))}
                   />
                 ) : (
-                  <div className="note green">{p.status === "active" ? "Live — videos render automatically and upload at each slot." : statusLabel(p.status)}</div>
+                  <div className="note green">{p.status === "live" ? "Live — videos render automatically and upload at each slot." : statusLabel(p.status)}</div>
                 )}
 
                 <div className="card pad">
@@ -297,7 +298,6 @@ export default async function ProjectPage({
                   <div className="section"><h2>Automation</h2><Link href={`/projects/${p.id}?tab=schedule`} className="linklike">Manage →</Link></div>
                   <div className="kv"><label>Publishing</label><strong>{describeSchedule(p.schedule)}</strong></div>
                   <div className="kv"><label>Destination</label><strong>YouTube Shorts</strong></div>
-                  <div className="kv"><label>Recurring ideation</label><strong>{p.ideation_enabled ? `Every ${p.ideation_every_days} days` : "Off"}</strong></div>
                   <div className="kv"><label>Videos ready</label><strong>{[...ws.renders.values()].filter((r) => r.status === "ready").length} / {approved}</strong></div>
                 </div>
               </div>
@@ -386,7 +386,7 @@ export default async function ProjectPage({
                           field={f}
                           options={c.options[f] ?? []}
                           selected={c.selection[f] ?? 0}
-                          disabled={!editable || c.status !== "draft"}
+                          disabled={!editable || c.status !== "idea"}
                         />
                       ))}
                     </div>
@@ -403,10 +403,10 @@ export default async function ProjectPage({
                 {(
                   [
                     ["Tone", kit.tone],
-                    ["Audience", kit.audience],
-                    ["Language", kit.language],
+                    ["Format", kit.format],
+                    ["Opening", kit.opening],
                     ["Narrator style", kit.voice],
-                    ["ElevenLabs voice", (p as typeof p & { voice_name?: string | null }).voice_name ?? "Chosen on first render"],
+                    ["ElevenLabs voice", p.voice_name ?? "Chosen on first render"],
                     ["Visual style", kit.visualStyle],
                     ["Palette", kit.palette],
                     ["Recurring subject", kit.recurringSubject],
@@ -421,10 +421,17 @@ export default async function ProjectPage({
                 <div className="checks">{(kit.guardrails ?? []).map((g) => <div key={g} className="checkrow"><span className="checkdot">!</span>{g}</div>)}</div>
               </div>
               <div className="card pad">
-                <div className="section"><h2>Research angles</h2><span className="pill blue">Agent research</span></div>
-                {ws.research.length ? ws.research.map((a) => (
-                  <div key={a.title} className="listrow"><div><div className="small semibold">{a.title}</div><div className="xs muted">{a.why}</div></div></div>
-                )) : <p className="small muted">No research notes for this project.</p>}
+                <div className="section"><h2>Concept</h2><span className="pill">What &amp; for whom</span></div>
+                {(
+                  [
+                    ["Niche", kit.niche],
+                    ["Audience", kit.audience],
+                    ["Goal", kit.goal],
+                    ["Content language", kit.language],
+                  ] as const
+                ).map(([k, v]) => (
+                  <div key={k} className="kv"><label>{k}</label><span className="small" style={{ textAlign: "right" }}>{v || "—"}</span></div>
+                ))}
                 <div className="note" style={{ marginTop: 14 }}>Ask the agent on the left to adjust tone or direction — it can draft new ideas in this style.</div>
               </div>
               <div className="card pad" style={{ gridColumn: "1 / -1" }}>
@@ -458,10 +465,6 @@ export default async function ProjectPage({
                   })}
                   {!contents.some((c) => c.scheduled_for) && <p className="small muted">Save a schedule to assign slots.</p>}
                 </div>
-                <div className="card pad">
-                  <div className="section"><h2>Automation</h2></div>
-                  <AutomationForm projectId={p.id} enabled={p.ideation_enabled} everyDays={p.ideation_every_days} />
-                </div>
               </div>
             </div>
           )}
@@ -470,7 +473,7 @@ export default async function ProjectPage({
             <>
               <div className="note" style={{ marginBottom: 16 }}>
                 Render any approved content now and download it. Uploads to YouTube happen only for scheduled content in an active project
-                {p.status === "active" ? " — this project is active, so missing videos render automatically." : "."}
+                {p.status === "live" ? " — this project is active, so missing videos render automatically." : "."}
               </div>
               <div className="videogrid">
                 {contents.filter((c) => c.status === "approved").map((c) => {
